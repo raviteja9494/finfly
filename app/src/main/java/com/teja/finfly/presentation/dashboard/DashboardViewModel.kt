@@ -11,7 +11,6 @@ import com.teja.finfly.domain.usecase.SyncFinancesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.take
@@ -46,7 +45,6 @@ class DashboardViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             settingsRepository.settings
-                .distinctUntilChanged()
                 .filter {
                     it.serverUrl.isNotBlank() && it.bearerToken.isNotBlank() && it.lastSyncTime == null
                 }

@@ -51,11 +51,9 @@ fun AccountsScreen(
     viewModel: AccountsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val refreshing = when (state) {
-        is AccountsUiState.Success -> state.isRefreshing
-        is AccountsUiState.Empty -> state.isRefreshing
-        else -> false
-    }
+    val refreshing = (state as? AccountsUiState.Success)?.isRefreshing
+        ?: (state as? AccountsUiState.Empty)?.isRefreshing
+        ?: false
     Scaffold(
         floatingActionButton = {
             ExtendedFloatingActionButton(
