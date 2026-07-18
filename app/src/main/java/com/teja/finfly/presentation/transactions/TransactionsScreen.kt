@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -16,7 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -24,6 +25,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -34,15 +36,21 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.teja.finfly.R
 import com.teja.finfly.domain.model.Category
 import com.teja.finfly.domain.model.TransactionType
+import com.teja.finfly.domain.model.Tag
 import com.teja.finfly.presentation.components.EmptyState
 import com.teja.finfly.presentation.components.ErrorState
 import com.teja.finfly.presentation.components.LoadingState
+import com.teja.finfly.presentation.components.LoadingPlaceholder
 import com.teja.finfly.presentation.components.TransactionRow
 import com.teja.finfly.presentation.theme.FinFlyThemeTokens
 
@@ -68,7 +76,9 @@ fun TransactionsScreen(
             onQueryChange = viewModel::setQuery,
             onTypeSelected = viewModel::setType,
             onCategorySelected = viewModel::setCategory,
+            onTagSelected = viewModel::setTag,
             onClearFilters = viewModel::clearFilters,
+            onRetry = viewModel::retry,
             onLoadMore = viewModel::loadMore,
             onTransactionClick = onTransactionClick,
             contentPadding = padding,
@@ -82,12 +92,16 @@ private fun TransactionList(
     onQueryChange: (String) -> Unit,
     onTypeSelected: (TransactionType?) -> Unit,
     onCategorySelected: (String?) -> Unit,
+    onTagSelected: (String?) -> Unit,
     onClearFilters: () -> Unit,
+    onRetry: () -> Unit,
     onLoadMore: () -> Unit,
     onTransactionClick: (String) -> Unit,
     contentPadding: PaddingValues,
 ) {
     val spacing = FinFlyThemeTokens.spacing
+    val searchFocusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) { searchFocusRequester.requestFocus() }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(
@@ -110,13 +124,44 @@ private fun TransactionList(
         }
         item {
             OutlinedTextField(
-                value = state.filter.query,
+                value = state.searchQuery,
                 onValueChange = onQueryChange,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().focusRequester(searchFocusRequester),
                 singleLine = true,
                 label = { Text(stringResource(R.string.search_transactions)) },
                 leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
+                trailingIcon = if (state.searchQuery.isNotEmpty()) {
+                    {
+                        IconButton(onClick = { onQueryChange("") }) {
+                            Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.clear_search))
+                        }
+                    }
+                } else null,
             )
+        }
+        item {
+            Text(
+                pluralStringResource(
+                    R.plurals.transactions_found,
+                    state.resultCount,
+                    state.resultCount,
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        item {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(
+                    if (state.activeFilterCount > 0) {
+                        stringResource(R.string.filters_count, state.activeFilterCount)
+                    } else stringResource(R.string.filters),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                if (state.activeFilterCount > 0) {
+                    TextButton(onClick = onClearFilters) { Text(stringResource(R.string.clear_filters)) }
+                }
+            }
         }
         item {
             Row(
@@ -134,17 +179,16 @@ private fun TransactionList(
                     onSelected = onTypeSelected,
                     modifier = Modifier.weight(1f),
                 )
-            }
-        }
-        if (state.filter.query.isNotBlank() || state.filter.categories.isNotEmpty() || state.filter.types.isNotEmpty()) {
-            item {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = onClearFilters) { Text(stringResource(R.string.clear_filters)) }
-                }
+                TagDropdown(
+                    tags = state.tags,
+                    selected = state.filter.tags.firstOrNull(),
+                    onSelected = onTagSelected,
+                    modifier = Modifier.weight(1f),
+                )
             }
         }
         when {
-            state.hasError -> item { ErrorState() }
+            state.hasError -> item { ErrorState(onRetry = onRetry) }
             state.transactions.isEmpty() -> item {
                 EmptyState(R.string.no_matching_transactions, R.string.adjust_filters)
             }
@@ -158,7 +202,39 @@ private fun TransactionList(
                 }
             }
         }
-        if (state.hasMore) item { CircularProgressIndicator(modifier = Modifier.padding(spacing.large)) }
+        if (state.hasMore) item {
+            LoadingPlaceholder(
+                Modifier.fillMaxWidth().height(96.dp).padding(vertical = spacing.small)
+            )
+        }
+    }
+}
+
+@Composable
+private fun TagDropdown(
+    tags: List<Tag>,
+    selected: String?,
+    onSelected: (String?) -> Unit,
+    modifier: Modifier,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box(modifier) {
+        OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) {
+            Text(selected ?: stringResource(R.string.all_tags), modifier = Modifier.weight(1f), maxLines = 1)
+            Icon(Icons.Rounded.ArrowDropDown, contentDescription = null)
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.all_tags)) },
+                onClick = { expanded = false; onSelected(null) },
+            )
+            tags.forEach { tag ->
+                DropdownMenuItem(
+                    text = { Text(tag.name) },
+                    onClick = { expanded = false; onSelected(tag.name) },
+                )
+            }
+        }
     }
 }
 

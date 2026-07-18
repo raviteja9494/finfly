@@ -4,6 +4,8 @@ package com.teja.finfly.data.settings
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.teja.finfly.domain.common.Result
@@ -32,6 +34,9 @@ class SettingsRepositoryImpl @Inject constructor(
                 serverUrl = preferences[SERVER_URL].orEmpty(),
                 bearerToken = preferences[BEARER_TOKEN].orEmpty(),
                 lastSyncTime = preferences[LAST_SYNC]?.let(Instant::ofEpochMilli),
+                showNetWorthSummary = preferences[SHOW_NET_WORTH] ?: false,
+                recentTransactionsCount = preferences[RECENT_TRANSACTION_COUNT]
+                    ?.takeIf { it in SUPPORTED_RECENT_COUNTS } ?: DEFAULT_RECENT_COUNT,
             )
         }
         .stateIn(scope, SharingStarted.Eagerly, AppSettings())
@@ -49,9 +54,24 @@ class SettingsRepositoryImpl @Inject constructor(
         Result.Success(Unit)
     }.getOrElse { Result.Error(it.message ?: it.javaClass.simpleName, it) }
 
+    override suspend fun saveDashboardPreferences(
+        showNetWorthSummary: Boolean,
+        recentTransactionsCount: Int,
+    ): Result<Unit> = runCatching {
+        dataStore.edit { preferences ->
+            preferences[SHOW_NET_WORTH] = showNetWorthSummary
+            preferences[RECENT_TRANSACTION_COUNT] = recentTransactionsCount
+        }
+        Result.Success(Unit)
+    }.getOrElse { Result.Error(it.message ?: it.javaClass.simpleName, it) }
+
     private companion object {
         val SERVER_URL = stringPreferencesKey("server_url")
         val BEARER_TOKEN = stringPreferencesKey("bearer_token")
         val LAST_SYNC = longPreferencesKey("last_sync_time")
+        val SHOW_NET_WORTH = booleanPreferencesKey("show_net_worth_summary")
+        val RECENT_TRANSACTION_COUNT = intPreferencesKey("recent_transaction_count")
+        const val DEFAULT_RECENT_COUNT = 10
+        val SUPPORTED_RECENT_COUNTS = setOf(5, 10, 20)
     }
 }

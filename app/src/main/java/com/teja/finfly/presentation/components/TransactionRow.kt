@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -22,12 +21,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -41,7 +38,6 @@ import com.teja.finfly.presentation.theme.debitAmount
 import java.text.NumberFormat
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
 import java.util.Currency
 
 @Composable
@@ -59,76 +55,73 @@ fun TransactionRow(transaction: Transaction, modifier: Modifier = Modifier) {
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 1.dp,
     ) {
-        Row(
+        Column(
             modifier = Modifier.padding(spacing.medium),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(spacing.medium),
+            verticalArrangement = Arrangement.spacedBy(spacing.small),
         ) {
-            Box(
-                modifier = Modifier.size(48.dp).background(
-                    MaterialTheme.colorScheme.primaryContainer,
-                    CircleShape,
-                ),
-                contentAlignment = Alignment.Center,
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(spacing.medium),
             ) {
-                Icon(
-                    imageVector = when (transaction.type) {
-                        TransactionType.WITHDRAWAL -> Icons.Rounded.ArrowUpward
-                        TransactionType.DEPOSIT -> Icons.Rounded.ArrowDownward
-                        TransactionType.TRANSFER -> Icons.Rounded.SwapHoriz
-                    },
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                )
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = transaction.description,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (transaction.tags.isNotEmpty()) {
-                    Row(
-                        modifier = Modifier.padding(top = spacing.xSmall)
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(spacing.xSmall),
-                    ) {
-                        transaction.tags.forEach { TagPill(it) }
-                    }
-                }
-                Text(
-                    text = transaction.account.ifBlank { stringResource(R.string.account_unknown) },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = spacing.xSmall),
-                )
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(spacing.small),
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(top = spacing.small),
+                Box(
+                    modifier = Modifier.size(48.dp).background(
+                        MaterialTheme.colorScheme.primaryContainer,
+                        CircleShape,
+                    ),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    CategoryPill(transaction.category)
-                    Text(
-                        text = transaction.date.atZone(ZoneId.systemDefault()).format(
-                            DateTimeFormatter.ofPattern(
-                                stringResource(R.string.transaction_card_date_pattern),
-                                locale,
-                            )
-                        ),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
+                    Icon(
+                        imageVector = when (transaction.type) {
+                            TransactionType.WITHDRAWAL -> Icons.Rounded.ArrowUpward
+                            TransactionType.DEPOSIT -> Icons.Rounded.ArrowDownward
+                            TransactionType.TRANSFER -> Icons.Rounded.SwapHoriz
+                        },
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
                     )
                 }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = transaction.description,
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = transaction.account.ifBlank { stringResource(R.string.account_unknown) },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = spacing.xSmall),
+                    )
+                }
+                Text(
+                    text = formatAmount(transaction),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = amountColor,
+                )
             }
+            if (transaction.tags.isNotEmpty()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(spacing.xSmall),
+                ) {
+                    transaction.tags.forEach { TagPill(it) }
+                }
+            }
+            CategoryPill(transaction.category)
             Text(
-                text = formatAmount(transaction),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = amountColor,
+                text = transaction.date.atZone(ZoneId.systemDefault()).format(
+                    DateTimeFormatter.ofPattern(
+                        stringResource(R.string.transaction_card_date_pattern),
+                        locale,
+                    )
+                ),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }

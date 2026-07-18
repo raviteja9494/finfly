@@ -174,20 +174,28 @@ private fun EditorForm(
                 onSelected = viewModel::setCategory,
             )
         }
-        if (!state.isEditing) {
-            item { SectionLabel(R.string.tags) }
-            if (state.tags.isNotEmpty() || state.selectedTags.isNotEmpty()) item {
-                val choices = (state.tags.map { it.name } + state.selectedTags).distinct()
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
-                    items(choices, key = { it }) { tag ->
-                        FilterChip(
-                            selected = tag in state.selectedTags,
-                            onClick = { viewModel.toggleTag(tag) },
-                            label = { Text(tag) },
-                        )
-                    }
+        item { SectionLabel(R.string.tags) }
+        if (state.tags.isNotEmpty() || state.selectedTags.isNotEmpty()) item {
+            val choices = (state.tags.map { it.name } + state.selectedTags).distinct()
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
+                items(choices, key = { it }) { tag ->
+                    FilterChip(
+                        selected = tag in state.selectedTags,
+                        onClick = { viewModel.toggleTag(tag) },
+                        label = { Text(tag) },
+                    )
                 }
             }
+        } else {
+            item {
+                Text(
+                    stringResource(R.string.no_tags_available),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+        }
+        if (!state.isEditing) {
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(spacing.small), modifier = Modifier.fillMaxWidth()) {
                     OutlinedTextField(

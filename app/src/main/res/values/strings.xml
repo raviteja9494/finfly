@@ -1,4 +1,4 @@
-<!-- All user-visible copy for the FinFly Phase 2 experience. -->
+<!-- All user-visible copy for the FinFly Phase 3 experience. -->
 <resources>
     <string name="app_name">FinFly</string>
     <string name="nav_dashboard">Dashboard</string>
@@ -23,7 +23,13 @@
     <string name="new_transaction">New transaction</string>
     <string name="edit_transaction">Edit transaction</string>
     <string name="search_transactions">Search transactions</string>
+    <string name="clear_search">Clear search</string>
+    <plurals name="transactions_found">
+        <item quantity="one">%1$d transaction found</item>
+        <item quantity="other">%1$d transactions found</item>
+    </plurals>
     <string name="filters">Filters</string>
+    <string name="filters_count">Filters (%1$d)</string>
     <string name="filters_active">Filters active</string>
     <string name="clear_filters">Clear all</string>
     <string name="no_matching_transactions">No matching transactions</string>
@@ -40,6 +46,7 @@
     <string name="categories">Categories</string>
     <string name="category_name">Category name</string>
     <string name="tags">Tags</string>
+    <string name="no_tags_available">No tags available</string>
     <string name="add_tag">Add tag</string>
     <string name="notes">Notes</string>
     <string name="saving">Saving…</string>
@@ -68,7 +75,7 @@
     <string name="account_invalid_balance">Enter a valid opening balance.</string>
     <string name="account_save_failed">Firefly could not create this account.</string>
     <string name="reports_title">Reports</string>
-    <string name="reports_placeholder">Charts and insights arrive in Phase 3.</string>
+    <string name="reports_placeholder">Charts and insights are planned for a later phase.</string>
     <string name="settings_title">Firefly connection</string>
     <string name="settings_subtitle">Your credentials stay on this device.</string>
     <string name="server_url_label">Server URL</string>
@@ -88,6 +95,7 @@
     <string name="last_sync_label">Last sync: %1$s</string>
     <string name="retry">Retry</string>
     <string name="error_generic">Something went wrong</string>
+    <string name="error_generic_message">Check your connection and try again.</string>
     <string name="category_uncategorized">Uncategorized</string>
     <string name="account_unknown">Unknown account</string>
     <string name="transaction_withdrawal">Withdrawal</string>
@@ -96,6 +104,7 @@
     <string name="amount_format">%1$s</string>
     <string name="all_categories">All Categories</string>
     <string name="all_types">All</string>
+    <string name="all_tags">All Tags</string>
     <string name="drawer_accounts">Accounts</string>
     <string name="drawer_budgets">Budgets</string>
     <string name="drawer_categories">Categories</string>
@@ -126,6 +135,8 @@
     <string name="transaction_detail_date_value">%1$s at %2$s</string>
     <string name="account">Account</string>
     <string name="reference_number">Reference number</string>
+    <string name="show_raw_sms">Show raw SMS</string>
+    <string name="hide_raw_sms">Hide raw SMS</string>
     <string name="no_notes">No notes</string>
     <string name="cancel">Cancel</string>
     <string name="date_time_hint">Use yyyy-MM-dd HH:mm</string>
@@ -142,4 +153,8 @@
     <string name="week_day_pattern">EEE</string>
     <string name="category">Category</string>
     <string name="list_detail_separator"> · </string>
+    <string name="dashboard_settings">Dashboard</string>
+    <string name="show_net_worth_summary">Show net worth summary</string>
+    <string name="show_net_worth_summary_description">Display Assets and Liabilities totals on Dashboard.</string>
+    <string name="recent_transactions_count">Number of recent transactions to show</string>
 </resources>

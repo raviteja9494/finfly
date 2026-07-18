@@ -11,6 +11,8 @@ data class SettingsForm(
     val isTesting: Boolean = false,
     val isSaving: Boolean = false,
     val feedback: SettingsFeedback? = null,
+    val showNetWorthSummary: Boolean = false,
+    val recentTransactionsCount: Int = 10,
 )
 
 enum class SettingsFeedback { CONNECTION_SUCCESS, CONNECTION_FAILED, SAVED, INVALID_URL, TOKEN_REQUIRED }

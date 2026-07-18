@@ -15,4 +15,7 @@ interface TagDao {
 
     @Upsert
     suspend fun upsertAll(tags: List<TagEntity>)
+
+    @Query("DELETE FROM tags")
+    suspend fun clear()
 }

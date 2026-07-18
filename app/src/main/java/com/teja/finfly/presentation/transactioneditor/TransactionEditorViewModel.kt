@@ -10,6 +10,7 @@ import com.teja.finfly.domain.model.TransactionDraft
 import com.teja.finfly.domain.model.TransactionType
 import com.teja.finfly.domain.repository.AccountRepository
 import com.teja.finfly.domain.repository.TransactionRepository
+import com.teja.finfly.domain.repository.TagRepository
 import com.teja.finfly.presentation.navigation.AppRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,6 +31,7 @@ import javax.inject.Inject
 class TransactionEditorViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val transactionRepository: TransactionRepository,
+    private val tagRepository: TagRepository,
     accountRepository: AccountRepository,
     clock: Clock,
 ) : ViewModel() {
@@ -51,12 +53,13 @@ class TransactionEditorViewModel @Inject constructor(
             combine(
                 transaction,
                 transactionRepository.observeCategories(),
-                transactionRepository.observeTags(),
+                tagRepository.observeTags(),
                 accountRepository.observeAccounts(),
             ) { transactionResult, categoryResult, tagResult, accountResult ->
                 EditorData(transactionResult, categoryResult, tagResult, accountResult)
             }.collect(::applyEditorData)
         }
+        viewModelScope.launch { tagRepository.refresh() }
     }
 
     fun setType(value: TransactionType) = update { copy(type = value, error = null) }

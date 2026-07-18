@@ -16,14 +16,20 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,7 +63,7 @@ fun TransactionDetailScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     when (val value = state) {
         TransactionDetailUiState.Loading -> LoadingState()
-        TransactionDetailUiState.Error -> ErrorState()
+        TransactionDetailUiState.Error -> ErrorState(onRetry = viewModel::retry)
         TransactionDetailUiState.Empty -> EmptyState(R.string.transaction_not_found, R.string.transaction_load_failed)
         is TransactionDetailUiState.Success -> DetailContent(value, onBack, onEdit)
     }
@@ -72,6 +78,7 @@ private fun DetailContent(
     val transaction = state.transaction
     val spacing = FinFlyThemeTokens.spacing
     val locale = LocalConfiguration.current.locales[0]
+    var rawSmsExpanded by rememberSaveable(transaction.id) { mutableStateOf(false) }
     androidx.compose.foundation.lazy.LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(spacing.medium),
@@ -141,10 +148,38 @@ private fun DetailContent(
             Text(stringResource(R.string.notes), style = MaterialTheme.typography.labelLarge)
             Card(modifier = Modifier.fillMaxWidth().padding(top = spacing.small)) {
                 Text(
-                    transaction.notes?.takeIf(String::isNotBlank) ?: stringResource(R.string.no_notes),
+                    state.displayNotes ?: stringResource(R.string.no_notes),
                     modifier = Modifier.padding(spacing.medium),
                     style = MaterialTheme.typography.bodyLarge,
                 )
+            }
+        }
+        state.rawSms?.let { rawSms ->
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(spacing.medium)) {
+                        TextButton(onClick = { rawSmsExpanded = !rawSmsExpanded }) {
+                            Text(
+                                stringResource(
+                                    if (rawSmsExpanded) R.string.hide_raw_sms else R.string.show_raw_sms
+                                ),
+                                modifier = Modifier.weight(1f),
+                            )
+                            Icon(
+                                if (rawSmsExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                                contentDescription = null,
+                            )
+                        }
+                        if (rawSmsExpanded) {
+                            Text(
+                                rawSms,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = spacing.small),
+                            )
+                        }
+                    }
+                }
             }
         }
     }

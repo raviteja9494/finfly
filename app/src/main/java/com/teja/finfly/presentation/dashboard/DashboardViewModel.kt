@@ -12,6 +12,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.launch
@@ -25,7 +27,11 @@ class DashboardViewModel @Inject constructor(
     private val syncFinances: SyncFinancesUseCase,
     settingsRepository: SettingsRepository,
 ) : ViewModel() {
-    val uiState = combine(observeDashboard(), syncFinances.state) { result, syncState ->
+    private val dashboard = settingsRepository.settings.flatMapLatest { settings ->
+        observeDashboard(settings.recentTransactionsCount).map { result -> result to settings }
+    }
+
+    val uiState = combine(dashboard, syncFinances.state) { (result, settings), syncState ->
         when (result) {
             is Result.Error -> DashboardUiState.Error()
             is Result.Success -> {
@@ -33,11 +39,10 @@ class DashboardViewModel @Inject constructor(
                 val refreshing = syncState is SyncState.Syncing
                 val failed = syncState is SyncState.Error
                 if (summary.recentTransactions.isEmpty() &&
-                    summary.accounts.isEmpty() &&
                     summary.todaySpend.compareTo(BigDecimal.ZERO) == 0 &&
                     summary.monthSpend.compareTo(BigDecimal.ZERO) == 0
                 ) DashboardUiState.Empty(refreshing, failed)
-                else DashboardUiState.Success(summary, refreshing)
+                else DashboardUiState.Success(summary, refreshing, settings.showNetWorthSummary)
             }
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DashboardUiState.Loading)

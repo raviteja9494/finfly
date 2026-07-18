@@ -16,7 +16,6 @@ import com.teja.finfly.domain.common.Result
 import com.teja.finfly.domain.model.Transaction
 import com.teja.finfly.domain.model.Category
 import com.teja.finfly.domain.model.DailySpend
-import com.teja.finfly.domain.model.Tag
 import com.teja.finfly.domain.model.TransactionDraft
 import com.teja.finfly.domain.model.TransactionFilter
 import com.teja.finfly.domain.repository.SettingsRepository
@@ -60,6 +59,13 @@ class TransactionRepositoryImpl @Inject constructor(
             .map { Result.Success(it?.toDomain()) as Result<Transaction?> }
             .catch { emit(Result.Error(it.message ?: CACHE_ERROR, it)) }
 
+    override fun observeTransactionCount(filter: TransactionFilter): Flow<Result<Int>> =
+        database.transactionDao().observeAll()
+            .map { entities ->
+                Result.Success(entities.count { it.toDomain().matches(filter) }) as Result<Int>
+            }
+            .catch { emit(Result.Error(it.message ?: CACHE_ERROR, it)) }
+
     override fun observeRecent(limit: Int): Flow<Result<List<Transaction>>> =
         database.transactionDao().observeRecent(limit)
             .map { entities -> Result.Success(entities.map { it.toDomain() }) as Result<List<Transaction>> }
@@ -90,10 +96,6 @@ class TransactionRepositoryImpl @Inject constructor(
 
     override fun observeCategories(): Flow<Result<List<Category>>> = database.categoryDao().observeAll()
         .map { rows -> Result.Success(rows.map { it.toDomain() }) as Result<List<Category>> }
-        .catch { emit(Result.Error(it.message ?: CACHE_ERROR, it)) }
-
-    override fun observeTags(): Flow<Result<List<Tag>>> = database.tagDao().observeAll()
-        .map { rows -> Result.Success(rows.map { it.toDomain() }.distinctBy(Tag::name)) as Result<List<Tag>> }
         .catch { emit(Result.Error(it.message ?: CACHE_ERROR, it)) }
 
     override suspend fun saveTransaction(draft: TransactionDraft): Result<Transaction> {
@@ -178,19 +180,9 @@ class TransactionRepositoryImpl @Inject constructor(
                 page++
             } while (page <= totalPages && page <= MAX_PAGES)
 
-            val tags = mutableListOf<TagEntity>()
-            page = 1
-            do {
-                val response = api.getTags(page, PAGE_SIZE)
-                tags += response.data.map { it.toEntity() }
-                totalPages = response.meta?.pagination?.totalPages ?: page
-                page++
-            } while (page <= totalPages && page <= MAX_PAGES)
-
             database.withTransaction {
                 database.transactionDao().upsertAll(transactions)
                 database.categoryDao().upsertAll(categories)
-                database.tagDao().upsertAll(tags)
             }
             settingsRepository.updateLastSyncTime(clock.instant())
             Result.Success(Unit)
@@ -207,7 +199,7 @@ class TransactionRepositoryImpl @Inject constructor(
     private fun Transaction.matches(filter: TransactionFilter): Boolean {
         val normalizedQuery = filter.query.trim()
         val queryMatches = normalizedQuery.isBlank() || listOf(
-            description, category, account, sourceAccount, destinationAccount,
+            description, notes.orEmpty(),
         ).any { it.contains(normalizedQuery, ignoreCase = true) } ||
             tags.any { it.contains(normalizedQuery, ignoreCase = true) }
         val typeMatches = filter.types.isEmpty() || type in filter.types

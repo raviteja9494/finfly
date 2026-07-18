@@ -26,6 +26,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.Switch
+import androidx.compose.material3.FilterChip
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -72,6 +74,49 @@ private fun SettingsFormContent(form: SettingsForm, viewModel: SettingsViewModel
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+        }
+        item {
+            Text(stringResource(R.string.dashboard_settings), style = MaterialTheme.typography.titleLarge)
+        }
+        item {
+            Card {
+                Column(
+                    Modifier.fillMaxWidth().padding(spacing.large),
+                    verticalArrangement = Arrangement.spacedBy(spacing.medium),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(spacing.medium),
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(stringResource(R.string.show_net_worth_summary), style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                stringResource(R.string.show_net_worth_summary_description),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(
+                            checked = form.showNetWorthSummary,
+                            onCheckedChange = viewModel::setShowNetWorthSummary,
+                        )
+                    }
+                    Text(
+                        stringResource(R.string.recent_transactions_count),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
+                        listOf(5, 10, 20).forEach { count ->
+                            FilterChip(
+                                selected = form.recentTransactionsCount == count,
+                                onClick = { viewModel.setRecentTransactionsCount(count) },
+                                label = { Text(count.toString()) },
+                            )
+                        }
+                    }
+                }
             }
         }
         item {

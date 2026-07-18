@@ -40,5 +40,10 @@ class SaveSettingsUseCaseTest {
         }
 
         override suspend fun updateLastSyncTime(instant: Instant): Result<Unit> = Result.Success(Unit)
+
+        override suspend fun saveDashboardPreferences(
+            showNetWorthSummary: Boolean,
+            recentTransactionsCount: Int,
+        ): Result<Unit> = Result.Success(Unit)
     }
 }

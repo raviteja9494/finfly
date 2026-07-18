@@ -12,6 +12,5 @@ data class DashboardSummary(
     val totalLiabilities: BigDecimal,
     val weeklySpending: List<DailySpend>,
     val categorySpending: List<CategorySpend>,
-    val accounts: List<Account>,
     val recentTransactions: List<Transaction>,
 )

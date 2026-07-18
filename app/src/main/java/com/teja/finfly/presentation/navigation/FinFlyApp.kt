@@ -110,8 +110,8 @@ fun FinFlyApp(viewModel: AppShellViewModel = hiltViewModel()) {
                 destinations = drawerDestinations,
                 currentEntry = backStackEntry,
                 onNavigate = { route ->
-                    scope.launch { drawerState.close() }
                     navController.navigateDrawerRoute(route)
+                    scope.launch { drawerState.close() }
                 },
             )
         },
@@ -143,7 +143,6 @@ fun FinFlyApp(viewModel: AppShellViewModel = hiltViewModel()) {
                 composable<AppRoute.Dashboard> {
                     DashboardScreen(
                         onViewAll = { navController.navigate(AppRoute.Transactions()) },
-                        onManageAccounts = { navController.navigate(AppRoute.Accounts) },
                         onTransactionClick = { navController.navigate(AppRoute.TransactionDetail(it)) },
                         onDaySelected = { navController.navigate(it.toTransactionRoute()) },
                     )
@@ -380,7 +379,7 @@ private fun NavHostController.navigateDrawerRoute(route: AppRoute) {
     when (route) {
         AppRoute.Accounts -> navigate(AppRoute.Accounts) { launchSingleTop = true }
         AppRoute.Settings -> navigate(AppRoute.Settings) { launchSingleTop = true }
-        is AppRoute.FeatureList -> navigate(route) { launchSingleTop = true }
+        is AppRoute.FeatureList -> navigate(route)
         else -> Unit
     }
 }

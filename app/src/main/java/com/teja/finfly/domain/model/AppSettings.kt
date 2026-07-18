@@ -8,4 +8,6 @@ data class AppSettings(
     val serverUrl: String = "",
     val bearerToken: String = "",
     val lastSyncTime: Instant? = null,
+    val showNetWorthSummary: Boolean = false,
+    val recentTransactionsCount: Int = 10,
 )

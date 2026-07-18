@@ -13,5 +13,6 @@ import java.time.Instant
 interface SettingsRepository {
     val settings: StateFlow<AppSettings>
     suspend fun save(serverUrl: String, bearerToken: String): Result<Unit>
+    suspend fun saveDashboardPreferences(showNetWorthSummary: Boolean, recentTransactionsCount: Int): Result<Unit>
     suspend fun updateLastSyncTime(instant: Instant): Result<Unit>
 }

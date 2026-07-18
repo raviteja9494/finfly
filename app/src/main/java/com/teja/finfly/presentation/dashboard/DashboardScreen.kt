@@ -12,9 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -41,7 +39,6 @@ import com.teja.finfly.R
 import com.teja.finfly.domain.model.DashboardSummary
 import com.teja.finfly.domain.model.DailySpend
 import com.teja.finfly.domain.model.CategorySpend
-import com.teja.finfly.presentation.accounts.AccountCard
 import com.teja.finfly.presentation.components.EmptyState
 import com.teja.finfly.presentation.components.ErrorState
 import com.teja.finfly.presentation.components.LoadingState
@@ -56,7 +53,6 @@ import kotlin.math.max
 @Composable
 fun DashboardScreen(
     onViewAll: () -> Unit,
-    onManageAccounts: () -> Unit,
     onTransactionClick: (String) -> Unit,
     onDaySelected: (DailySpend) -> Unit,
     viewModel: DashboardViewModel = hiltViewModel(),
@@ -66,7 +62,6 @@ fun DashboardScreen(
         state,
         viewModel::refresh,
         onViewAll,
-        onManageAccounts,
         onTransactionClick,
         onDaySelected,
     )
@@ -78,7 +73,6 @@ private fun DashboardContent(
     state: DashboardUiState,
     onRefresh: () -> Unit,
     onViewAll: () -> Unit,
-    onManageAccounts: () -> Unit,
     onTransactionClick: (String) -> Unit,
     onDaySelected: (DailySpend) -> Unit,
 ) {
@@ -94,8 +88,8 @@ private fun DashboardContent(
             is DashboardUiState.Empty -> EmptyState(R.string.no_dashboard_data, R.string.no_dashboard_data_message)
             is DashboardUiState.Success -> DashboardList(
                 state.summary,
+                state.showNetWorthSummary,
                 onViewAll,
-                onManageAccounts,
                 onTransactionClick,
                 onDaySelected,
             )
@@ -106,8 +100,8 @@ private fun DashboardContent(
 @Composable
 private fun DashboardList(
     summary: DashboardSummary,
+    showNetWorthSummary: Boolean,
     onViewAll: () -> Unit,
-    onManageAccounts: () -> Unit,
     onTransactionClick: (String) -> Unit,
     onDaySelected: (DailySpend) -> Unit,
 ) {
@@ -120,10 +114,12 @@ private fun DashboardList(
         verticalArrangement = Arrangement.spacedBy(spacing.medium),
     ) {
         item { DashboardHero() }
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(spacing.medium), modifier = Modifier.fillMaxWidth()) {
-                SpendCard(R.string.total_assets, summary.totalAssets, summary.currency, Modifier.weight(1f))
-                SpendCard(R.string.total_liabilities, summary.totalLiabilities, summary.currency, Modifier.weight(1f))
+        if (showNetWorthSummary) {
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(spacing.medium), modifier = Modifier.fillMaxWidth()) {
+                    SpendCard(R.string.total_assets, summary.totalAssets, summary.currency, Modifier.weight(1f))
+                    SpendCard(R.string.total_liabilities, summary.totalLiabilities, summary.currency, Modifier.weight(1f))
+                }
             }
         }
         item {
@@ -138,32 +134,8 @@ private fun DashboardList(
         }
         item {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.bank_accounts), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                TextButton(onClick = onManageAccounts) { Text(stringResource(R.string.manage)) }
-            }
-        }
-        if (summary.accounts.isEmpty()) {
-            item {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(spacing.medium)) {
-                        Text(stringResource(R.string.no_bank_accounts), style = MaterialTheme.typography.titleMedium)
-                        TextButton(onClick = onManageAccounts) { Text(stringResource(R.string.add_bank_account)) }
-                    }
-                }
-            }
-        } else {
-            item {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
-                    items(summary.accounts, key = { it.id }) { account ->
-                        AccountCard(account, Modifier.width(260.dp))
-                    }
-                }
-            }
-        }
-        item {
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.recent_transactions), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                androidx.compose.material3.TextButton(onClick = onViewAll) { Text(stringResource(R.string.view_all)) }
+                TextButton(onClick = onViewAll) { Text(stringResource(R.string.view_all)) }
             }
         }
         items(summary.recentTransactions, key = { it.id }) { transaction ->

@@ -21,7 +21,7 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 
 /**
- * Defines the Firefly III REST surface used through Phase 2.
+ * Defines the Firefly III REST surface used through Phase 3.
  * Query inputs control pagination/date bounds; outputs retain the server's JSON:API envelopes.
  */
 interface FireflyApiService {

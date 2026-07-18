@@ -8,6 +8,7 @@ import com.teja.finfly.domain.repository.SettingsRepository
 import com.teja.finfly.domain.usecase.SaveSettingsUseCase
 import com.teja.finfly.domain.usecase.TestConnectionUseCase
 import com.teja.finfly.domain.usecase.SyncFinancesUseCase
+import com.teja.finfly.domain.usecase.SaveDashboardPreferencesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -18,13 +19,14 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/** Manages editable credentials, masking, persistence progress, and connection-test feedback. */
+/** Manages credentials, Dashboard preferences, persistence progress, and connection-test feedback. */
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val saveSettings: SaveSettingsUseCase,
     private val testConnection: TestConnectionUseCase,
     private val syncFinances: SyncFinancesUseCase,
+    private val saveDashboardPreferences: SaveDashboardPreferencesUseCase,
 ) : ViewModel() {
     private val form = MutableStateFlow(SettingsForm())
 
@@ -38,6 +40,8 @@ class SettingsViewModel @Inject constructor(
                     serverUrl = saved.serverUrl,
                     bearerToken = saved.bearerToken,
                     lastSyncTime = saved.lastSyncTime,
+                    showNetWorthSummary = saved.showNetWorthSummary,
+                    recentTransactionsCount = saved.recentTransactionsCount,
                 )
             }
         }
@@ -46,6 +50,14 @@ class SettingsViewModel @Inject constructor(
     fun updateServerUrl(value: String) { form.value = form.value.copy(serverUrl = value, feedback = null) }
     fun updateBearerToken(value: String) { form.value = form.value.copy(bearerToken = value, feedback = null) }
     fun toggleTokenVisibility() { form.value = form.value.copy(showToken = !form.value.showToken) }
+    fun setShowNetWorthSummary(value: Boolean) {
+        form.value = form.value.copy(showNetWorthSummary = value)
+        persistDashboardPreferences()
+    }
+    fun setRecentTransactionsCount(value: Int) {
+        form.value = form.value.copy(recentTransactionsCount = value)
+        persistDashboardPreferences()
+    }
 
     fun test() {
         if (form.value.isTesting) return
@@ -74,6 +86,16 @@ class SettingsViewModel @Inject constructor(
                 }
                 syncFinances()
             }
+        }
+    }
+
+    private fun persistDashboardPreferences() {
+        val preferences = form.value
+        viewModelScope.launch {
+            saveDashboardPreferences(
+                preferences.showNetWorthSummary,
+                preferences.recentTransactionsCount,
+            )
         }
     }
 

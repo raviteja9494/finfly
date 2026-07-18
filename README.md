@@ -1,7 +1,7 @@
 <!-- Project documentation for the FinFly Firefly III Android companion. -->
 # FinFly
 
-FinFly is an offline-first Android companion for a self-hosted Firefly III personal-finance server. Phase 2 adds a persistent Firefly feature drawer, app-wide sync feedback, transaction detail and constrained editing, grouped accounts, compact transaction filters, and richer Dashboard analytics to the Phase 1 foundation.
+FinFly is an offline-first Android companion for a self-hosted Firefly III personal-finance server. Phase 3 fixes transaction search and drawer navigation, adds server-backed tag editing/filtering, makes Dashboard summaries configurable, and applies consistent loading, empty, and retryable error treatments to the Phase 2 foundation.
 
 The presentation takes visual cues from PennyWise AI—generous rounded cards, soft Rose Pine accents, high-contrast dark surfaces, and compact bottom navigation—without copying its business logic.
 
@@ -71,7 +71,7 @@ The server URL and bearer token are applied centrally, so endpoint methods never
 
 ## Add a bank SMS parser (later phase)
 
-SMS access and parsing remain intentionally absent through Phase 2. A later phase can introduce a separate parser feature with this contract:
+SMS access and parsing remain intentionally absent through Phase 3. A later phase can introduce a separate parser feature with this contract:
 
 ```text
 BankSmsParser (domain interface)
@@ -83,7 +83,7 @@ Hilt multibinding: @IntoSet BankSmsParser
 ParserRegistry: Set<@JvmSuppressWildcards BankSmsParser>
 ```
 
-Each parser declares whether it supports a sender/message and returns a domain parse result. Bind each implementation into a Hilt set from its own module. `ParserRegistry` receives the set, which means adding a bank requires one parser file plus its colocated binding and no registry edits. SMS permissions, receivers, parser code, and `rawSms` population must remain in the Phase 2 data feature.
+Each parser declares whether it supports a sender/message and returns a domain parse result. Bind each implementation into a Hilt set from its own module. `ParserRegistry` receives the set, which means adding a bank requires one parser file plus its colocated binding and no registry edits. SMS permissions, receivers, parser code, and `rawSms` population remain deferred to that later SMS phase.
 
 ## Swap an AI provider (Phase 4)
 
@@ -103,6 +103,8 @@ Provider configuration belongs in data/settings; prompts, HTTP clients, and mode
 
 Phase 1 implemented the foundation, theme, domain models, Firefly API, Room cache, repositories, DataStore settings, type-safe bottom navigation, initial Dashboard, and transaction list.
 
-Phase 2 implements compact category/type transaction filters, scrollable transaction tag pills, full transaction detail and constrained Firefly editing, a persistent drawer and sync app bar, grouped account browsing with account-filtered transactions, budget/category/bill/piggy-bank lists, 90-day synchronization, weekly and category Dashboard charts, asset/liability totals, and debug/release CI artifacts.
+Phase 2 implemented compact category/type transaction filters, scrollable transaction tag pills, full transaction detail and constrained Firefly editing, a persistent drawer and sync app bar, grouped account browsing with account-filtered transactions, budget/category/bill/piggy-bank lists, 90-day synchronization, weekly and category Dashboard charts, asset/liability totals, and debug/release CI artifacts.
 
-Deferred by design: SMS reading/parsing, AI assistance, the dedicated Reports experience, and notifications.
+Phase 3 fixes debounced transaction search and drawer route state, adds a dedicated tag repository with edit/filter selection, removes Dashboard account cards, makes net-worth and recent-transaction sections configurable, separates reference/raw-SMS detail fields, and standardizes skeleton loading, illustrated empty states, and retryable error cards.
+
+Deferred by design after Phase 3: SMS reading/parsing, AI assistance, the dedicated Reports experience, and notifications.

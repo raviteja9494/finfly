@@ -4,9 +4,11 @@ package com.teja.finfly.di
 import com.teja.finfly.data.repository.AccountRepositoryImpl
 import com.teja.finfly.data.repository.TransactionRepositoryImpl
 import com.teja.finfly.data.repository.FireflyFeatureRepositoryImpl
+import com.teja.finfly.data.repository.TagRepositoryImpl
 import com.teja.finfly.domain.repository.AccountRepository
 import com.teja.finfly.domain.repository.TransactionRepository
 import com.teja.finfly.domain.repository.FireflyFeatureRepository
+import com.teja.finfly.domain.repository.TagRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -29,4 +31,8 @@ abstract class RepositoryModule {
     abstract fun bindFireflyFeatureRepository(
         implementation: FireflyFeatureRepositoryImpl,
     ): FireflyFeatureRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindTagRepository(implementation: TagRepositoryImpl): TagRepository
 }

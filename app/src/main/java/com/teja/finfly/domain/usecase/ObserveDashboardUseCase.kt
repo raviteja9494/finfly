@@ -26,7 +26,7 @@ class ObserveDashboardUseCase @Inject constructor(
     private val accountRepository: AccountRepository,
     private val clock: Clock,
 ) {
-    operator fun invoke(): Flow<Result<DashboardSummary>> {
+    operator fun invoke(recentTransactionCount: Int): Flow<Result<DashboardSummary>> {
         val zone = ZoneId.systemDefault()
         val today = clock.instant().atZone(zone).toLocalDate()
         val todayStart = today.atStartOfDay(zone).toInstant()
@@ -39,7 +39,7 @@ class ObserveDashboardUseCase @Inject constructor(
         val totalsAndRecent = combine(
             transactionRepository.observeSpending(todayStart, tomorrowStart),
             transactionRepository.observeSpending(monthStart, tomorrowStart),
-            transactionRepository.observeRecent(RECENT_COUNT),
+            transactionRepository.observeRecent(recentTransactionCount.coerceIn(MIN_RECENT_COUNT, MAX_RECENT_COUNT)),
         ) { todayResult, monthResult, recentResult ->
             Triple(todayResult, monthResult, recentResult)
         }
@@ -96,7 +96,6 @@ class ObserveDashboardUseCase @Inject constructor(
                     }
                     .sortedByDescending(CategorySpend::amount)
                     .take(CATEGORY_COUNT),
-                accounts = accounts.filter(Account::isBalanceAccount),
                 recentTransactions = recent,
             )
         )
@@ -109,7 +108,8 @@ class ObserveDashboardUseCase @Inject constructor(
     private fun <T> Result<T>.asError(): Result.Error = this as? Result.Error ?: Result.Error(DASHBOARD_ERROR)
 
     private companion object {
-        const val RECENT_COUNT = 10
+        const val MIN_RECENT_COUNT = 5
+        const val MAX_RECENT_COUNT = 20
         const val CATEGORY_COUNT = 5
         const val MONTH_TRANSACTION_LIMIT = 10_000
         const val DASHBOARD_ERROR = "dashboard_error"

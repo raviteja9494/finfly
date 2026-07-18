@@ -5,6 +5,7 @@ import com.teja.finfly.domain.common.Result
 import com.teja.finfly.domain.model.SyncState
 import com.teja.finfly.domain.repository.AccountRepository
 import com.teja.finfly.domain.repository.TransactionRepository
+import com.teja.finfly.domain.repository.TagRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,6 +19,7 @@ import javax.inject.Singleton
 class SyncFinancesUseCase @Inject constructor(
     private val accountRepository: AccountRepository,
     private val transactionRepository: TransactionRepository,
+    private val tagRepository: TagRepository,
     private val clock: Clock,
 ) {
     private val mutableState = MutableStateFlow<SyncState>(SyncState.Idle)
@@ -29,10 +31,13 @@ class SyncFinancesUseCase @Inject constructor(
         val now = clock.instant()
         val result = when (val accounts = accountRepository.sync()) {
             is Result.Error -> accounts
-            is Result.Success -> transactionRepository.sync(
+            is Result.Success -> when (val transactions = transactionRepository.sync(
                 from = now.minus(SYNC_DAYS, ChronoUnit.DAYS),
                 until = now,
-            )
+            )) {
+                is Result.Error -> transactions
+                is Result.Success -> tagRepository.refresh()
+            }
         }
         mutableState.value = when (result) {
             is Result.Success -> SyncState.Success(clock.instant())
