@@ -27,9 +27,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.teja.finfly.R
 import com.teja.finfly.domain.model.Transaction
@@ -46,7 +47,6 @@ import java.text.NumberFormat
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Currency
-import java.util.Locale
 
 @Composable
 fun TransactionDetailScreen(
@@ -71,6 +71,7 @@ private fun DetailContent(
 ) {
     val transaction = state.transaction
     val spacing = FinFlyThemeTokens.spacing
+    val locale = LocalConfiguration.current.locales[0]
     androidx.compose.foundation.lazy.LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(spacing.medium),
@@ -105,6 +106,7 @@ private fun DetailContent(
                 transaction,
                 stringResource(R.string.transaction_detail_date_pattern),
                 stringResource(R.string.transaction_detail_time_pattern),
+                locale,
             )
             DetailLine(
                 R.string.date_and_time,
@@ -160,10 +162,11 @@ private fun formatFullDate(
     transaction: Transaction,
     datePattern: String,
     timePattern: String,
+    locale: java.util.Locale,
 ): Pair<String, String> {
     val date = transaction.date.atZone(ZoneId.systemDefault())
-    return date.format(DateTimeFormatter.ofPattern(datePattern, Locale.getDefault())) to
-        date.format(DateTimeFormatter.ofPattern(timePattern, Locale.getDefault()))
+    return date.format(DateTimeFormatter.ofPattern(datePattern, locale)) to
+        date.format(DateTimeFormatter.ofPattern(timePattern, locale))
 }
 
 private fun formatAmount(transaction: Transaction): String = NumberFormat.getCurrencyInstance().run {

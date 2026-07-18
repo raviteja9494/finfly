@@ -32,9 +32,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.teja.finfly.R
 import com.teja.finfly.domain.model.DashboardSummary
@@ -178,6 +179,7 @@ private fun WeeklySpendingChart(
     onDaySelected: (DailySpend) -> Unit,
 ) {
     val spacing = FinFlyThemeTokens.spacing
+    val locale = LocalConfiguration.current.locales[0]
     val maximum = spending.maxOfOrNull { it.amount } ?: BigDecimal.ZERO
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -217,7 +219,9 @@ private fun WeeklySpendingChart(
                             )
                         )
                         Text(
-                            day.date.format(DateTimeFormatter.ofPattern(stringResource(R.string.week_day_pattern))),
+                            day.date.format(
+                                DateTimeFormatter.ofPattern(stringResource(R.string.week_day_pattern), locale)
+                            ),
                             style = MaterialTheme.typography.labelSmall,
                             modifier = Modifier.padding(top = spacing.small),
                         )

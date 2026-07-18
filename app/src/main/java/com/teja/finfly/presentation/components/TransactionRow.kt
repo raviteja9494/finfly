@@ -26,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -41,12 +42,12 @@ import java.text.NumberFormat
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
-import java.util.Locale
 import java.util.Currency
 
 @Composable
 fun TransactionRow(transaction: Transaction, modifier: Modifier = Modifier) {
     val spacing = FinFlyThemeTokens.spacing
+    val locale = LocalConfiguration.current.locales[0]
     val amountColor = when (transaction.type) {
         TransactionType.WITHDRAWAL -> MaterialTheme.colorScheme.debitAmount
         TransactionType.DEPOSIT -> MaterialTheme.colorScheme.creditAmount
@@ -114,7 +115,7 @@ fun TransactionRow(transaction: Transaction, modifier: Modifier = Modifier) {
                         text = transaction.date.atZone(ZoneId.systemDefault()).format(
                             DateTimeFormatter.ofPattern(
                                 stringResource(R.string.transaction_card_date_pattern),
-                                Locale.getDefault(),
+                                locale,
                             )
                         ),
                         style = MaterialTheme.typography.labelMedium,
