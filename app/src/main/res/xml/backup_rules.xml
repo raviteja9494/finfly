@@ -1,0 +1,5 @@
+<!-- Backup policy excluding credentials and cached finance data from cloud transfer. -->
+<full-backup-content>
+    <exclude domain="database" path="." />
+    <exclude domain="sharedpref" path="." />
+</full-backup-content>

@@ -1,0 +1,13 @@
+# Build, IDE, signing, and machine-specific files excluded from source control.
+*.iml
+.gradle/
+.idea/
+local.properties
+build/
+**/build/
+captures/
+.externalNativeBuild/
+.cxx/
+.toolchain/
+*.jks
+*.keystore

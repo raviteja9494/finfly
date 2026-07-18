@@ -1,0 +1,6 @@
+<!-- Platform color tokens used before the Compose theme is available. -->
+<resources>
+    <color name="launcher_background">#191724</color>
+    <color name="launcher_plane">#9CCFD8</color>
+    <color name="launcher_wing">#EBBCBA</color>
+</resources>
