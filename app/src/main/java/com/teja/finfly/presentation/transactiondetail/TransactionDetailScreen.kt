@@ -101,9 +101,14 @@ private fun DetailContent(
             Text(transaction.description, style = MaterialTheme.typography.headlineMedium)
         }
         item {
+            val dateAndTime = formatFullDate(
+                transaction,
+                stringResource(R.string.transaction_detail_date_pattern),
+                stringResource(R.string.transaction_detail_time_pattern),
+            )
             DetailLine(
                 R.string.date_and_time,
-                formatFullDate(transaction, stringResource(R.string.transaction_detail_date_pattern)),
+                stringResource(R.string.transaction_detail_date_value, dateAndTime.first, dateAndTime.second),
             )
         }
         item { DetailLine(R.string.account, transaction.account.ifBlank { stringResource(R.string.account_unknown) }) }
@@ -151,9 +156,15 @@ private fun DetailLine(label: Int, value: String) {
     }
 }
 
-private fun formatFullDate(transaction: Transaction, pattern: String): String = transaction.date
-    .atZone(ZoneId.systemDefault())
-    .format(DateTimeFormatter.ofPattern(pattern, Locale.getDefault()))
+private fun formatFullDate(
+    transaction: Transaction,
+    datePattern: String,
+    timePattern: String,
+): Pair<String, String> {
+    val date = transaction.date.atZone(ZoneId.systemDefault())
+    return date.format(DateTimeFormatter.ofPattern(datePattern, Locale.getDefault())) to
+        date.format(DateTimeFormatter.ofPattern(timePattern, Locale.getDefault()))
+}
 
 private fun formatAmount(transaction: Transaction): String = NumberFormat.getCurrencyInstance().run {
     runCatching { currency = Currency.getInstance(transaction.currency) }

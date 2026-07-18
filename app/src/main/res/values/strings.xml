@@ -121,7 +121,9 @@
     <string name="transaction_not_found">Transaction not found</string>
     <string name="edit">Edit</string>
     <string name="date_and_time">Date &amp; time</string>
-    <string name="transaction_detail_date_pattern">EEEE, dd MMMM yyyy 'at' h:mm a</string>
+    <string name="transaction_detail_date_pattern">EEEE, dd MMMM yyyy</string>
+    <string name="transaction_detail_time_pattern">h:mm a</string>
+    <string name="transaction_detail_date_value">%1$s at %2$s</string>
     <string name="account">Account</string>
     <string name="reference_number">Reference number</string>
     <string name="no_notes">No notes</string>
