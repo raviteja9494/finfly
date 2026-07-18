@@ -140,7 +140,7 @@ class ObserveDashboardUseCase @Inject constructor(
             val start = today.withDayOfMonth(1)
             ChartWindow(start, start.plusMonths(1))
         }
-        DashboardChartPeriod.MONTH to DashboardRangeMode.ROLLING ->
+        else ->
             ChartWindow(today.minusDays(ROLLING_MONTH_DAYS - 1), today.plusDays(1))
     }
 
