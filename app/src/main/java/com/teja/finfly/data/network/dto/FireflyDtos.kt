@@ -68,6 +68,36 @@ data class TagResource(
 
 data class TagAttributes(val tag: String)
 
+data class BudgetResource(val id: String, val attributes: BudgetAttributes)
+
+data class BudgetAttributes(
+    val name: String,
+    val active: Boolean = true,
+    @SerializedName("currency_code") val currencyCode: String? = null,
+    @SerializedName("auto_budget_amount") val autoBudgetAmount: String? = null,
+)
+
+data class BillResource(val id: String, val attributes: BillAttributes)
+
+data class BillAttributes(
+    val name: String,
+    @SerializedName("amount_min") val amountMin: String? = null,
+    @SerializedName("amount_max") val amountMax: String? = null,
+    @SerializedName("currency_code") val currencyCode: String? = null,
+    @SerializedName("repeat_freq") val repeatFrequency: String? = null,
+    @SerializedName("next_expected_match_diff") val nextExpectedMatch: String? = null,
+)
+
+data class PiggyBankResource(val id: String, val attributes: PiggyBankAttributes)
+
+data class PiggyBankAttributes(
+    val name: String,
+    val percentage: Int? = null,
+    @SerializedName("current_amount") val currentAmount: String? = null,
+    @SerializedName("target_amount") val targetAmount: String? = null,
+    @SerializedName("currency_code") val currencyCode: String? = null,
+)
+
 data class StoreTransactionRequest(
     @SerializedName("apply_rules") val applyRules: Boolean = true,
     @SerializedName("fire_webhooks") val fireWebhooks: Boolean = true,

@@ -20,6 +20,9 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
 import java.time.Clock
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
 /** Loads selector metadata and persists a validated create/update request. */
@@ -32,7 +35,9 @@ class TransactionEditorViewModel @Inject constructor(
 ) : ViewModel() {
     private val route = savedStateHandle.toRoute<AppRoute.TransactionEditor>()
     private val initialDate = clock.instant()
-    private val _uiState = MutableStateFlow(TransactionEditorUiState(date = initialDate))
+    private val _uiState = MutableStateFlow(
+        TransactionEditorUiState(date = initialDate, dateText = initialDate.toEditorText())
+    )
     val uiState = _uiState.asStateFlow()
     private var initialized = false
     private var remoteGroupId: String? = null
@@ -57,6 +62,7 @@ class TransactionEditorViewModel @Inject constructor(
     fun setType(value: TransactionType) = update { copy(type = value, error = null) }
     fun setAmount(value: String) = update { copy(amount = value, error = null) }
     fun setDescription(value: String) = update { copy(description = value, error = null) }
+    fun setDateText(value: String) = update { copy(dateText = value, error = null) }
     fun setSourceName(value: String) = update {
         copy(sourceAccount = value, sourceAccountId = null, error = null)
     }
@@ -79,16 +85,22 @@ class TransactionEditorViewModel @Inject constructor(
         val trimmed = value.trim()
         if (trimmed.isNotEmpty()) update { copy(selectedTags = selectedTags + trimmed) }
     }
+    fun clearError() = update { copy(error = null) }
 
     fun save() {
         val state = _uiState.value
         val amount = state.amount.toBigDecimalOrNull()
+        val parsedDate = runCatching {
+            LocalDateTime.parse(state.dateText, EDITOR_DATE_FORMAT)
+                .atZone(ZoneId.systemDefault()).toInstant()
+        }.getOrNull()
         val error = when {
             state.isEditing && (remoteGroupId == null || journalId == null) ->
                 TransactionEditorError.LOAD_FAILED
             state.description.isBlank() || state.sourceAccount.isBlank() || state.destinationAccount.isBlank() ->
                 TransactionEditorError.REQUIRED_FIELDS
             amount == null || amount <= BigDecimal.ZERO -> TransactionEditorError.INVALID_AMOUNT
+            parsedDate == null -> TransactionEditorError.INVALID_DATE
             else -> null
         }
         if (error != null) {
@@ -105,7 +117,7 @@ class TransactionEditorViewModel @Inject constructor(
                     type = state.type,
                     amount = amount!!,
                     description = state.description,
-                    date = state.date,
+                    date = parsedDate!!,
                     sourceAccountId = state.sourceAccountId,
                     sourceAccount = state.sourceAccount,
                     destinationAccountId = state.destinationAccountId,
@@ -149,6 +161,7 @@ class TransactionEditorViewModel @Inject constructor(
                 amount = transaction?.amount?.toPlainString().orEmpty(),
                 description = transaction?.description.orEmpty(),
                 date = transaction?.date ?: initialDate,
+                dateText = (transaction?.date ?: initialDate).toEditorText(),
                 sourceAccountId = transaction?.sourceAccountId,
                 sourceAccount = transaction?.sourceAccount.orEmpty(),
                 destinationAccountId = transaction?.destinationAccountId,
@@ -175,10 +188,17 @@ class TransactionEditorViewModel @Inject constructor(
         is Result.Error -> emptyList()
     }
 
+    private fun java.time.Instant.toEditorText(): String = atZone(ZoneId.systemDefault())
+        .format(EDITOR_DATE_FORMAT)
+
     private data class EditorData(
         val transaction: Result<com.teja.finfly.domain.model.Transaction?>,
         val categories: Result<List<com.teja.finfly.domain.model.Category>>,
         val tags: Result<List<com.teja.finfly.domain.model.Tag>>,
         val accounts: Result<List<com.teja.finfly.domain.model.Account>>,
     )
+
+    private companion object {
+        val EDITOR_DATE_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+    }
 }

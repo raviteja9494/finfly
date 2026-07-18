@@ -7,10 +7,12 @@ import com.teja.finfly.domain.common.Result
 import com.teja.finfly.domain.repository.SettingsRepository
 import com.teja.finfly.domain.usecase.SaveSettingsUseCase
 import com.teja.finfly.domain.usecase.TestConnectionUseCase
+import com.teja.finfly.domain.usecase.SyncFinancesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -19,9 +21,10 @@ import javax.inject.Inject
 /** Manages editable credentials, masking, persistence progress, and connection-test feedback. */
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    settingsRepository: SettingsRepository,
+    private val settingsRepository: SettingsRepository,
     private val saveSettings: SaveSettingsUseCase,
     private val testConnection: TestConnectionUseCase,
+    private val syncFinances: SyncFinancesUseCase,
 ) : ViewModel() {
     private val form = MutableStateFlow(SettingsForm())
 
@@ -65,6 +68,12 @@ class SettingsViewModel @Inject constructor(
                 isSaving = false,
                 feedback = result.toFeedback(success = SettingsFeedback.SAVED),
             )
+            if (result is Result.Success) {
+                settingsRepository.settings.first {
+                    it.serverUrl.isNotBlank() && it.bearerToken.isNotBlank()
+                }
+                syncFinances()
+            }
         }
     }
 

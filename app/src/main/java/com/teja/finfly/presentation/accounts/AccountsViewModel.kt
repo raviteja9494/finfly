@@ -1,30 +1,44 @@
-/* Presentation-layer ViewModel for cached Firefly accounts. */
+/* Presentation-layer ViewModel for grouped cached Firefly accounts. */
 package com.teja.finfly.presentation.accounts
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.teja.finfly.domain.common.Result
 import com.teja.finfly.domain.model.Account
+import com.teja.finfly.domain.model.SyncState
 import com.teja.finfly.domain.repository.AccountRepository
+import com.teja.finfly.domain.usecase.SyncFinancesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/** Maps the offline-first account stream into a compact screen state. */
+/** Combines every cached account type with pull-to-refresh feedback from the shared sync operation. */
 @HiltViewModel
-class AccountsViewModel @Inject constructor(repository: AccountRepository) : ViewModel() {
-    val uiState = repository.observeAccounts().map { result ->
+class AccountsViewModel @Inject constructor(
+    repository: AccountRepository,
+    private val syncFinances: SyncFinancesUseCase,
+) : ViewModel() {
+    val uiState = combine(repository.observeAccounts(), syncFinances.state) { result, syncState ->
+        val refreshing = syncState is SyncState.Syncing
         when (result) {
-            is Result.Success -> AccountsUiState(accounts = result.value.filter(Account::isBalanceAccount))
-            is Result.Error -> AccountsUiState(isLoading = false, hasError = true)
+            is Result.Error -> AccountsUiState.Error
+            is Result.Success -> if (result.value.isEmpty()) AccountsUiState.Empty(refreshing)
+            else AccountsUiState.Success(result.value, refreshing)
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AccountsUiState())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AccountsUiState.Loading)
+
+    fun refresh() {
+        viewModelScope.launch { syncFinances() }
+    }
 }
 
-data class AccountsUiState(
-    val isLoading: Boolean = true,
-    val accounts: List<Account> = emptyList(),
-    val hasError: Boolean = false,
-)
+/** Loading, grouped content, empty, and failure states for the Accounts screen. */
+sealed interface AccountsUiState {
+    data object Loading : AccountsUiState
+    data class Success(val accounts: List<Account>, val isRefreshing: Boolean) : AccountsUiState
+    data class Empty(val isRefreshing: Boolean) : AccountsUiState
+    data object Error : AccountsUiState
+}

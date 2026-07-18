@@ -10,6 +10,9 @@ import com.teja.finfly.data.network.dto.StoreAccountRequest
 import com.teja.finfly.data.network.dto.TagResource
 import com.teja.finfly.data.network.dto.TransactionResource
 import com.teja.finfly.data.network.dto.UpdateTransactionRequest
+import com.teja.finfly.data.network.dto.BudgetResource
+import com.teja.finfly.data.network.dto.BillResource
+import com.teja.finfly.data.network.dto.PiggyBankResource
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
@@ -18,7 +21,7 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 
 /**
- * Defines the Phase 1 Firefly III REST surface.
+ * Defines the Firefly III REST surface used through Phase 2.
  * Query inputs control pagination/date bounds; outputs retain the server's JSON:API envelopes.
  */
 interface FireflyApiService {
@@ -47,6 +50,28 @@ interface FireflyApiService {
         @Query("page") page: Int = 1,
         @Query("limit") limit: Int = 100,
     ): ApiListResponse<TagResource>
+
+    @GET("api/v1/budgets")
+    suspend fun getBudgets(
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 100,
+        @Query("start") start: String? = null,
+        @Query("end") end: String? = null,
+    ): ApiListResponse<BudgetResource>
+
+    @GET("api/v1/bills")
+    suspend fun getBills(
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 100,
+        @Query("start") start: String? = null,
+        @Query("end") end: String? = null,
+    ): ApiListResponse<BillResource>
+
+    @GET("api/v1/piggy-banks")
+    suspend fun getPiggyBanks(
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 100,
+    ): ApiListResponse<PiggyBankResource>
 
     @POST("api/v1/transactions")
     suspend fun createTransaction(

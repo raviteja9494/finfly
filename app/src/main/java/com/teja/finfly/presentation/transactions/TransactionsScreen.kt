@@ -1,8 +1,9 @@
-/* Presentation-layer Compose screen for a searchable, filterable transaction timeline. */
+/* Presentation-layer Compose screen for the compact, filterable transaction timeline. */
 package com.teja.finfly.presentation.transactions
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -10,20 +11,18 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.FilterList
+import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -39,6 +38,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.teja.finfly.R
+import com.teja.finfly.domain.model.Category
 import com.teja.finfly.domain.model.TransactionType
 import com.teja.finfly.presentation.components.EmptyState
 import com.teja.finfly.presentation.components.ErrorState
@@ -53,7 +53,6 @@ fun TransactionsScreen(
     viewModel: TransactionsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    var showFilters by remember { mutableStateOf(false) }
     Scaffold(
         floatingActionButton = {
             ExtendedFloatingActionButton(
@@ -63,19 +62,12 @@ fun TransactionsScreen(
             )
         },
     ) { padding ->
-        if (state.isLoading) {
-            LoadingState(Modifier.padding(padding))
-            return@Scaffold
-        }
-        TransactionList(
+        if (state.isLoading) LoadingState(Modifier.padding(padding))
+        else TransactionList(
             state = state,
-            showFilters = showFilters,
-            onToggleFilters = { showFilters = !showFilters },
             onQueryChange = viewModel::setQuery,
-            onToggleType = viewModel::toggleType,
-            onToggleCategory = viewModel::toggleCategory,
-            onToggleTag = viewModel::toggleTag,
-            onToggleAccount = viewModel::toggleAccount,
+            onTypeSelected = viewModel::setType,
+            onCategorySelected = viewModel::setCategory,
             onClearFilters = viewModel::clearFilters,
             onLoadMore = viewModel::loadMore,
             onTransactionClick = onTransactionClick,
@@ -87,13 +79,9 @@ fun TransactionsScreen(
 @Composable
 private fun TransactionList(
     state: TransactionsUiState,
-    showFilters: Boolean,
-    onToggleFilters: () -> Unit,
     onQueryChange: (String) -> Unit,
-    onToggleType: (TransactionType) -> Unit,
-    onToggleCategory: (String) -> Unit,
-    onToggleTag: (String) -> Unit,
-    onToggleAccount: (String) -> Unit,
+    onTypeSelected: (TransactionType?) -> Unit,
+    onCategorySelected: (String?) -> Unit,
     onClearFilters: () -> Unit,
     onLoadMore: () -> Unit,
     onTransactionClick: (String) -> Unit,
@@ -128,84 +116,37 @@ private fun TransactionList(
                 singleLine = true,
                 label = { Text(stringResource(R.string.search_transactions)) },
                 leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
-                trailingIcon = {
-                    IconButton(onClick = onToggleFilters) {
-                        Icon(Icons.Rounded.FilterList, contentDescription = stringResource(R.string.filters))
-                    }
-                },
             )
         }
-        if (state.filter.isActive) {
-            item {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(stringResource(R.string.filters_active), style = MaterialTheme.typography.labelLarge)
-                    TextButton(onClick = onClearFilters) { Text(stringResource(R.string.clear_filters)) }
-                }
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(spacing.small),
+            ) {
+                CategoryDropdown(
+                    categories = state.categories,
+                    selected = state.filter.categories.firstOrNull(),
+                    onSelected = onCategorySelected,
+                    modifier = Modifier.weight(1f),
+                )
+                TypeDropdown(
+                    selected = state.filter.types.firstOrNull(),
+                    onSelected = onTypeSelected,
+                    modifier = Modifier.weight(1f),
+                )
             }
         }
-        if (showFilters) {
-            item { FilterLabel(R.string.transaction_type) }
+        if (state.filter.query.isNotBlank() || state.filter.categories.isNotEmpty() || state.filter.types.isNotEmpty()) {
             item {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
-                    items(TransactionType.entries) { type ->
-                        FilterChip(
-                            selected = type in state.filter.types,
-                            onClick = { onToggleType(type) },
-                            label = { Text(type.label()) },
-                        )
-                    }
-                }
-            }
-            if (state.categories.isNotEmpty()) {
-                item { FilterLabel(R.string.categories) }
-                item {
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
-                        items(state.categories, key = { it.id }) { category ->
-                            FilterChip(
-                                selected = category.name in state.filter.categories,
-                                onClick = { onToggleCategory(category.name) },
-                                label = { Text(category.name) },
-                            )
-                        }
-                    }
-                }
-            }
-            if (state.tags.isNotEmpty()) {
-                item { FilterLabel(R.string.tags) }
-                item {
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
-                        items(state.tags, key = { it.id }) { tag ->
-                            FilterChip(
-                                selected = tag.name in state.filter.tags,
-                                onClick = { onToggleTag(tag.name) },
-                                label = { Text(tag.name) },
-                            )
-                        }
-                    }
-                }
-            }
-            if (state.accounts.isNotEmpty()) {
-                item { FilterLabel(R.string.bank_accounts) }
-                item {
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
-                        items(state.accounts, key = { it.id }) { account ->
-                            FilterChip(
-                                selected = account.id in state.filter.accountIds,
-                                onClick = { onToggleAccount(account.id) },
-                                label = { Text(account.name) },
-                            )
-                        }
-                    }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onClearFilters) { Text(stringResource(R.string.clear_filters)) }
                 }
             }
         }
         when {
             state.hasError -> item { ErrorState() }
             state.transactions.isEmpty() -> item {
-                EmptyState(
-                    if (state.filter.isActive) R.string.no_matching_transactions else R.string.no_transactions,
-                    if (state.filter.isActive) R.string.adjust_filters else R.string.no_transactions_message,
-                )
+                EmptyState(R.string.no_matching_transactions, R.string.adjust_filters)
             }
             else -> itemsIndexed(state.transactions, key = { _, item -> item.id }) { index, transaction ->
                 TransactionRow(
@@ -222,8 +163,58 @@ private fun TransactionList(
 }
 
 @Composable
-private fun FilterLabel(resource: Int) {
-    Text(stringResource(resource), style = MaterialTheme.typography.titleSmall)
+private fun CategoryDropdown(
+    categories: List<Category>,
+    selected: String?,
+    onSelected: (String?) -> Unit,
+    modifier: Modifier,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box(modifier) {
+        OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) {
+            Text(selected ?: stringResource(R.string.all_categories), modifier = Modifier.weight(1f), maxLines = 1)
+            Icon(Icons.Rounded.ArrowDropDown, contentDescription = null)
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.all_categories)) },
+                onClick = { expanded = false; onSelected(null) },
+            )
+            categories.forEach { category ->
+                DropdownMenuItem(
+                    text = { Text(category.name) },
+                    onClick = { expanded = false; onSelected(category.name) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TypeDropdown(
+    selected: TransactionType?,
+    onSelected: (TransactionType?) -> Unit,
+    modifier: Modifier,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box(modifier) {
+        OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) {
+            Text(selected?.label() ?: stringResource(R.string.all_types), modifier = Modifier.weight(1f), maxLines = 1)
+            Icon(Icons.Rounded.ArrowDropDown, contentDescription = null)
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.all_types)) },
+                onClick = { expanded = false; onSelected(null) },
+            )
+            TransactionType.entries.forEach { type ->
+                DropdownMenuItem(
+                    text = { Text(type.label()) },
+                    onClick = { expanded = false; onSelected(type) },
+                )
+            }
+        }
+    }
 }
 
 @Composable

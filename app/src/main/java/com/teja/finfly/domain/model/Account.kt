@@ -11,6 +11,17 @@ data class Account(
     val currency: String,
     val type: String,
 ) {
+    /** Normalized account family used by grouping and balance summaries. */
+    val group: AccountGroup
+        get() = type.lowercase().let { value ->
+            when {
+                value.contains("liabil") -> AccountGroup.LIABILITY
+                value == "revenue" || value.contains("revenue account") -> AccountGroup.REVENUE
+                value == "expense" || value.contains("expense account") -> AccountGroup.EXPENSE
+                else -> AccountGroup.ASSET
+            }
+        }
+
     /** True for balance-bearing accounts users normally regard as bank or cash accounts. */
     val isBalanceAccount: Boolean
         get() = type.lowercase().let { value ->
@@ -18,3 +29,6 @@ data class Account(
                 value.contains("asset account") || value.contains("liability")
         }
 }
+
+/** User-facing account families supported by Firefly III. */
+enum class AccountGroup { ASSET, LIABILITY, REVENUE, EXPENSE }

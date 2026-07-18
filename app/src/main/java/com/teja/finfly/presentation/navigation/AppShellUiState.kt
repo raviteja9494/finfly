@@ -1,0 +1,15 @@
+/* Presentation-layer state contract for the persistent app shell. */
+package com.teja.finfly.presentation.navigation
+
+import com.teja.finfly.domain.model.SyncState
+import java.time.Instant
+
+/** Connection metadata and shared synchronization state rendered by the app bar and drawer. */
+sealed interface AppShellUiState {
+    data object Loading : AppShellUiState
+    data class Ready(
+        val serverUrl: String,
+        val lastSyncTime: Instant?,
+        val syncState: SyncState,
+    ) : AppShellUiState
+}

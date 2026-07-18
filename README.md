@@ -1,7 +1,7 @@
 <!-- Project documentation for the FinFly Firefly III Android companion. -->
 # FinFly
 
-FinFly is an offline-first Android companion for a self-hosted Firefly III personal-finance server. Phase 1 provides connection settings, authenticated sync, Room caching, a spending dashboard, a transaction timeline, and a four-tab Compose shell.
+FinFly is an offline-first Android companion for a self-hosted Firefly III personal-finance server. Phase 2 adds a persistent Firefly feature drawer, app-wide sync feedback, transaction detail and constrained editing, grouped accounts, compact transaction filters, and richer Dashboard analytics to the Phase 1 foundation.
 
 The presentation takes visual cues from PennyWise AI—generous rounded cards, soft Rose Pine accents, high-contrast dark surfaces, and compact bottom navigation—without copying its business logic.
 
@@ -54,7 +54,7 @@ This foundation uses one Android Gradle module with strict source-layer packages
 4. Open Settings, enter the complete Firefly III URL and a personal access token, test the connection, and save.
 5. Open Dashboard or pull to refresh. The app caches fetched accounts, categories, and transactions for offline display.
 
-Every push to `main`, pull request, or manual workflow run executes unit tests, Android lint, and a debug APK build in GitHub Actions. Successful runs publish `finfly-debug-apk` as a downloadable workflow artifact, so no local Android toolchain is required for CI verification.
+Every push to `main`, pull request, or manual workflow run executes unit tests, Android lint, and debug/release APK builds in GitHub Actions. Successful runs publish `finfly-debug-apk` and unsigned `finfly-release-apk` artifacts for seven days, so no local Android toolchain is required for CI verification.
 
 Cleartext HTTP is enabled for trusted local-network Firefly installations. Prefer HTTPS whenever the server is reachable outside a private LAN.
 
@@ -69,9 +69,9 @@ Cleartext HTTP is enabled for trusted local-network Firefly installations. Prefe
 
 The server URL and bearer token are applied centrally, so endpoint methods never manage connection configuration.
 
-## Add a bank SMS parser (Phase 2)
+## Add a bank SMS parser (later phase)
 
-SMS access and parsing are intentionally absent from Phase 1. Phase 2 should introduce a separate parser feature with this contract:
+SMS access and parsing remain intentionally absent through Phase 2. A later phase can introduce a separate parser feature with this contract:
 
 ```text
 BankSmsParser (domain interface)
@@ -101,6 +101,8 @@ Provider configuration belongs in data/settings; prompts, HTTP clients, and mode
 
 ## Phase boundaries
 
-Implemented: foundation, theme, domain models, Firefly API, Room cache, repositories, DataStore settings, type-safe navigation, dashboard, and transaction list.
+Phase 1 implemented the foundation, theme, domain models, Firefly API, Room cache, repositories, DataStore settings, type-safe bottom navigation, initial Dashboard, and transaction list.
 
-Deferred by design: SMS reading/parsing, AI, charts/reports, and notifications.
+Phase 2 implements compact category/type transaction filters, scrollable transaction tag pills, full transaction detail and constrained Firefly editing, a persistent drawer and sync app bar, grouped account browsing with account-filtered transactions, budget/category/bill/piggy-bank lists, 90-day synchronization, weekly and category Dashboard charts, asset/liability totals, and debug/release CI artifacts.
+
+Deferred by design: SMS reading/parsing, AI assistance, the dedicated Reports experience, and notifications.

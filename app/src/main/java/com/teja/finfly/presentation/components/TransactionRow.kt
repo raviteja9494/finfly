@@ -2,6 +2,7 @@
 package com.teja.finfly.presentation.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,6 +22,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -38,6 +41,7 @@ import java.text.NumberFormat
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import java.util.Locale
 import java.util.Currency
 
 @Composable
@@ -83,23 +87,39 @@ fun TransactionRow(transaction: Transaction, modifier: Modifier = Modifier) {
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                if (transaction.tags.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier.padding(top = spacing.xSmall)
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(spacing.xSmall),
+                    ) {
+                        transaction.tags.forEach { TagPill(it) }
+                    }
+                }
                 Text(
                     text = transaction.account.ifBlank { stringResource(R.string.account_unknown) },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = spacing.xSmall),
                 )
-                Spacer(Modifier.size(spacing.small))
-                Row(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
-                    CategoryChip(transaction.category)
-                    transaction.tags.take(2).forEach { TagChip(it) }
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(spacing.small),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(top = spacing.small),
+                ) {
+                    CategoryPill(transaction.category)
                     Text(
                         text = transaction.date.atZone(ZoneId.systemDefault()).format(
-                            DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
+                            DateTimeFormatter.ofPattern(
+                                stringResource(R.string.transaction_card_date_pattern),
+                                Locale.getDefault(),
+                            )
                         ),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
                     )
                 }
             }
@@ -110,40 +130,6 @@ fun TransactionRow(transaction: Transaction, modifier: Modifier = Modifier) {
                 color = amountColor,
             )
         }
-    }
-}
-
-@Composable
-private fun TagChip(tag: String) {
-    Box(
-        modifier = Modifier.background(
-            color = MaterialTheme.colorScheme.tertiaryContainer,
-            shape = RoundedCornerShape(FinFlyThemeTokens.radii.chip),
-        ).padding(horizontal = 8.dp, vertical = 3.dp),
-    ) {
-        Text(
-            text = "#$tag",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onTertiaryContainer,
-            maxLines = 1,
-        )
-    }
-}
-
-@Composable
-private fun CategoryChip(category: String) {
-    Box(
-        modifier = Modifier.background(
-            color = MaterialTheme.colorScheme.secondaryContainer,
-            shape = RoundedCornerShape(FinFlyThemeTokens.radii.chip),
-        ).padding(horizontal = 8.dp, vertical = 3.dp),
-    ) {
-        Text(
-            text = category.ifBlank { stringResource(R.string.category_uncategorized) },
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSecondaryContainer,
-            maxLines = 1,
-        )
     }
 }
 

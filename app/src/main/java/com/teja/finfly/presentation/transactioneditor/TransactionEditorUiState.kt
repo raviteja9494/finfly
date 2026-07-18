@@ -7,7 +7,7 @@ import com.teja.finfly.domain.model.Tag
 import com.teja.finfly.domain.model.TransactionType
 import java.time.Instant
 
-enum class TransactionEditorError { REQUIRED_FIELDS, INVALID_AMOUNT, SAVE_FAILED, LOAD_FAILED }
+enum class TransactionEditorError { REQUIRED_FIELDS, INVALID_AMOUNT, INVALID_DATE, SAVE_FAILED, LOAD_FAILED }
 
 /** Form values, selector options, and operation feedback for the transaction editor. */
 data class TransactionEditorUiState(
@@ -17,6 +17,7 @@ data class TransactionEditorUiState(
     val amount: String = "",
     val description: String = "",
     val date: Instant,
+    val dateText: String = "",
     val sourceAccountId: String? = null,
     val sourceAccount: String = "",
     val destinationAccountId: String? = null,

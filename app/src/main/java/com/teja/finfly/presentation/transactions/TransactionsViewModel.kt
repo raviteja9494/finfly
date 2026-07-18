@@ -1,17 +1,17 @@
 /* Presentation-layer ViewModel managing the filtered Room-backed transaction list. */
 package com.teja.finfly.presentation.transactions
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.navigation.toRoute
 import com.teja.finfly.domain.common.Result
-import com.teja.finfly.domain.model.Account
 import com.teja.finfly.domain.model.Category
-import com.teja.finfly.domain.model.Tag
 import com.teja.finfly.domain.model.TransactionFilter
 import com.teja.finfly.domain.model.TransactionType
-import com.teja.finfly.domain.repository.AccountRepository
 import com.teja.finfly.domain.repository.TransactionRepository
 import com.teja.finfly.domain.usecase.ObserveTransactionsUseCase
+import com.teja.finfly.presentation.navigation.AppRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -19,39 +19,32 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import java.time.Instant
 import javax.inject.Inject
 
-/** Owns paging and filter selections while exposing cached filter metadata. */
+/** Owns paging plus one category/type selection while preserving route-provided date/account bounds. */
 @HiltViewModel
 class TransactionsViewModel @Inject constructor(
+    savedStateHandle: SavedStateHandle,
     private val observeTransactions: ObserveTransactionsUseCase,
     transactionRepository: TransactionRepository,
-    accountRepository: AccountRepository,
 ) : ViewModel() {
+    private val route = savedStateHandle.toRoute<AppRoute.Transactions>()
+    private val baseFilter = TransactionFilter(
+        accountIds = route.accountId?.let(::setOf).orEmpty(),
+        from = route.fromEpochMillis?.let(Instant::ofEpochMilli),
+        until = route.untilEpochMillis?.let(Instant::ofEpochMilli),
+    )
     private val requestedCount = MutableStateFlow(PAGE_SIZE)
-    private val filter = MutableStateFlow(TransactionFilter())
-    private val options = combine(
-        transactionRepository.observeCategories(),
-        transactionRepository.observeTags(),
-        accountRepository.observeAccounts(),
-    ) { categories, tags, accounts ->
-        FilterOptions(
-            categories = when (categories) {
-                is Result.Success -> categories.value
-                is Result.Error -> emptyList()
-            },
-            tags = when (tags) {
-                is Result.Success -> tags.value
-                is Result.Error -> emptyList()
-            },
-            accounts = when (accounts) {
-                is Result.Success -> accounts.value
-                is Result.Error -> emptyList()
-            },
-        )
+    private val filter = MutableStateFlow(baseFilter)
+    private val categories = transactionRepository.observeCategories().map { result ->
+        when (result) {
+            is Result.Success -> result.value
+            is Result.Error -> emptyList()
+        }
     }
 
-    val uiState = combine(requestedCount, filter, options) { count, criteria, available ->
+    val uiState = combine(requestedCount, filter, categories) { count, criteria, available ->
         Triple(count, criteria, available)
     }.flatMapLatest { (count, criteria, available) ->
         observeTransactions(criteria, count, 0).map { result ->
@@ -59,9 +52,7 @@ class TransactionsViewModel @Inject constructor(
                 is Result.Error -> TransactionsUiState(
                     isLoading = false,
                     filter = criteria,
-                    categories = available.categories,
-                    tags = available.tags,
-                    accounts = available.accounts,
+                    categories = available,
                     hasError = true,
                 )
                 is Result.Success -> TransactionsUiState(
@@ -69,9 +60,7 @@ class TransactionsViewModel @Inject constructor(
                     transactions = result.value,
                     hasMore = result.value.size >= count,
                     filter = criteria,
-                    categories = available.categories,
-                    tags = available.tags,
-                    accounts = available.accounts,
+                    categories = available,
                 )
             }
         }
@@ -79,25 +68,17 @@ class TransactionsViewModel @Inject constructor(
 
     fun setQuery(value: String) = updateFilter { copy(query = value) }
 
-    fun toggleType(value: TransactionType) = updateFilter {
-        copy(types = types.toggle(value))
+    fun setType(value: TransactionType?) = updateFilter {
+        copy(types = value?.let(::setOf).orEmpty())
     }
 
-    fun toggleCategory(value: String) = updateFilter {
-        copy(categories = categories.toggle(value))
-    }
-
-    fun toggleTag(value: String) = updateFilter {
-        copy(tags = tags.toggle(value))
-    }
-
-    fun toggleAccount(value: String) = updateFilter {
-        copy(accountIds = accountIds.toggle(value))
+    fun setCategory(value: String?) = updateFilter {
+        copy(categories = value?.let(::setOf).orEmpty())
     }
 
     fun clearFilters() {
         requestedCount.value = PAGE_SIZE
-        filter.value = TransactionFilter()
+        filter.value = baseFilter
     }
 
     fun loadMore() {
@@ -108,14 +89,6 @@ class TransactionsViewModel @Inject constructor(
         requestedCount.value = PAGE_SIZE
         filter.value = filter.value.transform()
     }
-
-    private fun <T> Set<T>.toggle(value: T): Set<T> = if (value in this) this - value else this + value
-
-    private data class FilterOptions(
-        val categories: List<Category>,
-        val tags: List<Tag>,
-        val accounts: List<Account>,
-    )
 
     private companion object { const val PAGE_SIZE = 25 }
 }

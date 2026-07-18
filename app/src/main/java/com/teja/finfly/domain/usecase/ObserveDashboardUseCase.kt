@@ -1,25 +1,28 @@
-/* Domain use case combining cached transaction streams into dashboard totals. */
+/* Domain use case combining cached finance streams into Dashboard analytics. */
 package com.teja.finfly.domain.usecase
 
 import com.teja.finfly.domain.common.Result
+import com.teja.finfly.domain.model.Account
+import com.teja.finfly.domain.model.AccountGroup
+import com.teja.finfly.domain.model.CategorySpend
+import com.teja.finfly.domain.model.DailySpend
 import com.teja.finfly.domain.model.DashboardSummary
 import com.teja.finfly.domain.model.Transaction
-import com.teja.finfly.domain.model.Account
-import com.teja.finfly.domain.model.DailySpend
+import com.teja.finfly.domain.model.TransactionFilter
 import com.teja.finfly.domain.repository.AccountRepository
 import com.teja.finfly.domain.repository.TransactionRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import java.math.BigDecimal
 import java.time.Clock
-import java.time.ZoneId
 import java.time.DayOfWeek
+import java.time.ZoneId
 import java.time.temporal.TemporalAdjusters
 import javax.inject.Inject
 
-/** Enforces local-calendar boundaries for today's and this month's withdrawal totals. */
+/** Enforces local calendar boundaries and builds weekly, category, and balance summaries. */
 class ObserveDashboardUseCase @Inject constructor(
-    private val repository: TransactionRepository,
+    private val transactionRepository: TransactionRepository,
     private val accountRepository: AccountRepository,
     private val clock: Clock,
 ) {
@@ -32,36 +35,83 @@ class ObserveDashboardUseCase @Inject constructor(
         val weekStartDate = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
         val weekStart = weekStartDate.atStartOfDay(zone).toInstant()
         val weekEnd = weekStartDate.plusDays(7).atStartOfDay(zone).toInstant()
-        return combine(
-            repository.observeSpending(todayStart, tomorrowStart),
-            repository.observeSpending(monthStart, tomorrowStart),
-            repository.observeRecent(5),
-            repository.observeDailySpending(weekStart, weekEnd),
-            accountRepository.observeAccounts(),
-        ) { todayResult, monthResult, recentResult, weeklyResult, accountsResult ->
-            if (todayResult is Result.Error) return@combine todayResult
-            if (monthResult is Result.Error) return@combine monthResult
-            if (recentResult is Result.Error) return@combine recentResult
-            if (weeklyResult is Result.Error) return@combine weeklyResult
-            if (accountsResult is Result.Error) return@combine accountsResult
-            val recent = (recentResult as Result.Success<List<Transaction>>).value
-            val weekly = (weeklyResult as Result.Success<List<DailySpend>>).value.associateBy(DailySpend::date)
-            val accounts = (accountsResult as Result.Success<List<Account>>).value.filter(Account::isBalanceAccount)
-            Result.Success(
-                DashboardSummary(
-                    todaySpend = (todayResult as Result.Success<BigDecimal>).value,
-                    monthSpend = (monthResult as Result.Success<BigDecimal>).value,
-                    currency = recent.firstOrNull()?.currency ?: accounts.firstOrNull()?.currency ?: "XXX",
-                    weeklySpending = (0L..6L).map { offset ->
-                        weekly[weekStartDate.plusDays(offset)] ?: DailySpend(
-                            date = weekStartDate.plusDays(offset),
-                            amount = BigDecimal.ZERO,
-                        )
-                    },
-                    accounts = accounts,
-                    recentTransactions = recent,
-                )
-            )
+
+        val totalsAndRecent = combine(
+            transactionRepository.observeSpending(todayStart, tomorrowStart),
+            transactionRepository.observeSpending(monthStart, tomorrowStart),
+            transactionRepository.observeRecent(RECENT_COUNT),
+        ) { todayResult, monthResult, recentResult ->
+            Triple(todayResult, monthResult, recentResult)
         }
+        val analyticsAndAccounts = combine(
+            transactionRepository.observeDailySpending(weekStart, weekEnd),
+            transactionRepository.observeTransactions(
+                TransactionFilter(from = monthStart, until = tomorrowStart),
+                MONTH_TRANSACTION_LIMIT,
+                0,
+            ),
+            accountRepository.observeAccounts(),
+        ) { weeklyResult, transactionsResult, accountsResult ->
+            Triple(weeklyResult, transactionsResult, accountsResult)
+        }
+        return combine(totalsAndRecent, analyticsAndAccounts) { totals, analytics ->
+            buildSummary(totals, analytics, weekStartDate)
+        }
+    }
+
+    private fun buildSummary(
+        totals: Triple<Result<BigDecimal>, Result<BigDecimal>, Result<List<Transaction>>>,
+        analytics: Triple<Result<List<DailySpend>>, Result<List<Transaction>>, Result<List<Account>>>,
+        weekStartDate: java.time.LocalDate,
+    ): Result<DashboardSummary> {
+        val todaySpend = totals.first.valueOrReturnError() ?: return totals.first.asError()
+        val monthSpend = totals.second.valueOrReturnError() ?: return totals.second.asError()
+        val recent = totals.third.valueOrReturnError() ?: return totals.third.asError()
+        val weeklyRows = analytics.first.valueOrReturnError() ?: return analytics.first.asError()
+        val monthTransactions = analytics.second.valueOrReturnError() ?: return analytics.second.asError()
+        val accounts = analytics.third.valueOrReturnError() ?: return analytics.third.asError()
+        val weekly = weeklyRows.associateBy(DailySpend::date)
+        val currency = recent.firstOrNull()?.currency ?: accounts.firstOrNull()?.currency ?: "XXX"
+        return Result.Success(
+            DashboardSummary(
+                todaySpend = todaySpend,
+                monthSpend = monthSpend,
+                currency = currency,
+                totalAssets = accounts.filter { it.group == AccountGroup.ASSET }
+                    .fold(BigDecimal.ZERO) { total, account -> total + account.balance },
+                totalLiabilities = accounts.filter { it.group == AccountGroup.LIABILITY }
+                    .fold(BigDecimal.ZERO) { total, account -> total + account.balance.abs() },
+                weeklySpending = (0L..6L).map { offset ->
+                    val date = weekStartDate.plusDays(offset)
+                    weekly[date] ?: DailySpend(date, BigDecimal.ZERO)
+                },
+                categorySpending = monthTransactions
+                    .filter { it.type == com.teja.finfly.domain.model.TransactionType.WITHDRAWAL }
+                    .groupBy { it.category }
+                    .map { (category, rows) ->
+                        CategorySpend(
+                            category,
+                            rows.fold(BigDecimal.ZERO) { total, transaction -> total + transaction.amount },
+                        )
+                    }
+                    .sortedByDescending(CategorySpend::amount)
+                    .take(CATEGORY_COUNT),
+                accounts = accounts.filter(Account::isBalanceAccount),
+                recentTransactions = recent,
+            )
+        )
+    }
+
+    private fun <T> Result<T>.valueOrReturnError(): T? = when (this) {
+        is Result.Success -> value
+        is Result.Error -> null
+    }
+    private fun <T> Result<T>.asError(): Result.Error = this as? Result.Error ?: Result.Error(DASHBOARD_ERROR)
+
+    private companion object {
+        const val RECENT_COUNT = 10
+        const val CATEGORY_COUNT = 5
+        const val MONTH_TRANSACTION_LIMIT = 10_000
+        const val DASHBOARD_ERROR = "dashboard_error"
     }
 }

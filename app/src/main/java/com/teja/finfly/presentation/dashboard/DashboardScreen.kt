@@ -39,6 +39,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.teja.finfly.R
 import com.teja.finfly.domain.model.DashboardSummary
 import com.teja.finfly.domain.model.DailySpend
+import com.teja.finfly.domain.model.CategorySpend
 import com.teja.finfly.presentation.accounts.AccountCard
 import com.teja.finfly.presentation.components.EmptyState
 import com.teja.finfly.presentation.components.ErrorState
@@ -56,10 +57,18 @@ fun DashboardScreen(
     onViewAll: () -> Unit,
     onManageAccounts: () -> Unit,
     onTransactionClick: (String) -> Unit,
+    onDaySelected: (DailySpend) -> Unit,
     viewModel: DashboardViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    DashboardContent(state, viewModel::refresh, onViewAll, onManageAccounts, onTransactionClick)
+    DashboardContent(
+        state,
+        viewModel::refresh,
+        onViewAll,
+        onManageAccounts,
+        onTransactionClick,
+        onDaySelected,
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -70,6 +79,7 @@ private fun DashboardContent(
     onViewAll: () -> Unit,
     onManageAccounts: () -> Unit,
     onTransactionClick: (String) -> Unit,
+    onDaySelected: (DailySpend) -> Unit,
 ) {
     val refreshing = when (state) {
         is DashboardUiState.Success -> state.isRefreshing
@@ -86,6 +96,7 @@ private fun DashboardContent(
                 onViewAll,
                 onManageAccounts,
                 onTransactionClick,
+                onDaySelected,
             )
         }
     }
@@ -97,6 +108,7 @@ private fun DashboardList(
     onViewAll: () -> Unit,
     onManageAccounts: () -> Unit,
     onTransactionClick: (String) -> Unit,
+    onDaySelected: (DailySpend) -> Unit,
 ) {
     val spacing = FinFlyThemeTokens.spacing
     LazyColumn(
@@ -109,11 +121,20 @@ private fun DashboardList(
         item { DashboardHero() }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(spacing.medium), modifier = Modifier.fillMaxWidth()) {
+                SpendCard(R.string.total_assets, summary.totalAssets, summary.currency, Modifier.weight(1f))
+                SpendCard(R.string.total_liabilities, summary.totalLiabilities, summary.currency, Modifier.weight(1f))
+            }
+        }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(spacing.medium), modifier = Modifier.fillMaxWidth()) {
                 SpendCard(R.string.today_spend, summary.todaySpend, summary.currency, Modifier.weight(1f))
                 SpendCard(R.string.month_spend, summary.monthSpend, summary.currency, Modifier.weight(1f))
             }
         }
-        item { WeeklySpendingChart(summary.weeklySpending, summary.currency) }
+        item { WeeklySpendingChart(summary.weeklySpending, summary.currency, onDaySelected) }
+        if (summary.categorySpending.isNotEmpty()) {
+            item { CategorySpendingChart(summary.categorySpending, summary.currency) }
+        }
         item {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.bank_accounts), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
@@ -151,7 +172,11 @@ private fun DashboardList(
 }
 
 @Composable
-private fun WeeklySpendingChart(spending: List<DailySpend>, currency: String) {
+private fun WeeklySpendingChart(
+    spending: List<DailySpend>,
+    currency: String,
+    onDaySelected: (DailySpend) -> Unit,
+) {
     val spacing = FinFlyThemeTokens.spacing
     val maximum = spending.maxOfOrNull { it.amount } ?: BigDecimal.ZERO
     Card(
@@ -167,7 +192,7 @@ private fun WeeklySpendingChart(spending: List<DailySpend>, currency: String) {
                 modifier = Modifier.padding(top = spacing.small),
             )
             Row(
-                modifier = Modifier.fillMaxWidth().height(148.dp).padding(top = spacing.medium),
+                modifier = Modifier.fillMaxWidth().height(178.dp).padding(top = spacing.medium),
                 horizontalArrangement = Arrangement.spacedBy(spacing.small),
                 verticalAlignment = Alignment.Bottom,
             ) {
@@ -176,22 +201,66 @@ private fun WeeklySpendingChart(spending: List<DailySpend>, currency: String) {
                         day.amount.divide(maximum, 4, java.math.RoundingMode.HALF_UP).toFloat()
                     } else 0f
                     Column(
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).clickable { onDaySelected(day) },
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Bottom,
                     ) {
+                        Text(
+                            formatCompactAmount(day.amount),
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 1,
+                        )
                         Box(
-                            Modifier.fillMaxWidth().height(max(4f, 108f * ratio).dp).background(
+                            Modifier.fillMaxWidth().height(max(4f, 104f * ratio).dp).background(
                                 MaterialTheme.colorScheme.primary,
                                 RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp),
                             )
                         )
                         Text(
-                            day.date.format(DateTimeFormatter.ofPattern("EEE")),
+                            day.date.format(DateTimeFormatter.ofPattern(stringResource(R.string.week_day_pattern))),
                             style = MaterialTheme.typography.labelSmall,
                             modifier = Modifier.padding(top = spacing.small),
                         )
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CategorySpendingChart(spending: List<CategorySpend>, currency: String) {
+    val spacing = FinFlyThemeTokens.spacing
+    val maximum = spending.maxOfOrNull(CategorySpend::amount) ?: BigDecimal.ZERO
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(FinFlyThemeTokens.radii.card),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    ) {
+        Column(
+            Modifier.padding(spacing.medium),
+            verticalArrangement = Arrangement.spacedBy(spacing.medium),
+        ) {
+            Text(stringResource(R.string.month_by_category), style = MaterialTheme.typography.titleLarge)
+            spending.forEach { row ->
+                val ratio = if (maximum > BigDecimal.ZERO) {
+                    row.amount.divide(maximum, 4, java.math.RoundingMode.HALF_UP).toFloat()
+                } else 0f
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.xSmall)) {
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            row.category.ifBlank { stringResource(R.string.category_uncategorized) },
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Text(formatCurrency(row.amount, currency), style = MaterialTheme.typography.labelLarge)
+                    }
+                    Box(
+                        Modifier.fillMaxWidth(ratio.coerceIn(0.02f, 1f)).height(10.dp).background(
+                            MaterialTheme.colorScheme.secondary,
+                            RoundedCornerShape(FinFlyThemeTokens.radii.chip),
+                        )
+                    )
                 }
             }
         }
@@ -232,5 +301,10 @@ private fun SpendCard(title: Int, amount: BigDecimal, currency: String, modifier
 
 private fun formatCurrency(amount: BigDecimal, currency: String): String = NumberFormat.getCurrencyInstance().run {
     runCatching { this.currency = Currency.getInstance(currency) }
+    format(amount)
+}
+
+private fun formatCompactAmount(amount: BigDecimal): String = NumberFormat.getNumberInstance().run {
+    maximumFractionDigits = 0
     format(amount)
 }
