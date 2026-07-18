@@ -5,6 +5,7 @@ import com.teja.finfly.domain.common.Result
 import com.teja.finfly.domain.model.AppSettings
 import com.teja.finfly.domain.model.DashboardChartPeriod
 import com.teja.finfly.domain.model.DashboardRangeMode
+import com.teja.finfly.domain.model.CategoryChartStyle
 import com.teja.finfly.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -48,6 +49,8 @@ class SaveSettingsUseCaseTest {
             recentTransactionsCount: Int,
             chartPeriod: DashboardChartPeriod,
             rangeMode: DashboardRangeMode,
+            showSpendingInsight: Boolean,
+            categoryChartStyle: CategoryChartStyle,
         ): Result<Unit> = Result.Success(Unit)
     }
 }

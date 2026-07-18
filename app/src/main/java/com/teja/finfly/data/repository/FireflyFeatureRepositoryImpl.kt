@@ -5,8 +5,14 @@ import com.teja.finfly.data.network.FireflyApiService
 import com.teja.finfly.domain.common.Result
 import com.teja.finfly.domain.model.FireflyFeature
 import com.teja.finfly.domain.model.FireflyFeatureItem
+import com.teja.finfly.domain.model.FireflyFeatureDraft
 import com.teja.finfly.domain.repository.FireflyFeatureRepository
 import com.teja.finfly.domain.repository.SettingsRepository
+import com.teja.finfly.data.network.dto.StoreBillRequest
+import com.teja.finfly.data.network.dto.StoreBudgetRequest
+import com.teja.finfly.data.network.dto.StoreCategoryRequest
+import com.teja.finfly.data.network.dto.StorePiggyBankAccountRequest
+import com.teja.finfly.data.network.dto.StorePiggyBankRequest
 import java.time.Clock
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -49,6 +55,98 @@ class FireflyFeatureRepositoryImpl @Inject constructor(
         )
     }
 
+    override suspend fun create(draft: FireflyFeatureDraft): Result<FireflyFeatureItem> {
+        if (!isConfigured()) return Result.Error(NOT_CONFIGURED)
+        return runCatching {
+            when (draft) {
+                is FireflyFeatureDraft.Budget -> {
+                    val amount = draft.monthlyAmount
+                    val resource = api.createBudget(
+                        StoreBudgetRequest(
+                            name = draft.name.trim(),
+                            notes = draft.notes.trim().takeIf(String::isNotBlank),
+                            autoBudgetType = amount?.let { "reset" },
+                            autoBudgetCurrencyCode = amount?.let {
+                                draft.currencyCode.trim().uppercase().takeIf(String::isNotBlank)
+                            },
+                            autoBudgetAmount = amount?.toPlainString(),
+                            autoBudgetPeriod = amount?.let { "monthly" },
+                        )
+                    ).data
+                    FireflyFeatureItem(
+                        resource.id,
+                        resource.attributes.name,
+                        listOfNotNull(resource.attributes.autoBudgetAmount, resource.attributes.currencyCode),
+                    )
+                }
+                is FireflyFeatureDraft.Category -> {
+                    val resource = api.createCategory(
+                        StoreCategoryRequest(
+                            name = draft.name.trim(),
+                            notes = draft.notes.trim().takeIf(String::isNotBlank),
+                        )
+                    ).data
+                    FireflyFeatureItem(resource.id, resource.attributes.name)
+                }
+                is FireflyFeatureDraft.Bill -> {
+                    val resource = api.createBill(
+                        StoreBillRequest(
+                            name = draft.name.trim(),
+                            amountMin = draft.minimumAmount.toPlainString(),
+                            amountMax = draft.maximumAmount.toPlainString(),
+                            date = draft.firstDueDate.atStartOfDay(ZoneId.systemDefault())
+                                .toOffsetDateTime().toString(),
+                            repeatFrequency = draft.repeatFrequency,
+                            currencyCode = draft.currencyCode.trim().uppercase(),
+                            notes = draft.notes.trim().takeIf(String::isNotBlank),
+                        )
+                    ).data
+                    FireflyFeatureItem(
+                        resource.id,
+                        resource.attributes.name,
+                        listOfNotNull(
+                            resource.attributes.amountMin,
+                            resource.attributes.amountMax,
+                            resource.attributes.currencyCode,
+                            resource.attributes.nextExpectedMatch,
+                        ),
+                    )
+                }
+                is FireflyFeatureDraft.PiggyBank -> {
+                    val resource = api.createPiggyBank(
+                        StorePiggyBankRequest(
+                            name = draft.name.trim(),
+                            accounts = listOf(
+                                StorePiggyBankAccountRequest(
+                                    id = draft.accountId,
+                                    currentAmount = draft.currentAmount?.toPlainString(),
+                                )
+                            ),
+                            targetAmount = draft.targetAmount.toPlainString(),
+                            currentAmount = draft.currentAmount?.toPlainString(),
+                            startDate = draft.startDate.format(DateTimeFormatter.ISO_LOCAL_DATE),
+                            targetDate = draft.targetDate?.format(DateTimeFormatter.ISO_LOCAL_DATE),
+                            notes = draft.notes.trim().takeIf(String::isNotBlank),
+                        )
+                    ).data
+                    FireflyFeatureItem(
+                        resource.id,
+                        resource.attributes.name,
+                        listOfNotNull(
+                            resource.attributes.currentAmount,
+                            resource.attributes.targetAmount,
+                            resource.attributes.currencyCode,
+                        ),
+                        resource.attributes.percentage,
+                    )
+                }
+            }
+        }.fold(
+            onSuccess = { Result.Success(it) },
+            onFailure = { Result.Error(it.message ?: SAVE_ERROR, it) },
+        )
+    }
+
     private suspend fun loadBudgets(): List<FireflyFeatureItem> {
         val today = clock.instant().atZone(ZoneId.systemDefault()).toLocalDate()
         val response = api.getBudgets(
@@ -86,5 +184,6 @@ class FireflyFeatureRepositoryImpl @Inject constructor(
         const val PAGE_SIZE = 100
         const val NOT_CONFIGURED = "not_configured"
         const val LOAD_ERROR = "feature_load_error"
+        const val SAVE_ERROR = "feature_save_error"
     }
 }

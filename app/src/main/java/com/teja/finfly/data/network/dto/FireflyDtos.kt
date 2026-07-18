@@ -150,3 +150,45 @@ data class StoreAccountRequest(
     val active: Boolean = true,
     @SerializedName("include_net_worth") val includeNetWorth: Boolean = true,
 )
+
+data class StoreBudgetRequest(
+    val name: String,
+    val active: Boolean = true,
+    val notes: String? = null,
+    @SerializedName("fire_webhooks") val fireWebhooks: Boolean = true,
+    @SerializedName("auto_budget_type") val autoBudgetType: String? = null,
+    @SerializedName("auto_budget_currency_code") val autoBudgetCurrencyCode: String? = null,
+    @SerializedName("auto_budget_amount") val autoBudgetAmount: String? = null,
+    @SerializedName("auto_budget_period") val autoBudgetPeriod: String? = null,
+)
+
+data class StoreCategoryRequest(
+    val name: String,
+    val notes: String? = null,
+)
+
+data class StoreBillRequest(
+    val name: String,
+    @SerializedName("amount_min") val amountMin: String,
+    @SerializedName("amount_max") val amountMax: String,
+    val date: String,
+    @SerializedName("repeat_freq") val repeatFrequency: String,
+    @SerializedName("currency_code") val currencyCode: String,
+    val active: Boolean = true,
+    val notes: String? = null,
+)
+
+data class StorePiggyBankRequest(
+    val name: String,
+    val accounts: List<StorePiggyBankAccountRequest>,
+    @SerializedName("target_amount") val targetAmount: String,
+    @SerializedName("current_amount") val currentAmount: String? = null,
+    @SerializedName("start_date") val startDate: String,
+    @SerializedName("target_date") val targetDate: String? = null,
+    val notes: String? = null,
+)
+
+data class StorePiggyBankAccountRequest(
+    val id: String,
+    @SerializedName("current_amount") val currentAmount: String? = null,
+)

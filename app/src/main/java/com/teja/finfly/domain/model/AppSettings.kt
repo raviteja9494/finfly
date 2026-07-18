@@ -12,4 +12,6 @@ data class AppSettings(
     val recentTransactionsCount: Int = 10,
     val dashboardChartPeriod: DashboardChartPeriod = DashboardChartPeriod.WEEK,
     val dashboardRangeMode: DashboardRangeMode = DashboardRangeMode.CALENDAR,
+    val showSpendingInsight: Boolean = true,
+    val categoryChartStyle: CategoryChartStyle = CategoryChartStyle.BARS,
 )

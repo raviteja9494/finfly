@@ -46,7 +46,13 @@ class DashboardViewModel @Inject constructor(
                     summary.todaySpend.compareTo(BigDecimal.ZERO) == 0 &&
                     summary.monthSpend.compareTo(BigDecimal.ZERO) == 0
                 ) DashboardUiState.Empty(refreshing, failed)
-                else DashboardUiState.Success(summary, refreshing, settings.showNetWorthSummary)
+                else DashboardUiState.Success(
+                    summary,
+                    refreshing,
+                    settings.showNetWorthSummary,
+                    settings.showSpendingInsight,
+                    settings.categoryChartStyle,
+                )
             }
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DashboardUiState.Loading)

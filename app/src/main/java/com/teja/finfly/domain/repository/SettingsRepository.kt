@@ -5,6 +5,7 @@ import com.teja.finfly.domain.common.Result
 import com.teja.finfly.domain.model.AppSettings
 import com.teja.finfly.domain.model.DashboardChartPeriod
 import com.teja.finfly.domain.model.DashboardRangeMode
+import com.teja.finfly.domain.model.CategoryChartStyle
 import kotlinx.coroutines.flow.StateFlow
 import java.time.Instant
 
@@ -20,6 +21,8 @@ interface SettingsRepository {
         recentTransactionsCount: Int,
         chartPeriod: DashboardChartPeriod,
         rangeMode: DashboardRangeMode,
+        showSpendingInsight: Boolean,
+        categoryChartStyle: CategoryChartStyle,
     ): Result<Unit>
     suspend fun updateLastSyncTime(instant: Instant): Result<Unit>
 }

@@ -13,8 +13,14 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -28,16 +34,32 @@ import com.teja.finfly.presentation.components.LoadingState
 import com.teja.finfly.presentation.theme.FinFlyThemeTokens
 
 @Composable
-fun FeatureListScreen(viewModel: FeatureListViewModel = hiltViewModel()) {
+fun FeatureListScreen(
+    onAdd: (FireflyFeature) -> Unit,
+    viewModel: FeatureListViewModel = hiltViewModel(),
+) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    when (val value = state) {
-        FeatureListUiState.Loading -> LoadingState()
-        FeatureListUiState.Error -> ErrorState(onRetry = viewModel::load)
-        FeatureListUiState.Empty -> EmptyState(
-            title = R.string.no_items,
-            message = viewModel.feature.emptyMessage(),
-        )
-        is FeatureListUiState.Success -> FeatureItems(value.items)
+    LaunchedEffect(Unit) { viewModel.load() }
+    Scaffold(
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = { onAdd(viewModel.feature) },
+                icon = { Icon(Icons.Rounded.Add, contentDescription = null) },
+                text = { Text(stringResource(viewModel.feature.addLabel())) },
+            )
+        },
+    ) { padding ->
+        Column(Modifier.fillMaxSize().padding(padding)) {
+            when (val value = state) {
+                FeatureListUiState.Loading -> LoadingState()
+                FeatureListUiState.Error -> ErrorState(onRetry = viewModel::load)
+                FeatureListUiState.Empty -> EmptyState(
+                    title = R.string.no_items,
+                    message = viewModel.feature.emptyMessage(),
+                )
+                is FeatureListUiState.Success -> FeatureItems(value.items)
+            }
+        }
     }
 }
 
@@ -83,4 +105,11 @@ private fun FireflyFeature.emptyMessage(): Int = when (this) {
     FireflyFeature.CATEGORIES -> R.string.no_categories_message
     FireflyFeature.BILLS -> R.string.no_bills_message
     FireflyFeature.PIGGY_BANKS -> R.string.no_piggy_banks_message
+}
+
+private fun FireflyFeature.addLabel(): Int = when (this) {
+    FireflyFeature.BUDGETS -> R.string.add_budget
+    FireflyFeature.CATEGORIES -> R.string.add_category
+    FireflyFeature.BILLS -> R.string.add_bill
+    FireflyFeature.PIGGY_BANKS -> R.string.add_piggy_bank
 }

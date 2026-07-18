@@ -25,8 +25,6 @@ class FeatureListViewModel @Inject constructor(
     private val mutableState = MutableStateFlow<FeatureListUiState>(FeatureListUiState.Loading)
     val uiState = mutableState.asStateFlow()
 
-    init { load() }
-
     fun load() {
         viewModelScope.launch {
             mutableState.value = FeatureListUiState.Loading

@@ -52,6 +52,7 @@ import com.teja.finfly.domain.model.DailySpend
 import com.teja.finfly.domain.model.CategorySpend
 import com.teja.finfly.domain.model.DashboardChartPeriod
 import com.teja.finfly.domain.model.DashboardRangeMode
+import com.teja.finfly.domain.model.CategoryChartStyle
 import com.teja.finfly.presentation.components.EmptyState
 import com.teja.finfly.presentation.components.ErrorState
 import com.teja.finfly.presentation.components.LoadingState
@@ -102,6 +103,8 @@ private fun DashboardContent(
             is DashboardUiState.Success -> DashboardList(
                 state.summary,
                 state.showNetWorthSummary,
+                state.showSpendingInsight,
+                state.categoryChartStyle,
                 onViewAll,
                 onTransactionClick,
                 onDaySelected,
@@ -114,6 +117,8 @@ private fun DashboardContent(
 private fun DashboardList(
     summary: DashboardSummary,
     showNetWorthSummary: Boolean,
+    showSpendingInsight: Boolean,
+    categoryChartStyle: CategoryChartStyle,
     onViewAll: () -> Unit,
     onTransactionClick: (String) -> Unit,
     onDaySelected: (DailySpend) -> Unit,
@@ -126,7 +131,7 @@ private fun DashboardList(
         ),
         verticalArrangement = Arrangement.spacedBy(spacing.medium),
     ) {
-        item { DashboardInsight(summary) }
+        if (showSpendingInsight) item { DashboardInsight(summary) }
         if (showNetWorthSummary) {
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(spacing.medium), modifier = Modifier.fillMaxWidth()) {
@@ -151,7 +156,7 @@ private fun DashboardList(
             )
         }
         if (summary.categorySpending.isNotEmpty()) {
-            item { CategorySpendingChart(summary.categorySpending, summary.currency) }
+            item { CategorySpendingChart(summary.categorySpending, summary.currency, categoryChartStyle) }
         }
         item {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -268,9 +273,13 @@ private fun chartTitleResource(period: DashboardChartPeriod, mode: DashboardRang
     }
 
 @Composable
-private fun CategorySpendingChart(spending: List<CategorySpend>, currency: String) {
+private fun CategorySpendingChart(
+    spending: List<CategorySpend>,
+    currency: String,
+    initialStyle: CategoryChartStyle,
+) {
     val spacing = FinFlyThemeTokens.spacing
-    var mode by rememberSaveable { mutableStateOf(CategoryChartMode.BARS) }
+    var mode by rememberSaveable(initialStyle) { mutableStateOf(initialStyle) }
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(FinFlyThemeTokens.radii.card),
@@ -288,20 +297,20 @@ private fun CategorySpendingChart(spending: List<CategorySpend>, currency: Strin
                 )
                 IconButton(
                     onClick = {
-                        mode = if (mode == CategoryChartMode.BARS) CategoryChartMode.PIE else CategoryChartMode.BARS
+                        mode = if (mode == CategoryChartStyle.BARS) CategoryChartStyle.PIE else CategoryChartStyle.BARS
                     }
                 ) {
                     Icon(
-                        if (mode == CategoryChartMode.BARS) Icons.Rounded.DonutLarge else Icons.Rounded.BarChart,
+                        if (mode == CategoryChartStyle.BARS) Icons.Rounded.DonutLarge else Icons.Rounded.BarChart,
                         contentDescription = stringResource(
-                            if (mode == CategoryChartMode.BARS) R.string.show_pie_chart else R.string.show_bar_chart
+                            if (mode == CategoryChartStyle.BARS) R.string.show_pie_chart else R.string.show_bar_chart
                         ),
                     )
                 }
             }
             when (mode) {
-                CategoryChartMode.BARS -> CategoryBars(spending, currency)
-                CategoryChartMode.PIE -> CategoryPie(spending, currency)
+                CategoryChartStyle.BARS -> CategoryBars(spending, currency)
+                CategoryChartStyle.PIE -> CategoryPie(spending, currency)
             }
         }
     }
@@ -382,8 +391,6 @@ private fun CategoryPie(spending: List<CategorySpend>, currency: String) {
         }
     }
 }
-
-private enum class CategoryChartMode { BARS, PIE }
 
 @Composable
 private fun DashboardInsight(summary: DashboardSummary) {

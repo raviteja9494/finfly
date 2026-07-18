@@ -25,6 +25,7 @@ import androidx.compose.material.icons.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -69,6 +70,8 @@ import com.teja.finfly.presentation.accounts.AccountEditorScreen
 import com.teja.finfly.presentation.accounts.AccountsScreen
 import com.teja.finfly.presentation.dashboard.DashboardScreen
 import com.teja.finfly.presentation.featurelist.FeatureListScreen
+import com.teja.finfly.presentation.featureeditor.FeatureEditorScreen
+import com.teja.finfly.presentation.assistant.AssistantScreen
 import com.teja.finfly.presentation.reports.ReportsScreen
 import com.teja.finfly.presentation.settings.SettingsScreen
 import com.teja.finfly.presentation.transactiondetail.TransactionDetailScreen
@@ -83,7 +86,7 @@ private enum class FinFlyTab(val label: Int, val icon: ImageVector) {
     DASHBOARD(R.string.nav_dashboard, Icons.Rounded.Dashboard),
     TRANSACTIONS(R.string.nav_transactions, Icons.Rounded.ReceiptLong),
     REPORTS(R.string.nav_reports, Icons.Rounded.Insights),
-    SETTINGS(R.string.nav_settings, Icons.Rounded.Settings),
+    ASSISTANT(R.string.nav_assistant, Icons.Rounded.AutoAwesome),
 }
 
 private data class DrawerDestination(
@@ -155,6 +158,7 @@ fun FinFlyApp(viewModel: AppShellViewModel = hiltViewModel()) {
                 }
                 composable<AppRoute.Reports> { ReportsScreen() }
                 composable<AppRoute.Settings> { SettingsScreen() }
+                composable<AppRoute.Assistant> { AssistantScreen() }
                 composable<AppRoute.TransactionDetail> {
                     TransactionDetailScreen(
                         onBack = navController::popBackStack,
@@ -173,7 +177,14 @@ fun FinFlyApp(viewModel: AppShellViewModel = hiltViewModel()) {
                 composable<AppRoute.AccountEditor> {
                     AccountEditorScreen(onBack = navController::popBackStack)
                 }
-                composable<AppRoute.FeatureList> { FeatureListScreen() }
+                composable<AppRoute.FeatureList> {
+                    FeatureListScreen(
+                        onAdd = { navController.navigate(AppRoute.FeatureEditor(it)) },
+                    )
+                }
+                composable<AppRoute.FeatureEditor> {
+                    FeatureEditorScreen(onBack = navController::popBackStack)
+                }
             }
         }
     }
@@ -315,12 +326,15 @@ private fun destinationTitle(entry: NavBackStackEntry?): String {
         destination?.hasRoute<AppRoute.Transactions>() == true -> R.string.nav_transactions
         destination?.hasRoute<AppRoute.Reports>() == true -> R.string.nav_reports
         destination?.hasRoute<AppRoute.Settings>() == true -> R.string.nav_settings
+        destination?.hasRoute<AppRoute.Assistant>() == true -> R.string.nav_assistant
         destination?.hasRoute<AppRoute.TransactionDetail>() == true -> R.string.transaction_details
         destination?.hasRoute<AppRoute.TransactionEditor>() == true -> R.string.edit_transaction
         destination?.hasRoute<AppRoute.Accounts>() == true -> R.string.drawer_accounts
         destination?.hasRoute<AppRoute.AccountEditor>() == true -> R.string.new_bank_account
         destination?.hasRoute<AppRoute.FeatureList>() == true ->
             entry?.toRoute<AppRoute.FeatureList>()?.feature?.titleResource() ?: R.string.app_name
+        destination?.hasRoute<AppRoute.FeatureEditor>() == true ->
+            entry?.toRoute<AppRoute.FeatureEditor>()?.feature?.createTitleResource() ?: R.string.app_name
         else -> R.string.app_name
     }
     return stringResource(resource)
@@ -340,14 +354,19 @@ private fun NavBackStackEntry?.isTopLevelDestination(): Boolean {
         return route == AppRoute.Transactions()
     }
     return destination.hasRoute<AppRoute.Dashboard>() || destination.hasRoute<AppRoute.Reports>() ||
-        destination.hasRoute<AppRoute.Settings>()
+        destination.hasRoute<AppRoute.Assistant>()
 }
 
 private fun NavBackStackEntry?.matches(route: AppRoute): Boolean = when (route) {
     AppRoute.Accounts -> this?.destination?.hasRoute<AppRoute.Accounts>() == true
     AppRoute.Settings -> this?.destination?.hasRoute<AppRoute.Settings>() == true
-    is AppRoute.FeatureList -> this?.destination?.hasRoute<AppRoute.FeatureList>() == true &&
-        runCatching { this?.toRoute<AppRoute.FeatureList>()?.feature == route.feature }.getOrDefault(false)
+    is AppRoute.FeatureList -> when {
+        this?.destination?.hasRoute<AppRoute.FeatureList>() == true ->
+            runCatching { this.toRoute<AppRoute.FeatureList>().feature == route.feature }.getOrDefault(false)
+        this?.destination?.hasRoute<AppRoute.FeatureEditor>() == true ->
+            runCatching { this.toRoute<AppRoute.FeatureEditor>().feature == route.feature }.getOrDefault(false)
+        else -> false
+    }
     else -> false
 }
 
@@ -363,7 +382,7 @@ private fun NavHostController.navigateTab(tab: FinFlyTab) {
         FinFlyTab.REPORTS -> navigate(AppRoute.Reports) {
             configureTabNavigation(startId)
         }
-        FinFlyTab.SETTINGS -> navigate(AppRoute.Settings) {
+        FinFlyTab.ASSISTANT -> navigate(AppRoute.Assistant) {
             configureTabNavigation(startId)
         }
     }
@@ -393,7 +412,7 @@ private fun FinFlyBottomBar(destination: NavDestination?, onSelect: (FinFlyTab) 
                     FinFlyTab.DASHBOARD -> item.hasRoute<AppRoute.Dashboard>()
                     FinFlyTab.TRANSACTIONS -> item.hasRoute<AppRoute.Transactions>()
                     FinFlyTab.REPORTS -> item.hasRoute<AppRoute.Reports>()
-                    FinFlyTab.SETTINGS -> item.hasRoute<AppRoute.Settings>()
+                    FinFlyTab.ASSISTANT -> item.hasRoute<AppRoute.Assistant>()
                 }
             } == true
             NavigationBarItem(
@@ -409,6 +428,13 @@ private fun FinFlyBottomBar(destination: NavDestination?, onSelect: (FinFlyTab) 
             )
         }
     }
+}
+
+private fun FireflyFeature.createTitleResource(): Int = when (this) {
+    FireflyFeature.BUDGETS -> R.string.new_budget
+    FireflyFeature.CATEGORIES -> R.string.new_category
+    FireflyFeature.BILLS -> R.string.new_bill
+    FireflyFeature.PIGGY_BANKS -> R.string.new_piggy_bank
 }
 
 private fun DailySpend.toTransactionRoute(): AppRoute.Transactions {

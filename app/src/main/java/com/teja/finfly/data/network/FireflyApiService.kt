@@ -13,6 +13,10 @@ import com.teja.finfly.data.network.dto.UpdateTransactionRequest
 import com.teja.finfly.data.network.dto.BudgetResource
 import com.teja.finfly.data.network.dto.BillResource
 import com.teja.finfly.data.network.dto.PiggyBankResource
+import com.teja.finfly.data.network.dto.StoreBudgetRequest
+import com.teja.finfly.data.network.dto.StoreCategoryRequest
+import com.teja.finfly.data.network.dto.StoreBillRequest
+import com.teja.finfly.data.network.dto.StorePiggyBankRequest
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
@@ -88,4 +92,16 @@ interface FireflyApiService {
     suspend fun createAccount(
         @Body request: StoreAccountRequest,
     ): ApiSingleResponse<AccountResource>
+
+    @POST("api/v1/budgets")
+    suspend fun createBudget(@Body request: StoreBudgetRequest): ApiSingleResponse<BudgetResource>
+
+    @POST("api/v1/categories")
+    suspend fun createCategory(@Body request: StoreCategoryRequest): ApiSingleResponse<CategoryResource>
+
+    @POST("api/v1/bills")
+    suspend fun createBill(@Body request: StoreBillRequest): ApiSingleResponse<BillResource>
+
+    @POST("api/v1/piggy-banks")
+    suspend fun createPiggyBank(@Body request: StorePiggyBankRequest): ApiSingleResponse<PiggyBankResource>
 }

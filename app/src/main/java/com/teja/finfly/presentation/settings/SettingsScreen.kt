@@ -1,6 +1,8 @@
-/* Presentation-layer Compose screen for configuring and testing Firefly III access. */
+/* Presentation-layer Compose screen for grouped Dashboard and Firefly settings. */
 package com.teja.finfly.presentation.settings
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -13,25 +15,32 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Cloud
+import androidx.compose.material.icons.rounded.Dashboard
 import androidx.compose.material.icons.rounded.Error
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
 import androidx.compose.material3.Switch
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -40,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.teja.finfly.R
+import com.teja.finfly.domain.model.CategoryChartStyle
 import com.teja.finfly.domain.model.DashboardChartPeriod
 import com.teja.finfly.domain.model.DashboardRangeMode
 import com.teja.finfly.presentation.components.ErrorState
@@ -69,7 +79,7 @@ private fun SettingsFormContent(form: SettingsForm, viewModel: SettingsViewModel
         verticalArrangement = Arrangement.spacedBy(spacing.medium),
     ) {
         item {
-            Column {
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.xSmall)) {
                 Text(stringResource(R.string.settings_page_title), style = MaterialTheme.typography.headlineLarge)
                 Text(
                     stringResource(R.string.settings_page_subtitle),
@@ -79,147 +89,68 @@ private fun SettingsFormContent(form: SettingsForm, viewModel: SettingsViewModel
             }
         }
         item {
-            SettingsSectionHeader(
-                R.string.dashboard_settings,
-                R.string.dashboard_settings_description,
-            )
+            CollapsibleSettingsSection(
+                title = R.string.dashboard_settings,
+                description = R.string.dashboard_settings_description,
+                icon = Icons.Rounded.Dashboard,
+                initiallyExpanded = true,
+            ) {
+                DashboardSettings(form, viewModel)
+            }
         }
         item {
-            Card {
-                Column(
-                    Modifier.fillMaxWidth().padding(spacing.large),
-                    verticalArrangement = Arrangement.spacedBy(spacing.medium),
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(spacing.medium),
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            Text(stringResource(R.string.show_net_worth_summary), style = MaterialTheme.typography.titleMedium)
-                            Text(
-                                stringResource(R.string.show_net_worth_summary_description),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        Switch(
-                            checked = form.showNetWorthSummary,
-                            onCheckedChange = viewModel::setShowNetWorthSummary,
-                        )
-                    }
+            CollapsibleSettingsSection(
+                title = R.string.firefly_connection_section,
+                description = R.string.settings_subtitle,
+                icon = Icons.Rounded.Cloud,
+                initiallyExpanded = false,
+            ) {
+                ConnectionSettings(form, viewModel)
+            }
+        }
+    }
+}
+
+@Composable
+private fun CollapsibleSettingsSection(
+    title: Int,
+    description: Int,
+    icon: ImageVector,
+    initiallyExpanded: Boolean,
+    content: @Composable () -> Unit,
+) {
+    var expanded by rememberSaveable(title) { mutableStateOf(initiallyExpanded) }
+    val spacing = FinFlyThemeTokens.spacing
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column {
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(spacing.large),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(spacing.medium),
+            ) {
+                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(spacing.xSmall)) {
+                    Text(stringResource(title), style = MaterialTheme.typography.titleLarge)
                     Text(
-                        stringResource(R.string.recent_transactions_count),
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
-                        listOf(5, 10, 20).forEach { count ->
-                            FilterChip(
-                                selected = form.recentTransactionsCount == count,
-                                onClick = { viewModel.setRecentTransactionsCount(count) },
-                                label = { Text(count.toString()) },
-                            )
-                        }
-                    }
-                    Text(
-                        stringResource(R.string.spending_chart_period),
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
-                        DashboardChartPeriod.entries.forEach { period ->
-                            FilterChip(
-                                selected = form.dashboardChartPeriod == period,
-                                onClick = { viewModel.setDashboardChartPeriod(period) },
-                                label = { Text(stringResource(period.labelResource())) },
-                            )
-                        }
-                    }
-                    Text(
-                        stringResource(R.string.spending_chart_range_mode),
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
-                        DashboardRangeMode.entries.forEach { mode ->
-                            FilterChip(
-                                selected = form.dashboardRangeMode == mode,
-                                onClick = { viewModel.setDashboardRangeMode(mode) },
-                                label = { Text(stringResource(mode.labelResource())) },
-                            )
-                        }
-                    }
-                    Text(
-                        stringResource(form.rangeDescriptionResource()),
+                        stringResource(description),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                Icon(
+                    if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                    contentDescription = stringResource(
+                        if (expanded) R.string.collapse_section else R.string.expand_section
+                    ),
+                )
             }
-        }
-        item {
-            SettingsSectionHeader(
-                R.string.firefly_connection_section,
-                R.string.settings_subtitle,
-            )
-        }
-        item {
-            Card(
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(FinFlyThemeTokens.radii.hero),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            ) {
-                Column(Modifier.padding(spacing.large), verticalArrangement = Arrangement.spacedBy(spacing.medium)) {
-                    OutlinedTextField(
-                        value = form.serverUrl,
-                        onValueChange = viewModel::updateServerUrl,
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text(stringResource(R.string.server_url_label)) },
-                        placeholder = { Text(stringResource(R.string.server_url_placeholder)) },
-                        leadingIcon = { Icon(Icons.Rounded.Cloud, contentDescription = null) },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                    )
-                    OutlinedTextField(
-                        value = form.bearerToken,
-                        onValueChange = viewModel::updateBearerToken,
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text(stringResource(R.string.bearer_token_label)) },
-                        placeholder = { Text(stringResource(R.string.bearer_token_placeholder)) },
-                        singleLine = true,
-                        visualTransformation = if (form.showToken) VisualTransformation.None else PasswordVisualTransformation(),
-                        trailingIcon = {
-                            IconButton(onClick = viewModel::toggleTokenVisibility) {
-                                Icon(
-                                    if (form.showToken) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
-                                    contentDescription = stringResource(
-                                        if (form.showToken) R.string.hide_token else R.string.show_token
-                                    ),
-                                )
-                            }
-                        },
-                    )
-                    Text(
-                        text = stringResource(
-                            R.string.last_sync_label,
-                            form.lastSyncTime?.atZone(ZoneId.systemDefault())?.format(
-                                DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
-                            ) ?: stringResource(R.string.last_sync_never),
-                        ),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Feedback(form.feedback)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(spacing.small, Alignment.End),
-                    ) {
-                        OutlinedButton(onClick = viewModel::test, enabled = !form.isTesting && !form.isSaving) {
-                            if (form.isTesting) CircularProgressIndicator(modifier = Modifier.padding(end = 8.dp))
-                            Text(stringResource(R.string.test_connection))
-                        }
-                        Button(onClick = viewModel::save, enabled = !form.isSaving && !form.isTesting) {
-                            if (form.isSaving) CircularProgressIndicator(modifier = Modifier.padding(end = 8.dp))
-                            Text(stringResource(R.string.save_settings))
-                        }
-                    }
+            AnimatedVisibility(expanded) {
+                Column {
+                    HorizontalDivider()
+                    Column(
+                        Modifier.fillMaxWidth().padding(spacing.large),
+                        verticalArrangement = Arrangement.spacedBy(spacing.medium),
+                    ) { content() }
                 }
             }
         }
@@ -227,14 +158,149 @@ private fun SettingsFormContent(form: SettingsForm, viewModel: SettingsViewModel
 }
 
 @Composable
-private fun SettingsSectionHeader(title: Int, description: Int) {
-    Column(verticalArrangement = Arrangement.spacedBy(FinFlyThemeTokens.spacing.xSmall)) {
-        Text(stringResource(title), style = MaterialTheme.typography.titleLarge)
-        Text(
-            stringResource(description),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+private fun DashboardSettings(form: SettingsForm, viewModel: SettingsViewModel) {
+    val spacing = FinFlyThemeTokens.spacing
+    SettingsSwitch(
+        title = R.string.show_spending_insight,
+        description = R.string.show_spending_insight_description,
+        checked = form.showSpendingInsight,
+        onCheckedChange = viewModel::setShowSpendingInsight,
+    )
+    SettingsSwitch(
+        title = R.string.show_net_worth_summary,
+        description = R.string.show_net_worth_summary_description,
+        checked = form.showNetWorthSummary,
+        onCheckedChange = viewModel::setShowNetWorthSummary,
+    )
+    ChoiceLabel(R.string.recent_transactions_count)
+    Row(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
+        listOf(5, 10, 20).forEach { count ->
+            FilterChip(
+                selected = form.recentTransactionsCount == count,
+                onClick = { viewModel.setRecentTransactionsCount(count) },
+                label = { Text(count.toString()) },
+            )
+        }
+    }
+    ChoiceLabel(R.string.spending_chart_period)
+    Row(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
+        DashboardChartPeriod.entries.forEach { period ->
+            FilterChip(
+                selected = form.dashboardChartPeriod == period,
+                onClick = { viewModel.setDashboardChartPeriod(period) },
+                label = { Text(stringResource(period.labelResource())) },
+            )
+        }
+    }
+    ChoiceLabel(R.string.spending_chart_range_mode)
+    Row(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
+        DashboardRangeMode.entries.forEach { mode ->
+            FilterChip(
+                selected = form.dashboardRangeMode == mode,
+                onClick = { viewModel.setDashboardRangeMode(mode) },
+                label = { Text(stringResource(mode.labelResource())) },
+            )
+        }
+    }
+    Text(
+        stringResource(form.rangeDescriptionResource()),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    ChoiceLabel(R.string.default_category_chart)
+    Row(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
+        CategoryChartStyle.entries.forEach { style ->
+            FilterChip(
+                selected = form.categoryChartStyle == style,
+                onClick = { viewModel.setCategoryChartStyle(style) },
+                label = { Text(stringResource(style.labelResource())) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun SettingsSwitch(
+    title: Int,
+    description: Int,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(FinFlyThemeTokens.spacing.medium),
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(stringResource(title), style = MaterialTheme.typography.titleMedium)
+            Text(
+                stringResource(description),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+@Composable
+private fun ChoiceLabel(label: Int) {
+    Text(stringResource(label), style = MaterialTheme.typography.titleMedium)
+}
+
+@Composable
+private fun ConnectionSettings(form: SettingsForm, viewModel: SettingsViewModel) {
+    val spacing = FinFlyThemeTokens.spacing
+    OutlinedTextField(
+        value = form.serverUrl,
+        onValueChange = viewModel::updateServerUrl,
+        modifier = Modifier.fillMaxWidth(),
+        label = { Text(stringResource(R.string.server_url_label)) },
+        placeholder = { Text(stringResource(R.string.server_url_placeholder)) },
+        leadingIcon = { Icon(Icons.Rounded.Cloud, contentDescription = null) },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+    )
+    OutlinedTextField(
+        value = form.bearerToken,
+        onValueChange = viewModel::updateBearerToken,
+        modifier = Modifier.fillMaxWidth(),
+        label = { Text(stringResource(R.string.bearer_token_label)) },
+        placeholder = { Text(stringResource(R.string.bearer_token_placeholder)) },
+        singleLine = true,
+        visualTransformation = if (form.showToken) VisualTransformation.None else PasswordVisualTransformation(),
+        trailingIcon = {
+            IconButton(onClick = viewModel::toggleTokenVisibility) {
+                Icon(
+                    if (form.showToken) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
+                    contentDescription = stringResource(if (form.showToken) R.string.hide_token else R.string.show_token),
+                )
+            }
+        },
+    )
+    Text(
+        stringResource(
+            R.string.last_sync_label,
+            form.lastSyncTime?.atZone(ZoneId.systemDefault())?.format(
+                DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
+            ) ?: stringResource(R.string.last_sync_never),
+        ),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Feedback(form.feedback)
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(spacing.small, Alignment.End),
+    ) {
+        OutlinedButton(onClick = viewModel::test, enabled = !form.isTesting && !form.isSaving) {
+            if (form.isTesting) CircularProgressIndicator(Modifier.padding(end = spacing.small))
+            Text(stringResource(R.string.test_connection))
+        }
+        Button(onClick = viewModel::save, enabled = !form.isSaving && !form.isTesting) {
+            if (form.isSaving) CircularProgressIndicator(Modifier.padding(end = spacing.small))
+            Text(stringResource(R.string.save_settings))
+        }
     }
 }
 
@@ -246,6 +312,11 @@ private fun DashboardChartPeriod.labelResource(): Int = when (this) {
 private fun DashboardRangeMode.labelResource(): Int = when (this) {
     DashboardRangeMode.CALENDAR -> R.string.chart_range_calendar
     DashboardRangeMode.ROLLING -> R.string.chart_range_rolling
+}
+
+private fun CategoryChartStyle.labelResource(): Int = when (this) {
+    CategoryChartStyle.BARS -> R.string.chart_style_bars
+    CategoryChartStyle.PIE -> R.string.chart_style_pie
 }
 
 private fun SettingsForm.rangeDescriptionResource(): Int = when (dashboardChartPeriod to dashboardRangeMode) {
@@ -266,15 +337,19 @@ private fun Feedback(feedback: SettingsFeedback?) {
         SettingsFeedback.INVALID_URL -> R.string.settings_invalid_url
         SettingsFeedback.TOKEN_REQUIRED -> R.string.settings_token_required
     }
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(FinFlyThemeTokens.spacing.small),
+    ) {
         Icon(
             if (success) Icons.Rounded.CheckCircle else Icons.Rounded.Error,
             contentDescription = null,
             tint = if (success) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error,
         )
         Text(
-            text = if (message == R.string.connection_failed) stringResource(message, stringResource(R.string.error_generic))
-            else stringResource(message),
+            text = if (message == R.string.connection_failed) {
+                stringResource(message, stringResource(R.string.error_generic))
+            } else stringResource(message),
             color = if (success) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error,
         )
     }

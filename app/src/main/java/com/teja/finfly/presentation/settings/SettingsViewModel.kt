@@ -11,6 +11,7 @@ import com.teja.finfly.domain.usecase.SyncFinancesUseCase
 import com.teja.finfly.domain.usecase.SaveDashboardPreferencesUseCase
 import com.teja.finfly.domain.model.DashboardChartPeriod
 import com.teja.finfly.domain.model.DashboardRangeMode
+import com.teja.finfly.domain.model.CategoryChartStyle
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -46,6 +47,8 @@ class SettingsViewModel @Inject constructor(
                     recentTransactionsCount = saved.recentTransactionsCount,
                     dashboardChartPeriod = saved.dashboardChartPeriod,
                     dashboardRangeMode = saved.dashboardRangeMode,
+                    showSpendingInsight = saved.showSpendingInsight,
+                    categoryChartStyle = saved.categoryChartStyle,
                 )
             }
         }
@@ -68,6 +71,14 @@ class SettingsViewModel @Inject constructor(
     }
     fun setDashboardRangeMode(value: DashboardRangeMode) {
         form.value = form.value.copy(dashboardRangeMode = value)
+        persistDashboardPreferences()
+    }
+    fun setShowSpendingInsight(value: Boolean) {
+        form.value = form.value.copy(showSpendingInsight = value)
+        persistDashboardPreferences()
+    }
+    fun setCategoryChartStyle(value: CategoryChartStyle) {
+        form.value = form.value.copy(categoryChartStyle = value)
         persistDashboardPreferences()
     }
 
@@ -109,6 +120,8 @@ class SettingsViewModel @Inject constructor(
                 preferences.recentTransactionsCount,
                 preferences.dashboardChartPeriod,
                 preferences.dashboardRangeMode,
+                preferences.showSpendingInsight,
+                preferences.categoryChartStyle,
             )
         }
     }

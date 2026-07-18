@@ -3,6 +3,7 @@ package com.teja.finfly.presentation.settings
 
 import com.teja.finfly.domain.model.DashboardChartPeriod
 import com.teja.finfly.domain.model.DashboardRangeMode
+import com.teja.finfly.domain.model.CategoryChartStyle
 import java.time.Instant
 
 data class SettingsForm(
@@ -17,6 +18,8 @@ data class SettingsForm(
     val recentTransactionsCount: Int = 10,
     val dashboardChartPeriod: DashboardChartPeriod = DashboardChartPeriod.WEEK,
     val dashboardRangeMode: DashboardRangeMode = DashboardRangeMode.CALENDAR,
+    val showSpendingInsight: Boolean = true,
+    val categoryChartStyle: CategoryChartStyle = CategoryChartStyle.BARS,
 )
 
 enum class SettingsFeedback { CONNECTION_SUCCESS, CONNECTION_FAILED, SAVED, INVALID_URL, TOKEN_REQUIRED }
