@@ -27,13 +27,16 @@ data class TransactionJournalAttributes(
 )
 
 data class TransactionSplitDto(
+    @SerializedName("transaction_journal_id") val transactionJournalId: String = "",
     val type: String,
     val date: String,
     val amount: String,
     val description: String,
     @SerializedName("currency_code") val currencyCode: String? = null,
     @SerializedName("source_name") val sourceName: String? = null,
+    @SerializedName("source_id") val sourceId: String? = null,
     @SerializedName("destination_name") val destinationName: String? = null,
+    @SerializedName("destination_id") val destinationId: String? = null,
     @SerializedName("category_name") val categoryName: String? = null,
     val tags: List<String> = emptyList(),
     val notes: String? = null,
@@ -58,6 +61,13 @@ data class CategoryResource(
 
 data class CategoryAttributes(val name: String)
 
+data class TagResource(
+    val id: String,
+    val attributes: TagAttributes,
+)
+
+data class TagAttributes(val tag: String)
+
 data class StoreTransactionRequest(
     @SerializedName("apply_rules") val applyRules: Boolean = true,
     @SerializedName("fire_webhooks") val fireWebhooks: Boolean = true,
@@ -69,9 +79,44 @@ data class StoreTransactionSplit(
     val date: String,
     val amount: String,
     val description: String,
+    @SerializedName("currency_code") val currencyCode: String? = null,
+    @SerializedName("source_id") val sourceId: String? = null,
     @SerializedName("source_name") val sourceName: String? = null,
+    @SerializedName("destination_id") val destinationId: String? = null,
     @SerializedName("destination_name") val destinationName: String? = null,
     @SerializedName("category_name") val categoryName: String? = null,
     val tags: List<String> = emptyList(),
     val notes: String? = null,
+)
+
+data class UpdateTransactionRequest(
+    @SerializedName("apply_rules") val applyRules: Boolean = true,
+    @SerializedName("fire_webhooks") val fireWebhooks: Boolean = true,
+    val transactions: List<UpdateTransactionSplit>,
+)
+
+data class UpdateTransactionSplit(
+    @SerializedName("transaction_journal_id") val transactionJournalId: String,
+    val type: String,
+    val date: String,
+    val amount: String,
+    val description: String,
+    @SerializedName("currency_code") val currencyCode: String? = null,
+    @SerializedName("source_id") val sourceId: String? = null,
+    @SerializedName("source_name") val sourceName: String? = null,
+    @SerializedName("destination_id") val destinationId: String? = null,
+    @SerializedName("destination_name") val destinationName: String? = null,
+    @SerializedName("category_name") val categoryName: String? = null,
+    val tags: List<String> = emptyList(),
+    val notes: String? = null,
+)
+
+data class StoreAccountRequest(
+    val name: String,
+    val type: String,
+    @SerializedName("currency_code") val currencyCode: String? = null,
+    @SerializedName("opening_balance") val openingBalance: String? = null,
+    @SerializedName("opening_balance_date") val openingBalanceDate: String? = null,
+    val active: Boolean = true,
+    @SerializedName("include_net_worth") val includeNetWorth: Boolean = true,
 )

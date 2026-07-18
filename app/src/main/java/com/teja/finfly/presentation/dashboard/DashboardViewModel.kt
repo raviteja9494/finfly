@@ -37,6 +37,7 @@ class DashboardViewModel @Inject constructor(
             is Result.Success -> {
                 val summary = result.value
                 if (summary.recentTransactions.isEmpty() &&
+                    summary.accounts.isEmpty() &&
                     summary.todaySpend.compareTo(BigDecimal.ZERO) == 0 &&
                     summary.monthSpend.compareTo(BigDecimal.ZERO) == 0
                 ) DashboardUiState.Empty(isRefreshing, failed)

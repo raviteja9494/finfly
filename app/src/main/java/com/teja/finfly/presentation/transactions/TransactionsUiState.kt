@@ -1,11 +1,20 @@
-/* Presentation-layer state contract for the Transactions screen. */
+/* Presentation-layer state contract for the filterable Transactions screen. */
 package com.teja.finfly.presentation.transactions
 
+import com.teja.finfly.domain.model.Account
+import com.teja.finfly.domain.model.Category
+import com.teja.finfly.domain.model.Tag
 import com.teja.finfly.domain.model.Transaction
+import com.teja.finfly.domain.model.TransactionFilter
 
-sealed interface TransactionsUiState {
-    data object Loading : TransactionsUiState
-    data class Success(val transactions: List<Transaction>, val isLoadingMore: Boolean) : TransactionsUiState
-    data object Empty : TransactionsUiState
-    data object Error : TransactionsUiState
-}
+/** Immutable transaction timeline content, filter options, and loading feedback. */
+data class TransactionsUiState(
+    val isLoading: Boolean = true,
+    val transactions: List<Transaction> = emptyList(),
+    val hasMore: Boolean = false,
+    val filter: TransactionFilter = TransactionFilter(),
+    val categories: List<Category> = emptyList(),
+    val tags: List<Tag> = emptyList(),
+    val accounts: List<Account> = emptyList(),
+    val hasError: Boolean = false,
+)

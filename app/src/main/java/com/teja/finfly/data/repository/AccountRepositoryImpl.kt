@@ -5,8 +5,10 @@ import com.teja.finfly.data.local.FinFlyDatabase
 import com.teja.finfly.data.mapper.toDomain
 import com.teja.finfly.data.mapper.toEntity
 import com.teja.finfly.data.network.FireflyApiService
+import com.teja.finfly.data.network.dto.StoreAccountRequest
 import com.teja.finfly.domain.common.Result
 import com.teja.finfly.domain.model.Account
+import com.teja.finfly.domain.model.AccountDraft
 import com.teja.finfly.domain.repository.AccountRepository
 import com.teja.finfly.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.Flow
@@ -25,10 +27,29 @@ class AccountRepositoryImpl @Inject constructor(
         .map { rows -> Result.Success(rows.map { it.toDomain() }) as Result<List<Account>> }
         .catch { emit(Result.Error(it.message ?: CACHE_ERROR, it)) }
 
+    override suspend fun createAccount(draft: AccountDraft): Result<Account> {
+        if (!isConfigured()) return Result.Error(NOT_CONFIGURED)
+        return runCatching {
+            val response = api.createAccount(
+                StoreAccountRequest(
+                    name = draft.name.trim(),
+                    type = draft.type,
+                    currencyCode = draft.currency.takeIf(String::isNotBlank),
+                    openingBalance = draft.openingBalance?.toPlainString(),
+                    openingBalanceDate = draft.openingBalanceDate?.toString(),
+                )
+            )
+            val entity = response.data.toEntity()
+            database.accountDao().upsertAll(listOf(entity))
+            entity.toDomain()
+        }.fold(
+            onSuccess = { Result.Success(it) },
+            onFailure = { Result.Error(it.message ?: SAVE_ERROR, it) },
+        )
+    }
+
     override suspend fun sync(): Result<Unit> {
-        if (settingsRepository.settings.value.serverUrl.isBlank() ||
-            settingsRepository.settings.value.bearerToken.isBlank()
-        ) return Result.Error(NOT_CONFIGURED)
+        if (!isConfigured()) return Result.Error(NOT_CONFIGURED)
         return runCatching {
             val accounts = mutableListOf<com.teja.finfly.data.local.entity.AccountEntity>()
             var page = 1
@@ -44,11 +65,16 @@ class AccountRepositoryImpl @Inject constructor(
         }.getOrElse { Result.Error(it.message ?: SYNC_ERROR, it) }
     }
 
+    private fun isConfigured(): Boolean = settingsRepository.settings.value.run {
+        serverUrl.isNotBlank() && bearerToken.isNotBlank()
+    }
+
     private companion object {
         const val PAGE_SIZE = 100
         const val MAX_PAGES = 100
         const val CACHE_ERROR = "cache_error"
         const val SYNC_ERROR = "sync_error"
+        const val SAVE_ERROR = "save_error"
         const val NOT_CONFIGURED = "not_configured"
     }
 }

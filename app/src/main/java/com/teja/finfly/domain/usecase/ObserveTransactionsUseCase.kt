@@ -3,6 +3,7 @@ package com.teja.finfly.domain.usecase
 
 import com.teja.finfly.domain.common.Result
 import com.teja.finfly.domain.model.Transaction
+import com.teja.finfly.domain.model.TransactionFilter
 import com.teja.finfly.domain.repository.TransactionRepository
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
@@ -11,6 +12,13 @@ import javax.inject.Inject
 class ObserveTransactionsUseCase @Inject constructor(
     private val repository: TransactionRepository,
 ) {
-    operator fun invoke(limit: Int, offset: Int): Flow<Result<List<Transaction>>> =
-        repository.observeTransactions(limit.coerceIn(1, 200), offset.coerceAtLeast(0))
+    operator fun invoke(
+        filter: TransactionFilter,
+        limit: Int,
+        offset: Int,
+    ): Flow<Result<List<Transaction>>> = repository.observeTransactions(
+        filter = filter,
+        limit = limit.coerceIn(1, 200),
+        offset = offset.coerceAtLeast(0),
+    )
 }

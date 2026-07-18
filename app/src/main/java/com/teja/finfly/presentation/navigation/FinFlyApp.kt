@@ -30,9 +30,12 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.teja.finfly.R
 import com.teja.finfly.presentation.dashboard.DashboardScreen
+import com.teja.finfly.presentation.accounts.AccountEditorScreen
+import com.teja.finfly.presentation.accounts.AccountsScreen
 import com.teja.finfly.presentation.reports.ReportsScreen
 import com.teja.finfly.presentation.settings.SettingsScreen
 import com.teja.finfly.presentation.transactions.TransactionsScreen
+import com.teja.finfly.presentation.transactioneditor.TransactionEditorScreen
 
 private enum class FinFlyTab(val label: Int, val icon: ImageVector) {
     DASHBOARD(R.string.nav_dashboard, Icons.Rounded.Dashboard),
@@ -84,11 +87,32 @@ fun FinFlyApp() {
             modifier = Modifier.padding(innerPadding),
         ) {
             composable<AppRoute.Dashboard> {
-                DashboardScreen(onViewAll = { navController.navigate(AppRoute.Transactions) })
+                DashboardScreen(
+                    onViewAll = { navController.navigate(AppRoute.Transactions) },
+                    onManageAccounts = { navController.navigate(AppRoute.Accounts) },
+                    onTransactionClick = { navController.navigate(AppRoute.TransactionEditor(it)) },
+                )
             }
-            composable<AppRoute.Transactions> { TransactionsScreen() }
+            composable<AppRoute.Transactions> {
+                TransactionsScreen(
+                    onAddTransaction = { navController.navigate(AppRoute.TransactionEditor()) },
+                    onTransactionClick = { navController.navigate(AppRoute.TransactionEditor(it)) },
+                )
+            }
             composable<AppRoute.Reports> { ReportsScreen() }
             composable<AppRoute.Settings> { SettingsScreen() }
+            composable<AppRoute.TransactionEditor> {
+                TransactionEditorScreen(onBack = navController::popBackStack)
+            }
+            composable<AppRoute.Accounts> {
+                AccountsScreen(
+                    onBack = navController::popBackStack,
+                    onAdd = { navController.navigate(AppRoute.AccountEditor) },
+                )
+            }
+            composable<AppRoute.AccountEditor> {
+                AccountEditorScreen(onBack = navController::popBackStack)
+            }
         }
     }
 }

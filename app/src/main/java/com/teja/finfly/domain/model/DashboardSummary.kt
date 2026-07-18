@@ -8,5 +8,7 @@ data class DashboardSummary(
     val todaySpend: BigDecimal,
     val monthSpend: BigDecimal,
     val currency: String,
+    val weeklySpending: List<DailySpend>,
+    val accounts: List<Account>,
     val recentTransactions: List<Transaction>,
 )

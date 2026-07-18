@@ -93,6 +93,7 @@ fun TransactionRow(transaction: Transaction, modifier: Modifier = Modifier) {
                 Spacer(Modifier.size(spacing.small))
                 Row(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
                     CategoryChip(transaction.category)
+                    transaction.tags.take(2).forEach { TagChip(it) }
                     Text(
                         text = transaction.date.atZone(ZoneId.systemDefault()).format(
                             DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
@@ -109,6 +110,23 @@ fun TransactionRow(transaction: Transaction, modifier: Modifier = Modifier) {
                 color = amountColor,
             )
         }
+    }
+}
+
+@Composable
+private fun TagChip(tag: String) {
+    Box(
+        modifier = Modifier.background(
+            color = MaterialTheme.colorScheme.tertiaryContainer,
+            shape = RoundedCornerShape(FinFlyThemeTokens.radii.chip),
+        ).padding(horizontal = 8.dp, vertical = 3.dp),
+    ) {
+        Text(
+            text = "#$tag",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onTertiaryContainer,
+            maxLines = 1,
+        )
     }
 }
 

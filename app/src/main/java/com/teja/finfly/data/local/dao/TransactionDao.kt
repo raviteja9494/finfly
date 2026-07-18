@@ -10,6 +10,12 @@ import kotlinx.coroutines.flow.Flow
 /** Reads ordered pages and date-bounded withdrawals, and atomically upserts remote rows. */
 @Dao
 interface TransactionDao {
+    @Query("SELECT * FROM transactions ORDER BY dateEpochMillis DESC")
+    fun observeAll(): Flow<List<TransactionEntity>>
+
+    @Query("SELECT * FROM transactions WHERE id = :id LIMIT 1")
+    fun observeById(id: String): Flow<TransactionEntity?>
+
     @Query("SELECT * FROM transactions ORDER BY dateEpochMillis DESC LIMIT :limit OFFSET :offset")
     fun observePage(limit: Int, offset: Int): Flow<List<TransactionEntity>>
 
@@ -21,4 +27,7 @@ interface TransactionDao {
 
     @Upsert
     suspend fun upsertAll(transactions: List<TransactionEntity>)
+
+    @Upsert
+    suspend fun upsert(transaction: TransactionEntity)
 }

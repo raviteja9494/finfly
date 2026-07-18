@@ -2,6 +2,7 @@
 package com.teja.finfly.presentation.dashboard
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,7 +12,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -22,6 +25,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -34,6 +38,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.teja.finfly.R
 import com.teja.finfly.domain.model.DashboardSummary
+import com.teja.finfly.domain.model.DailySpend
+import com.teja.finfly.presentation.accounts.AccountCard
 import com.teja.finfly.presentation.components.EmptyState
 import com.teja.finfly.presentation.components.ErrorState
 import com.teja.finfly.presentation.components.LoadingState
@@ -42,14 +48,18 @@ import com.teja.finfly.presentation.theme.FinFlyThemeTokens
 import java.math.BigDecimal
 import java.text.NumberFormat
 import java.util.Currency
+import java.time.format.DateTimeFormatter
+import kotlin.math.max
 
 @Composable
 fun DashboardScreen(
     onViewAll: () -> Unit,
+    onManageAccounts: () -> Unit,
+    onTransactionClick: (String) -> Unit,
     viewModel: DashboardViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    DashboardContent(state, viewModel::refresh, onViewAll)
+    DashboardContent(state, viewModel::refresh, onViewAll, onManageAccounts, onTransactionClick)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -58,6 +68,8 @@ private fun DashboardContent(
     state: DashboardUiState,
     onRefresh: () -> Unit,
     onViewAll: () -> Unit,
+    onManageAccounts: () -> Unit,
+    onTransactionClick: (String) -> Unit,
 ) {
     val refreshing = when (state) {
         is DashboardUiState.Success -> state.isRefreshing
@@ -69,13 +81,23 @@ private fun DashboardContent(
             DashboardUiState.Loading -> LoadingState()
             is DashboardUiState.Error -> ErrorState(onRetry = onRefresh)
             is DashboardUiState.Empty -> EmptyState(R.string.no_dashboard_data, R.string.no_dashboard_data_message)
-            is DashboardUiState.Success -> DashboardList(state.summary, onViewAll)
+            is DashboardUiState.Success -> DashboardList(
+                state.summary,
+                onViewAll,
+                onManageAccounts,
+                onTransactionClick,
+            )
         }
     }
 }
 
 @Composable
-private fun DashboardList(summary: DashboardSummary, onViewAll: () -> Unit) {
+private fun DashboardList(
+    summary: DashboardSummary,
+    onViewAll: () -> Unit,
+    onManageAccounts: () -> Unit,
+    onTransactionClick: (String) -> Unit,
+) {
     val spacing = FinFlyThemeTokens.spacing
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -91,13 +113,88 @@ private fun DashboardList(summary: DashboardSummary, onViewAll: () -> Unit) {
                 SpendCard(R.string.month_spend, summary.monthSpend, summary.currency, Modifier.weight(1f))
             }
         }
+        item { WeeklySpendingChart(summary.weeklySpending, summary.currency) }
+        item {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.bank_accounts), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                TextButton(onClick = onManageAccounts) { Text(stringResource(R.string.manage)) }
+            }
+        }
+        if (summary.accounts.isEmpty()) {
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(spacing.medium)) {
+                        Text(stringResource(R.string.no_bank_accounts), style = MaterialTheme.typography.titleMedium)
+                        TextButton(onClick = onManageAccounts) { Text(stringResource(R.string.add_bank_account)) }
+                    }
+                }
+            }
+        } else {
+            item {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
+                    items(summary.accounts, key = { it.id }) { account ->
+                        AccountCard(account, Modifier.width(260.dp))
+                    }
+                }
+            }
+        }
         item {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.recent_transactions), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
                 androidx.compose.material3.TextButton(onClick = onViewAll) { Text(stringResource(R.string.view_all)) }
             }
         }
-        items(summary.recentTransactions, key = { it.id }) { TransactionRow(it) }
+        items(summary.recentTransactions, key = { it.id }) { transaction ->
+            TransactionRow(transaction, Modifier.clickable { onTransactionClick(transaction.id) })
+        }
+    }
+}
+
+@Composable
+private fun WeeklySpendingChart(spending: List<DailySpend>, currency: String) {
+    val spacing = FinFlyThemeTokens.spacing
+    val maximum = spending.maxOfOrNull { it.amount } ?: BigDecimal.ZERO
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(FinFlyThemeTokens.radii.card),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    ) {
+        Column(Modifier.padding(spacing.medium)) {
+            Text(stringResource(R.string.this_week), style = MaterialTheme.typography.titleLarge)
+            Text(
+                formatCurrency(spending.fold(BigDecimal.ZERO) { total, day -> total + day.amount }, currency),
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.padding(top = spacing.small),
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth().height(148.dp).padding(top = spacing.medium),
+                horizontalArrangement = Arrangement.spacedBy(spacing.small),
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                spending.forEach { day ->
+                    val ratio = if (maximum > BigDecimal.ZERO) {
+                        day.amount.divide(maximum, 4, java.math.RoundingMode.HALF_UP).toFloat()
+                    } else 0f
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Bottom,
+                    ) {
+                        Box(
+                            Modifier.fillMaxWidth().height(max(4f, 108f * ratio).dp).background(
+                                MaterialTheme.colorScheme.primary,
+                                RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp),
+                            )
+                        )
+                        Text(
+                            day.date.format(DateTimeFormatter.ofPattern("EEE")),
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(top = spacing.small),
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 

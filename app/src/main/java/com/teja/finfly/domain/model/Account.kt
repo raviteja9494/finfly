@@ -10,4 +10,11 @@ data class Account(
     val balance: BigDecimal,
     val currency: String,
     val type: String,
-)
+) {
+    /** True for balance-bearing accounts users normally regard as bank or cash accounts. */
+    val isBalanceAccount: Boolean
+        get() = type.lowercase().let { value ->
+            value == "asset" || value == "cash" || value == "liability" || value == "liabilities" ||
+                value.contains("asset account") || value.contains("liability")
+        }
+}

@@ -4,9 +4,11 @@ package com.teja.finfly.data.mapper
 import com.teja.finfly.data.local.entity.AccountEntity
 import com.teja.finfly.data.local.entity.CategoryEntity
 import com.teja.finfly.data.local.entity.TransactionEntity
+import com.teja.finfly.data.local.entity.TagEntity
 import com.teja.finfly.data.network.dto.AccountResource
 import com.teja.finfly.data.network.dto.CategoryResource
 import com.teja.finfly.data.network.dto.TransactionResource
+import com.teja.finfly.data.network.dto.TagResource
 import com.teja.finfly.domain.model.TransactionType
 import java.time.Instant
 import java.time.OffsetDateTime
@@ -23,10 +25,16 @@ fun TransactionResource.toEntities(): List<TransactionEntity> = attributes.trans
     }.orEmpty()
     TransactionEntity(
         id = "$id-$index",
+        remoteGroupId = id,
+        journalId = split.transactionJournalId,
         amount = split.amount,
         description = split.description,
         category = split.categoryName.orEmpty(),
         account = account,
+        sourceAccountId = split.sourceId,
+        sourceAccount = split.sourceName.orEmpty(),
+        destinationAccountId = split.destinationId,
+        destinationAccount = split.destinationName.orEmpty(),
         dateEpochMillis = parseInstant(split.date).toEpochMilli(),
         type = type.name,
         tags = split.tags.joinToString(TAG_SEPARATOR),
@@ -50,6 +58,8 @@ fun CategoryResource.toEntity(): CategoryEntity = CategoryEntity(
     color = "",
     icon = "",
 )
+
+fun TagResource.toEntity(): TagEntity = TagEntity(id = id, name = attributes.tag)
 
 private fun parseInstant(value: String): Instant = runCatching { Instant.parse(value) }
     .recoverCatching { OffsetDateTime.parse(value).toInstant() }

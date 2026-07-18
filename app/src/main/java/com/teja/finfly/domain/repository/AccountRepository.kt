@@ -3,6 +3,7 @@ package com.teja.finfly.domain.repository
 
 import com.teja.finfly.domain.common.Result
 import com.teja.finfly.domain.model.Account
+import com.teja.finfly.domain.model.AccountDraft
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -11,5 +12,6 @@ import kotlinx.coroutines.flow.Flow
  */
 interface AccountRepository {
     fun observeAccounts(): Flow<Result<List<Account>>>
+    suspend fun createAccount(draft: AccountDraft): Result<Account>
     suspend fun sync(): Result<Unit>
 }

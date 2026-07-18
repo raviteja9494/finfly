@@ -6,10 +6,15 @@ import com.teja.finfly.data.network.dto.ApiListResponse
 import com.teja.finfly.data.network.dto.ApiSingleResponse
 import com.teja.finfly.data.network.dto.CategoryResource
 import com.teja.finfly.data.network.dto.StoreTransactionRequest
+import com.teja.finfly.data.network.dto.StoreAccountRequest
+import com.teja.finfly.data.network.dto.TagResource
 import com.teja.finfly.data.network.dto.TransactionResource
+import com.teja.finfly.data.network.dto.UpdateTransactionRequest
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.PUT
+import retrofit2.http.Path
 import retrofit2.http.Query
 
 /**
@@ -37,8 +42,25 @@ interface FireflyApiService {
         @Query("limit") limit: Int = 100,
     ): ApiListResponse<CategoryResource>
 
+    @GET("api/v1/tags")
+    suspend fun getTags(
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 100,
+    ): ApiListResponse<TagResource>
+
     @POST("api/v1/transactions")
     suspend fun createTransaction(
         @Body request: StoreTransactionRequest,
     ): ApiSingleResponse<TransactionResource>
+
+    @PUT("api/v1/transactions/{id}")
+    suspend fun updateTransaction(
+        @Path("id") id: String,
+        @Body request: UpdateTransactionRequest,
+    ): ApiSingleResponse<TransactionResource>
+
+    @POST("api/v1/accounts")
+    suspend fun createAccount(
+        @Body request: StoreAccountRequest,
+    ): ApiSingleResponse<AccountResource>
 }

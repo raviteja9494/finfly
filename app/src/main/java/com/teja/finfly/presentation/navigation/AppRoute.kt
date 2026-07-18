@@ -8,4 +8,7 @@ sealed interface AppRoute {
     @Serializable data object Transactions : AppRoute
     @Serializable data object Reports : AppRoute
     @Serializable data object Settings : AppRoute
+    @Serializable data class TransactionEditor(val transactionId: String? = null) : AppRoute
+    @Serializable data object Accounts : AppRoute
+    @Serializable data object AccountEditor : AppRoute
 }
