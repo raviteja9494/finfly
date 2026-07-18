@@ -10,6 +10,8 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.teja.finfly.domain.common.Result
 import com.teja.finfly.domain.model.AppSettings
+import com.teja.finfly.domain.model.DashboardChartPeriod
+import com.teja.finfly.domain.model.DashboardRangeMode
 import com.teja.finfly.domain.repository.SettingsRepository
 import com.teja.finfly.di.ApplicationScope
 import kotlinx.coroutines.CoroutineScope
@@ -37,6 +39,12 @@ class SettingsRepositoryImpl @Inject constructor(
                 showNetWorthSummary = preferences[SHOW_NET_WORTH] ?: false,
                 recentTransactionsCount = preferences[RECENT_TRANSACTION_COUNT]
                     ?.takeIf { it in SUPPORTED_RECENT_COUNTS } ?: DEFAULT_RECENT_COUNT,
+                dashboardChartPeriod = preferences[DASHBOARD_CHART_PERIOD].toEnumOrDefault(
+                    DashboardChartPeriod.WEEK,
+                ),
+                dashboardRangeMode = preferences[DASHBOARD_RANGE_MODE].toEnumOrDefault(
+                    DashboardRangeMode.CALENDAR,
+                ),
             )
         }
         .stateIn(scope, SharingStarted.Eagerly, AppSettings())
@@ -57,10 +65,14 @@ class SettingsRepositoryImpl @Inject constructor(
     override suspend fun saveDashboardPreferences(
         showNetWorthSummary: Boolean,
         recentTransactionsCount: Int,
+        chartPeriod: DashboardChartPeriod,
+        rangeMode: DashboardRangeMode,
     ): Result<Unit> = runCatching {
         dataStore.edit { preferences ->
             preferences[SHOW_NET_WORTH] = showNetWorthSummary
             preferences[RECENT_TRANSACTION_COUNT] = recentTransactionsCount
+            preferences[DASHBOARD_CHART_PERIOD] = chartPeriod.name
+            preferences[DASHBOARD_RANGE_MODE] = rangeMode.name
         }
         Result.Success(Unit)
     }.getOrElse { Result.Error(it.message ?: it.javaClass.simpleName, it) }
@@ -71,7 +83,12 @@ class SettingsRepositoryImpl @Inject constructor(
         val LAST_SYNC = longPreferencesKey("last_sync_time")
         val SHOW_NET_WORTH = booleanPreferencesKey("show_net_worth_summary")
         val RECENT_TRANSACTION_COUNT = intPreferencesKey("recent_transaction_count")
+        val DASHBOARD_CHART_PERIOD = stringPreferencesKey("dashboard_chart_period")
+        val DASHBOARD_RANGE_MODE = stringPreferencesKey("dashboard_range_mode")
         const val DEFAULT_RECENT_COUNT = 10
         val SUPPORTED_RECENT_COUNTS = setOf(5, 10, 20)
     }
+
+    private inline fun <reified T : Enum<T>> String?.toEnumOrDefault(default: T): T =
+        this?.let { value -> enumValues<T>().firstOrNull { it.name == value } } ?: default
 }

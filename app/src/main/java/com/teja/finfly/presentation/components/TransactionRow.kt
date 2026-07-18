@@ -109,10 +109,10 @@ fun TransactionRow(transaction: Transaction, modifier: Modifier = Modifier) {
                     modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(spacing.xSmall),
                 ) {
-                    transaction.tags.forEach { TagPill(it) }
+                    transaction.tags.forEach { TagPill(it, showKind = true) }
                 }
             }
-            CategoryPill(transaction.category)
+            CategoryPill(transaction.category, showKind = true)
             Text(
                 text = transaction.date.atZone(ZoneId.systemDefault()).format(
                     DateTimeFormatter.ofPattern(

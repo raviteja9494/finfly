@@ -2,9 +2,9 @@
 package com.teja.finfly.presentation.transactions
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,6 +18,7 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -26,6 +27,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -34,6 +38,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -86,6 +91,7 @@ fun TransactionsScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun TransactionList(
     state: TransactionsUiState,
@@ -101,7 +107,11 @@ private fun TransactionList(
 ) {
     val spacing = FinFlyThemeTokens.spacing
     val searchFocusRequester = remember { FocusRequester() }
-    LaunchedEffect(Unit) { searchFocusRequester.requestFocus() }
+    var showSearch by rememberSaveable { mutableStateOf(state.searchQuery.isNotEmpty()) }
+    var showFilters by rememberSaveable { mutableStateOf(state.activeFilterCount > 0) }
+    LaunchedEffect(showSearch) {
+        if (showSearch) searchFocusRequester.requestFocus()
+    }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(
@@ -112,17 +122,52 @@ private fun TransactionList(
         ),
         verticalArrangement = Arrangement.spacedBy(spacing.small),
     ) {
-        item {
-            Column(Modifier.padding(bottom = spacing.small)) {
-                Text(stringResource(R.string.transactions_title), style = MaterialTheme.typography.headlineLarge)
-                Text(
-                    stringResource(R.string.transactions_subtitle),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+        stickyHeader {
+            Surface(color = MaterialTheme.colorScheme.background) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = spacing.xSmall),
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                ) {
+                    Text(
+                        pluralStringResource(
+                            R.plurals.transactions_found,
+                            state.resultCount,
+                            state.resultCount,
+                        ),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f),
+                    )
+                    IconButton(onClick = { showSearch = !showSearch }) {
+                        Icon(
+                            Icons.Rounded.Search,
+                            contentDescription = stringResource(R.string.search_transactions),
+                            tint = if (showSearch || state.searchQuery.isNotEmpty()) {
+                                MaterialTheme.colorScheme.primary
+                            } else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    IconButton(onClick = { showFilters = !showFilters }) {
+                        BadgedBox(
+                            badge = {
+                                if (state.activeFilterCount > 0) {
+                                    Badge { Text(state.activeFilterCount.toString()) }
+                                }
+                            }
+                        ) {
+                            Icon(
+                                Icons.Rounded.FilterList,
+                                contentDescription = stringResource(R.string.filters),
+                                tint = if (showFilters || state.activeFilterCount > 0) {
+                                    MaterialTheme.colorScheme.primary
+                                } else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
             }
         }
-        item {
+        if (showSearch) item {
             OutlinedTextField(
                 value = state.searchQuery,
                 onValueChange = onQueryChange,
@@ -139,18 +184,7 @@ private fun TransactionList(
                 } else null,
             )
         }
-        item {
-            Text(
-                pluralStringResource(
-                    R.plurals.transactions_found,
-                    state.resultCount,
-                    state.resultCount,
-                ),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        item {
+        if (showFilters) item {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(
                     if (state.activeFilterCount > 0) {
@@ -163,7 +197,7 @@ private fun TransactionList(
                 }
             }
         }
-        item {
+        if (showFilters) item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(spacing.small),

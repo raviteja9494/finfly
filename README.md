@@ -1,7 +1,7 @@
 <!-- Project documentation for the FinFly Firefly III Android companion. -->
 # FinFly
 
-FinFly is an offline-first Android companion for a self-hosted Firefly III personal-finance server. Phase 3 fixes transaction search and drawer navigation, adds server-backed tag editing/filtering, makes Dashboard summaries configurable, and applies consistent loading, empty, and retryable error treatments to the Phase 2 foundation.
+FinFly is an offline-first Android companion for a self-hosted Firefly III personal-finance server. Phase 3 fixes transaction search and drawer navigation, adds server-backed tag editing/filtering, makes Dashboard summaries and chart periods configurable, and applies consistent loading, empty, and retryable error treatments to the Phase 2 foundation.
 
 The presentation takes visual cues from PennyWise AI—generous rounded cards, soft Rose Pine accents, high-contrast dark surfaces, and compact bottom navigation—without copying its business logic.
 
@@ -105,6 +105,6 @@ Phase 1 implemented the foundation, theme, domain models, Firefly API, Room cach
 
 Phase 2 implemented compact category/type transaction filters, scrollable transaction tag pills, full transaction detail and constrained Firefly editing, a persistent drawer and sync app bar, grouped account browsing with account-filtered transactions, budget/category/bill/piggy-bank lists, 90-day synchronization, weekly and category Dashboard charts, asset/liability totals, and debug/release CI artifacts.
 
-Phase 3 fixes debounced transaction search and drawer route state, adds a dedicated tag repository with edit/filter selection, removes Dashboard account cards, makes net-worth and recent-transaction sections configurable, separates reference/raw-SMS detail fields, and standardizes skeleton loading, illustrated empty states, and retryable error cards.
+Phase 3 fixes debounced transaction search and drawer route state, adds a dedicated tag repository with edit/filter selection, removes Dashboard account cards, makes net-worth, recent-transaction, and calendar/rolling chart periods configurable, supports bar/pie category views, uses compact expandable transaction controls with labeled category/tag pills, separates reference/raw-SMS detail fields, and standardizes skeleton loading, illustrated empty states, and retryable error cards.
 
 Deferred by design after Phase 3: SMS reading/parsing, AI assistance, the dedicated Reports experience, and notifications.

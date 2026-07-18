@@ -10,4 +10,6 @@ data class AppSettings(
     val lastSyncTime: Instant? = null,
     val showNetWorthSummary: Boolean = false,
     val recentTransactionsCount: Int = 10,
+    val dashboardChartPeriod: DashboardChartPeriod = DashboardChartPeriod.WEEK,
+    val dashboardRangeMode: DashboardRangeMode = DashboardRangeMode.CALENDAR,
 )

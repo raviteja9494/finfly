@@ -3,6 +3,8 @@ package com.teja.finfly.domain.repository
 
 import com.teja.finfly.domain.common.Result
 import com.teja.finfly.domain.model.AppSettings
+import com.teja.finfly.domain.model.DashboardChartPeriod
+import com.teja.finfly.domain.model.DashboardRangeMode
 import kotlinx.coroutines.flow.StateFlow
 import java.time.Instant
 
@@ -13,6 +15,11 @@ import java.time.Instant
 interface SettingsRepository {
     val settings: StateFlow<AppSettings>
     suspend fun save(serverUrl: String, bearerToken: String): Result<Unit>
-    suspend fun saveDashboardPreferences(showNetWorthSummary: Boolean, recentTransactionsCount: Int): Result<Unit>
+    suspend fun saveDashboardPreferences(
+        showNetWorthSummary: Boolean,
+        recentTransactionsCount: Int,
+        chartPeriod: DashboardChartPeriod,
+        rangeMode: DashboardRangeMode,
+    ): Result<Unit>
     suspend fun updateLastSyncTime(instant: Instant): Result<Unit>
 }

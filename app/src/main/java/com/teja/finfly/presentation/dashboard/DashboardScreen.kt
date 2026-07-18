@@ -2,6 +2,7 @@
 package com.teja.finfly.presentation.dashboard
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,24 +10,34 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.FlightTakeoff
+import androidx.compose.material.icons.rounded.Insights
+import androidx.compose.material.icons.rounded.BarChart
+import androidx.compose.material.icons.rounded.DonutLarge
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -39,6 +50,8 @@ import com.teja.finfly.R
 import com.teja.finfly.domain.model.DashboardSummary
 import com.teja.finfly.domain.model.DailySpend
 import com.teja.finfly.domain.model.CategorySpend
+import com.teja.finfly.domain.model.DashboardChartPeriod
+import com.teja.finfly.domain.model.DashboardRangeMode
 import com.teja.finfly.presentation.components.EmptyState
 import com.teja.finfly.presentation.components.ErrorState
 import com.teja.finfly.presentation.components.LoadingState
@@ -113,7 +126,7 @@ private fun DashboardList(
         ),
         verticalArrangement = Arrangement.spacedBy(spacing.medium),
     ) {
-        item { DashboardHero() }
+        item { DashboardInsight(summary) }
         if (showNetWorthSummary) {
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(spacing.medium), modifier = Modifier.fillMaxWidth()) {
@@ -128,7 +141,15 @@ private fun DashboardList(
                 SpendCard(R.string.month_spend, summary.monthSpend, summary.currency, Modifier.weight(1f))
             }
         }
-        item { WeeklySpendingChart(summary.weeklySpending, summary.currency, onDaySelected) }
+        item {
+            SpendingChart(
+                spending = summary.chartSpending,
+                currency = summary.currency,
+                period = summary.chartPeriod,
+                rangeMode = summary.rangeMode,
+                onDaySelected = onDaySelected,
+            )
+        }
         if (summary.categorySpending.isNotEmpty()) {
             item { CategorySpendingChart(summary.categorySpending, summary.currency) }
         }
@@ -145,9 +166,11 @@ private fun DashboardList(
 }
 
 @Composable
-private fun WeeklySpendingChart(
+private fun SpendingChart(
     spending: List<DailySpend>,
     currency: String,
+    period: DashboardChartPeriod,
+    rangeMode: DashboardRangeMode,
     onDaySelected: (DailySpend) -> Unit,
 ) {
     val spacing = FinFlyThemeTokens.spacing
@@ -159,43 +182,44 @@ private fun WeeklySpendingChart(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
         Column(Modifier.padding(spacing.medium)) {
-            Text(stringResource(R.string.this_week), style = MaterialTheme.typography.titleLarge)
+            Text(
+                stringResource(chartTitleResource(period, rangeMode)),
+                style = MaterialTheme.typography.titleLarge,
+            )
             Text(
                 formatCurrency(spending.fold(BigDecimal.ZERO) { total, day -> total + day.amount }, currency),
                 style = MaterialTheme.typography.headlineMedium,
                 modifier = Modifier.padding(top = spacing.small),
             )
-            Row(
-                modifier = Modifier.fillMaxWidth().height(178.dp).padding(top = spacing.medium),
-                horizontalArrangement = Arrangement.spacedBy(spacing.small),
-                verticalAlignment = Alignment.Bottom,
-            ) {
-                spending.forEach { day ->
-                    val ratio = if (maximum > BigDecimal.ZERO) {
-                        day.amount.divide(maximum, 4, java.math.RoundingMode.HALF_UP).toFloat()
-                    } else 0f
-                    Column(
-                        modifier = Modifier.weight(1f).clickable { onDaySelected(day) },
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Bottom,
-                    ) {
-                        Text(
-                            formatCompactAmount(day.amount),
-                            style = MaterialTheme.typography.labelSmall,
-                            maxLines = 1,
+            if (spending.size <= 7) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().height(178.dp).padding(top = spacing.medium),
+                    horizontalArrangement = Arrangement.spacedBy(spacing.small),
+                    verticalAlignment = Alignment.Bottom,
+                ) {
+                    spending.forEach { day ->
+                        SpendingBar(
+                            day,
+                            maximum,
+                            locale,
+                            { onDaySelected(day) },
+                            Modifier.weight(1f),
                         )
-                        Box(
-                            Modifier.fillMaxWidth().height(max(4f, 104f * ratio).dp).background(
-                                MaterialTheme.colorScheme.primary,
-                                RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp),
-                            )
-                        )
-                        Text(
-                            day.date.format(
-                                DateTimeFormatter.ofPattern(stringResource(R.string.week_day_pattern), locale)
-                            ),
-                            style = MaterialTheme.typography.labelSmall,
-                            modifier = Modifier.padding(top = spacing.small),
+                    }
+                }
+            } else {
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth().height(178.dp).padding(top = spacing.medium),
+                    horizontalArrangement = Arrangement.spacedBy(spacing.small),
+                    verticalAlignment = Alignment.Bottom,
+                ) {
+                    items(spending, key = DailySpend::date) { day ->
+                        SpendingBar(
+                            day,
+                            maximum,
+                            locale,
+                            { onDaySelected(day) },
+                            Modifier.width(44.dp),
                         )
                     }
                 }
@@ -205,9 +229,48 @@ private fun WeeklySpendingChart(
 }
 
 @Composable
+private fun SpendingBar(
+    day: DailySpend,
+    maximum: BigDecimal,
+    locale: java.util.Locale,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val ratio = if (maximum > BigDecimal.ZERO) {
+        day.amount.divide(maximum, 4, java.math.RoundingMode.HALF_UP).toFloat()
+    } else 0f
+    Column(
+        modifier = modifier.fillMaxHeight().clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Bottom,
+    ) {
+        Text(formatCompactAmount(day.amount), style = MaterialTheme.typography.labelSmall, maxLines = 1)
+        Box(
+            Modifier.fillMaxWidth().height(max(4f, 104f * ratio).dp).background(
+                MaterialTheme.colorScheme.primary,
+                RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp),
+            )
+        )
+        Text(
+            day.date.format(DateTimeFormatter.ofPattern(stringResource(R.string.chart_day_pattern), locale)),
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.padding(top = FinFlyThemeTokens.spacing.small),
+        )
+    }
+}
+
+private fun chartTitleResource(period: DashboardChartPeriod, mode: DashboardRangeMode): Int =
+    when (period to mode) {
+        DashboardChartPeriod.WEEK to DashboardRangeMode.CALENDAR -> R.string.chart_calendar_week
+        DashboardChartPeriod.WEEK to DashboardRangeMode.ROLLING -> R.string.chart_rolling_week
+        DashboardChartPeriod.MONTH to DashboardRangeMode.CALENDAR -> R.string.chart_calendar_month
+        else -> R.string.chart_rolling_month
+    }
+
+@Composable
 private fun CategorySpendingChart(spending: List<CategorySpend>, currency: String) {
     val spacing = FinFlyThemeTokens.spacing
-    val maximum = spending.maxOfOrNull(CategorySpend::amount) ?: BigDecimal.ZERO
+    var mode by rememberSaveable { mutableStateOf(CategoryChartMode.BARS) }
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(FinFlyThemeTokens.radii.card),
@@ -217,34 +280,113 @@ private fun CategorySpendingChart(spending: List<CategorySpend>, currency: Strin
             Modifier.padding(spacing.medium),
             verticalArrangement = Arrangement.spacedBy(spacing.medium),
         ) {
-            Text(stringResource(R.string.month_by_category), style = MaterialTheme.typography.titleLarge)
-            spending.forEach { row ->
-                val ratio = if (maximum > BigDecimal.ZERO) {
-                    row.amount.divide(maximum, 4, java.math.RoundingMode.HALF_UP).toFloat()
-                } else 0f
-                Column(verticalArrangement = Arrangement.spacedBy(spacing.xSmall)) {
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        Text(
-                            row.category.ifBlank { stringResource(R.string.category_uncategorized) },
-                            modifier = Modifier.weight(1f),
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                        Text(formatCurrency(row.amount, currency), style = MaterialTheme.typography.labelLarge)
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    stringResource(R.string.month_by_category),
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(
+                    onClick = {
+                        mode = if (mode == CategoryChartMode.BARS) CategoryChartMode.PIE else CategoryChartMode.BARS
                     }
-                    Box(
-                        Modifier.fillMaxWidth(ratio.coerceIn(0.02f, 1f)).height(10.dp).background(
-                            MaterialTheme.colorScheme.secondary,
-                            RoundedCornerShape(FinFlyThemeTokens.radii.chip),
-                        )
+                ) {
+                    Icon(
+                        if (mode == CategoryChartMode.BARS) Icons.Rounded.DonutLarge else Icons.Rounded.BarChart,
+                        contentDescription = stringResource(
+                            if (mode == CategoryChartMode.BARS) R.string.show_pie_chart else R.string.show_bar_chart
+                        ),
                     )
                 }
+            }
+            when (mode) {
+                CategoryChartMode.BARS -> CategoryBars(spending, currency)
+                CategoryChartMode.PIE -> CategoryPie(spending, currency)
             }
         }
     }
 }
 
 @Composable
-private fun DashboardHero() {
+private fun CategoryBars(spending: List<CategorySpend>, currency: String) {
+    val maximum = spending.maxOfOrNull(CategorySpend::amount) ?: BigDecimal.ZERO
+    Column(verticalArrangement = Arrangement.spacedBy(FinFlyThemeTokens.spacing.medium)) {
+        spending.forEach { row ->
+            val ratio = if (maximum > BigDecimal.ZERO) {
+                row.amount.divide(maximum, 4, java.math.RoundingMode.HALF_UP).toFloat()
+            } else 0f
+            Column(verticalArrangement = Arrangement.spacedBy(FinFlyThemeTokens.spacing.xSmall)) {
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        row.category.ifBlank { stringResource(R.string.category_uncategorized) },
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(formatCurrency(row.amount, currency), style = MaterialTheme.typography.labelLarge)
+                }
+                Box(
+                    Modifier.fillMaxWidth(ratio.coerceIn(0.02f, 1f)).height(10.dp).background(
+                        MaterialTheme.colorScheme.secondary,
+                        RoundedCornerShape(FinFlyThemeTokens.radii.chip),
+                    )
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CategoryPie(spending: List<CategorySpend>, currency: String) {
+    val colors = listOf(
+        MaterialTheme.colorScheme.primary,
+        MaterialTheme.colorScheme.secondary,
+        MaterialTheme.colorScheme.tertiary,
+        MaterialTheme.colorScheme.error,
+        MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    val total = spending.fold(BigDecimal.ZERO) { sum, row -> sum + row.amount }
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(FinFlyThemeTokens.spacing.medium),
+    ) {
+        Canvas(Modifier.size(180.dp)) {
+            var startAngle = -90f
+            spending.forEachIndexed { index, row ->
+                val sweep = if (total > BigDecimal.ZERO) {
+                    row.amount.divide(total, 6, java.math.RoundingMode.HALF_UP).toFloat() * 360f
+                } else 0f
+                drawArc(
+                    color = colors[index % colors.size],
+                    startAngle = startAngle,
+                    sweepAngle = sweep,
+                    useCenter = true,
+                )
+                startAngle += sweep
+            }
+        }
+        spending.forEachIndexed { index, row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(FinFlyThemeTokens.spacing.small),
+            ) {
+                Box(Modifier.size(12.dp).background(colors[index % colors.size], RoundedCornerShape(4.dp)))
+                Text(
+                    row.category.ifBlank { stringResource(R.string.category_uncategorized) },
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(formatCurrency(row.amount, currency), style = MaterialTheme.typography.labelLarge)
+            }
+        }
+    }
+}
+
+private enum class CategoryChartMode { BARS, PIE }
+
+@Composable
+private fun DashboardInsight(summary: DashboardSummary) {
     val spacing = FinFlyThemeTokens.spacing
     Box(
         modifier = Modifier.fillMaxWidth().height(176.dp).background(
@@ -253,10 +395,24 @@ private fun DashboardHero() {
         ).padding(spacing.large),
     ) {
         Column(modifier = Modifier.align(Alignment.CenterStart)) {
-            Icon(Icons.Rounded.FlightTakeoff, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Icon(Icons.Rounded.Insights, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.height(spacing.medium))
-            Text(stringResource(R.string.dashboard_title), style = MaterialTheme.typography.headlineLarge)
-            Text(stringResource(R.string.dashboard_subtitle), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.spending_pace), style = MaterialTheme.typography.headlineLarge)
+            Text(
+                stringResource(
+                    R.string.daily_average_value,
+                    formatCurrency(summary.monthDailyAverage, summary.currency),
+                ),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                stringResource(
+                    R.string.top_category_value,
+                    summary.categorySpending.firstOrNull()?.category
+                        ?.takeIf(String::isNotBlank) ?: stringResource(R.string.category_uncategorized),
+                ),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

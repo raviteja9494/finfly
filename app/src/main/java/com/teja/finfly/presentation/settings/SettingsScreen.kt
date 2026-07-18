@@ -40,6 +40,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.teja.finfly.R
+import com.teja.finfly.domain.model.DashboardChartPeriod
+import com.teja.finfly.domain.model.DashboardRangeMode
 import com.teja.finfly.presentation.components.ErrorState
 import com.teja.finfly.presentation.components.LoadingState
 import com.teja.finfly.presentation.theme.FinFlyThemeTokens
@@ -68,16 +70,19 @@ private fun SettingsFormContent(form: SettingsForm, viewModel: SettingsViewModel
     ) {
         item {
             Column {
-                Text(stringResource(R.string.settings_title), style = MaterialTheme.typography.headlineLarge)
+                Text(stringResource(R.string.settings_page_title), style = MaterialTheme.typography.headlineLarge)
                 Text(
-                    stringResource(R.string.settings_subtitle),
+                    stringResource(R.string.settings_page_subtitle),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
         item {
-            Text(stringResource(R.string.dashboard_settings), style = MaterialTheme.typography.titleLarge)
+            SettingsSectionHeader(
+                R.string.dashboard_settings,
+                R.string.dashboard_settings_description,
+            )
         }
         item {
             Card {
@@ -116,8 +121,45 @@ private fun SettingsFormContent(form: SettingsForm, viewModel: SettingsViewModel
                             )
                         }
                     }
+                    Text(
+                        stringResource(R.string.spending_chart_period),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
+                        DashboardChartPeriod.entries.forEach { period ->
+                            FilterChip(
+                                selected = form.dashboardChartPeriod == period,
+                                onClick = { viewModel.setDashboardChartPeriod(period) },
+                                label = { Text(stringResource(period.labelResource())) },
+                            )
+                        }
+                    }
+                    Text(
+                        stringResource(R.string.spending_chart_range_mode),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
+                        DashboardRangeMode.entries.forEach { mode ->
+                            FilterChip(
+                                selected = form.dashboardRangeMode == mode,
+                                onClick = { viewModel.setDashboardRangeMode(mode) },
+                                label = { Text(stringResource(mode.labelResource())) },
+                            )
+                        }
+                    }
+                    Text(
+                        stringResource(form.rangeDescriptionResource()),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
+        }
+        item {
+            SettingsSectionHeader(
+                R.string.firefly_connection_section,
+                R.string.settings_subtitle,
+            )
         }
         item {
             Card(
@@ -182,6 +224,35 @@ private fun SettingsFormContent(form: SettingsForm, viewModel: SettingsViewModel
             }
         }
     }
+}
+
+@Composable
+private fun SettingsSectionHeader(title: Int, description: Int) {
+    Column(verticalArrangement = Arrangement.spacedBy(FinFlyThemeTokens.spacing.xSmall)) {
+        Text(stringResource(title), style = MaterialTheme.typography.titleLarge)
+        Text(
+            stringResource(description),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+private fun DashboardChartPeriod.labelResource(): Int = when (this) {
+    DashboardChartPeriod.WEEK -> R.string.chart_period_week
+    DashboardChartPeriod.MONTH -> R.string.chart_period_month
+}
+
+private fun DashboardRangeMode.labelResource(): Int = when (this) {
+    DashboardRangeMode.CALENDAR -> R.string.chart_range_calendar
+    DashboardRangeMode.ROLLING -> R.string.chart_range_rolling
+}
+
+private fun SettingsForm.rangeDescriptionResource(): Int = when (dashboardChartPeriod to dashboardRangeMode) {
+    DashboardChartPeriod.WEEK to DashboardRangeMode.CALENDAR -> R.string.chart_range_calendar_week_description
+    DashboardChartPeriod.WEEK to DashboardRangeMode.ROLLING -> R.string.chart_range_rolling_week_description
+    DashboardChartPeriod.MONTH to DashboardRangeMode.CALENDAR -> R.string.chart_range_calendar_month_description
+    else -> R.string.chart_range_rolling_month_description
 }
 
 @Composable

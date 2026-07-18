@@ -7,6 +7,8 @@ import com.teja.finfly.domain.model.AccountGroup
 import com.teja.finfly.domain.model.CategorySpend
 import com.teja.finfly.domain.model.DailySpend
 import com.teja.finfly.domain.model.DashboardSummary
+import com.teja.finfly.domain.model.DashboardChartPeriod
+import com.teja.finfly.domain.model.DashboardRangeMode
 import com.teja.finfly.domain.model.Transaction
 import com.teja.finfly.domain.model.TransactionFilter
 import com.teja.finfly.domain.repository.AccountRepository
@@ -18,23 +20,29 @@ import java.time.Clock
 import java.time.DayOfWeek
 import java.time.ZoneId
 import java.time.temporal.TemporalAdjusters
+import java.time.temporal.ChronoUnit
+import java.math.RoundingMode
 import javax.inject.Inject
 
-/** Enforces local calendar boundaries and builds weekly, category, and balance summaries. */
+/** Enforces calendar or rolling chart boundaries and builds spending, category, and balance summaries. */
 class ObserveDashboardUseCase @Inject constructor(
     private val transactionRepository: TransactionRepository,
     private val accountRepository: AccountRepository,
     private val clock: Clock,
 ) {
-    operator fun invoke(recentTransactionCount: Int): Flow<Result<DashboardSummary>> {
+    operator fun invoke(
+        recentTransactionCount: Int,
+        chartPeriod: DashboardChartPeriod,
+        rangeMode: DashboardRangeMode,
+    ): Flow<Result<DashboardSummary>> {
         val zone = ZoneId.systemDefault()
         val today = clock.instant().atZone(zone).toLocalDate()
         val todayStart = today.atStartOfDay(zone).toInstant()
         val tomorrowStart = today.plusDays(1).atStartOfDay(zone).toInstant()
         val monthStart = today.withDayOfMonth(1).atStartOfDay(zone).toInstant()
-        val weekStartDate = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-        val weekStart = weekStartDate.atStartOfDay(zone).toInstant()
-        val weekEnd = weekStartDate.plusDays(7).atStartOfDay(zone).toInstant()
+        val chartWindow = chartWindow(today, chartPeriod, rangeMode)
+        val chartStart = chartWindow.start.atStartOfDay(zone).toInstant()
+        val chartEnd = chartWindow.endExclusive.atStartOfDay(zone).toInstant()
 
         val totalsAndRecent = combine(
             transactionRepository.observeSpending(todayStart, tomorrowStart),
@@ -44,7 +52,7 @@ class ObserveDashboardUseCase @Inject constructor(
             Triple(todayResult, monthResult, recentResult)
         }
         val analyticsAndAccounts = combine(
-            transactionRepository.observeDailySpending(weekStart, weekEnd),
+            transactionRepository.observeDailySpending(chartStart, chartEnd),
             transactionRepository.observeTransactions(
                 TransactionFilter(from = monthStart, until = tomorrowStart),
                 MONTH_TRANSACTION_LIMIT,
@@ -55,14 +63,17 @@ class ObserveDashboardUseCase @Inject constructor(
             Triple(weeklyResult, transactionsResult, accountsResult)
         }
         return combine(totalsAndRecent, analyticsAndAccounts) { totals, analytics ->
-            buildSummary(totals, analytics, weekStartDate)
+            buildSummary(totals, analytics, today, chartWindow, chartPeriod, rangeMode)
         }
     }
 
     private fun buildSummary(
         totals: Triple<Result<BigDecimal>, Result<BigDecimal>, Result<List<Transaction>>>,
         analytics: Triple<Result<List<DailySpend>>, Result<List<Transaction>>, Result<List<Account>>>,
-        weekStartDate: java.time.LocalDate,
+        today: java.time.LocalDate,
+        chartWindow: ChartWindow,
+        chartPeriod: DashboardChartPeriod,
+        rangeMode: DashboardRangeMode,
     ): Result<DashboardSummary> {
         val todaySpend = totals.first.valueOrReturnError() ?: return totals.first.asError()
         val monthSpend = totals.second.valueOrReturnError() ?: return totals.second.asError()
@@ -81,10 +92,17 @@ class ObserveDashboardUseCase @Inject constructor(
                     .fold(BigDecimal.ZERO) { total, account -> total + account.balance },
                 totalLiabilities = accounts.filter { it.group == AccountGroup.LIABILITY }
                     .fold(BigDecimal.ZERO) { total, account -> total + account.balance.abs() },
-                weeklySpending = (0L..6L).map { offset ->
-                    val date = weekStartDate.plusDays(offset)
+                monthDailyAverage = monthSpend.divide(
+                    BigDecimal(today.dayOfMonth),
+                    2,
+                    RoundingMode.HALF_UP,
+                ),
+                chartSpending = (0 until chartWindow.dayCount).map { offset ->
+                    val date = chartWindow.start.plusDays(offset.toLong())
                     weekly[date] ?: DailySpend(date, BigDecimal.ZERO)
                 },
+                chartPeriod = chartPeriod,
+                rangeMode = rangeMode,
                 categorySpending = monthTransactions
                     .filter { it.type == com.teja.finfly.domain.model.TransactionType.WITHDRAWAL }
                     .groupBy { it.category }
@@ -107,11 +125,39 @@ class ObserveDashboardUseCase @Inject constructor(
     }
     private fun <T> Result<T>.asError(): Result.Error = this as? Result.Error ?: Result.Error(DASHBOARD_ERROR)
 
+    private fun chartWindow(
+        today: java.time.LocalDate,
+        period: DashboardChartPeriod,
+        mode: DashboardRangeMode,
+    ): ChartWindow = when (period to mode) {
+        DashboardChartPeriod.WEEK to DashboardRangeMode.CALENDAR -> {
+            val start = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+            ChartWindow(start, start.plusDays(WEEK_DAYS))
+        }
+        DashboardChartPeriod.WEEK to DashboardRangeMode.ROLLING ->
+            ChartWindow(today.minusDays(WEEK_DAYS - 1), today.plusDays(1))
+        DashboardChartPeriod.MONTH to DashboardRangeMode.CALENDAR -> {
+            val start = today.withDayOfMonth(1)
+            ChartWindow(start, start.plusMonths(1))
+        }
+        DashboardChartPeriod.MONTH to DashboardRangeMode.ROLLING ->
+            ChartWindow(today.minusDays(ROLLING_MONTH_DAYS - 1), today.plusDays(1))
+    }
+
+    private data class ChartWindow(
+        val start: java.time.LocalDate,
+        val endExclusive: java.time.LocalDate,
+    ) {
+        val dayCount: Int get() = ChronoUnit.DAYS.between(start, endExclusive).toInt()
+    }
+
     private companion object {
         const val MIN_RECENT_COUNT = 5
         const val MAX_RECENT_COUNT = 20
         const val CATEGORY_COUNT = 5
         const val MONTH_TRANSACTION_LIMIT = 10_000
         const val DASHBOARD_ERROR = "dashboard_error"
+        const val WEEK_DAYS = 7L
+        const val ROLLING_MONTH_DAYS = 30L
     }
 }

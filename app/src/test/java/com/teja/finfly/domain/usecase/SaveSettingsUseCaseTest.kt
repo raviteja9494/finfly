@@ -3,6 +3,8 @@ package com.teja.finfly.domain.usecase
 
 import com.teja.finfly.domain.common.Result
 import com.teja.finfly.domain.model.AppSettings
+import com.teja.finfly.domain.model.DashboardChartPeriod
+import com.teja.finfly.domain.model.DashboardRangeMode
 import com.teja.finfly.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -44,6 +46,8 @@ class SaveSettingsUseCaseTest {
         override suspend fun saveDashboardPreferences(
             showNetWorthSummary: Boolean,
             recentTransactionsCount: Int,
+            chartPeriod: DashboardChartPeriod,
+            rangeMode: DashboardRangeMode,
         ): Result<Unit> = Result.Success(Unit)
     }
 }

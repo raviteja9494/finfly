@@ -16,7 +16,7 @@ import com.teja.finfly.presentation.theme.FinFlyThemeTokens
 
 /** Renders a subtle reusable tag pill using semantic theme colors. */
 @Composable
-fun TagPill(tag: String, modifier: Modifier = Modifier) {
+fun TagPill(tag: String, modifier: Modifier = Modifier, showKind: Boolean = false) {
     Box(
         modifier = modifier.background(
             color = MaterialTheme.colorScheme.tertiaryContainer,
@@ -24,7 +24,7 @@ fun TagPill(tag: String, modifier: Modifier = Modifier) {
         ).padding(horizontal = 8.dp, vertical = 3.dp),
     ) {
         Text(
-            text = tag,
+            text = if (showKind) stringResource(R.string.tag_pill_format, tag) else tag,
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onTertiaryContainer,
             maxLines = 1,
@@ -34,7 +34,7 @@ fun TagPill(tag: String, modifier: Modifier = Modifier) {
 
 /** Renders the transaction category as a quiet secondary pill. */
 @Composable
-fun CategoryPill(category: String, modifier: Modifier = Modifier) {
+fun CategoryPill(category: String, modifier: Modifier = Modifier, showKind: Boolean = false) {
     Box(
         modifier = modifier.background(
             color = MaterialTheme.colorScheme.secondaryContainer,
@@ -42,7 +42,9 @@ fun CategoryPill(category: String, modifier: Modifier = Modifier) {
         ).padding(horizontal = 8.dp, vertical = 3.dp),
     ) {
         Text(
-            text = category.ifBlank { stringResource(R.string.category_uncategorized) },
+            text = category.ifBlank { stringResource(R.string.category_uncategorized) }.let { value ->
+                if (showKind) stringResource(R.string.category_pill_format, value) else value
+            },
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSecondaryContainer,
             maxLines = 1,

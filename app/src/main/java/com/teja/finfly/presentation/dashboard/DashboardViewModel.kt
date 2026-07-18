@@ -28,7 +28,11 @@ class DashboardViewModel @Inject constructor(
     settingsRepository: SettingsRepository,
 ) : ViewModel() {
     private val dashboard = settingsRepository.settings.flatMapLatest { settings ->
-        observeDashboard(settings.recentTransactionsCount).map { result -> result to settings }
+        observeDashboard(
+            settings.recentTransactionsCount,
+            settings.dashboardChartPeriod,
+            settings.dashboardRangeMode,
+        ).map { result -> result to settings }
     }
 
     val uiState = combine(dashboard, syncFinances.state) { (result, settings), syncState ->

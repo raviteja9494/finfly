@@ -9,6 +9,8 @@ import com.teja.finfly.domain.usecase.SaveSettingsUseCase
 import com.teja.finfly.domain.usecase.TestConnectionUseCase
 import com.teja.finfly.domain.usecase.SyncFinancesUseCase
 import com.teja.finfly.domain.usecase.SaveDashboardPreferencesUseCase
+import com.teja.finfly.domain.model.DashboardChartPeriod
+import com.teja.finfly.domain.model.DashboardRangeMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -42,6 +44,8 @@ class SettingsViewModel @Inject constructor(
                     lastSyncTime = saved.lastSyncTime,
                     showNetWorthSummary = saved.showNetWorthSummary,
                     recentTransactionsCount = saved.recentTransactionsCount,
+                    dashboardChartPeriod = saved.dashboardChartPeriod,
+                    dashboardRangeMode = saved.dashboardRangeMode,
                 )
             }
         }
@@ -56,6 +60,14 @@ class SettingsViewModel @Inject constructor(
     }
     fun setRecentTransactionsCount(value: Int) {
         form.value = form.value.copy(recentTransactionsCount = value)
+        persistDashboardPreferences()
+    }
+    fun setDashboardChartPeriod(value: DashboardChartPeriod) {
+        form.value = form.value.copy(dashboardChartPeriod = value)
+        persistDashboardPreferences()
+    }
+    fun setDashboardRangeMode(value: DashboardRangeMode) {
+        form.value = form.value.copy(dashboardRangeMode = value)
         persistDashboardPreferences()
     }
 
@@ -95,6 +107,8 @@ class SettingsViewModel @Inject constructor(
             saveDashboardPreferences(
                 preferences.showNetWorthSummary,
                 preferences.recentTransactionsCount,
+                preferences.dashboardChartPeriod,
+                preferences.dashboardRangeMode,
             )
         }
     }
