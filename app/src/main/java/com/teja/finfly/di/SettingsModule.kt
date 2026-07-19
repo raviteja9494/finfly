@@ -8,6 +8,8 @@ import androidx.datastore.preferences.preferencesDataStoreFile
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import com.teja.finfly.data.settings.SettingsRepositoryImpl
 import com.teja.finfly.domain.repository.SettingsRepository
+import com.teja.finfly.data.settings.AiSettingsRepositoryImpl
+import com.teja.finfly.domain.repository.AiSettingsRepository
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -22,6 +24,10 @@ abstract class SettingsBindingsModule {
     @Binds
     @Singleton
     abstract fun bindSettingsRepository(implementation: SettingsRepositoryImpl): SettingsRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindAiSettingsRepository(implementation: AiSettingsRepositoryImpl): AiSettingsRepository
 }
 
 @Module

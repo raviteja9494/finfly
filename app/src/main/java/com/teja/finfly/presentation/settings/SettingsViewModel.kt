@@ -5,6 +5,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.teja.finfly.domain.common.Result
 import com.teja.finfly.domain.repository.SettingsRepository
+import com.teja.finfly.domain.repository.AiRepository
+import com.teja.finfly.domain.repository.AiSettingsRepository
+import com.teja.finfly.domain.assistant.FinanceAssistant
+import com.teja.finfly.domain.model.AiConfig
 import com.teja.finfly.domain.usecase.SaveSettingsUseCase
 import com.teja.finfly.domain.usecase.TestConnectionUseCase
 import com.teja.finfly.domain.usecase.SyncFinancesUseCase
@@ -20,6 +24,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
 import javax.inject.Inject
 
 /** Manages credentials, Dashboard preferences, persistence progress, and connection-test feedback. */
@@ -30,8 +35,12 @@ class SettingsViewModel @Inject constructor(
     private val testConnection: TestConnectionUseCase,
     private val syncFinances: SyncFinancesUseCase,
     private val saveDashboardPreferences: SaveDashboardPreferencesUseCase,
+    private val aiRepository: AiRepository,
+    private val aiSettingsRepository: AiSettingsRepository,
+    private val financeAssistant: FinanceAssistant,
 ) : ViewModel() {
     private val form = MutableStateFlow(SettingsForm())
+    private var aiDownloadJob: Job? = null
 
     val uiState = form.map { SettingsUiState.Success(it) as SettingsUiState }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState.Loading)
@@ -54,6 +63,12 @@ class SettingsViewModel @Inject constructor(
                     useDeviceTimezone = saved.useDeviceTimezone,
                 )
             }
+        }
+        viewModelScope.launch {
+            aiSettingsRepository.config.collect { config -> form.value = form.value.copy(aiConfig = config) }
+        }
+        viewModelScope.launch {
+            aiRepository.getModelState().collect { state -> form.value = form.value.copy(aiModelState = state) }
         }
     }
 
@@ -95,6 +110,33 @@ class SettingsViewModel @Inject constructor(
     fun setUseDeviceTimezone(value: Boolean) {
         form.value = form.value.copy(useDeviceTimezone = value)
         viewModelScope.launch { settingsRepository.setUseDeviceTimezone(value) }
+    }
+
+    fun setAiMaxTransactions(value: Int) = updateAiConfig { copy(maxTransactions = value.coerceIn(10, 100)) }
+    fun setAiDateRangeDays(value: Int) = updateAiConfig { copy(dateRangeDays = value) }
+    fun setAiIncludeBalances(value: Boolean) = updateAiConfig { copy(includeBalances = value) }
+    fun setAiIncludeCategories(value: Boolean) = updateAiConfig { copy(includeCategories = value) }
+    fun setAiIncludeSmsRules(value: Boolean) = updateAiConfig { copy(includeSmsRules = value) }
+    fun setAiTemperature(value: Float) = updateAiConfig { copy(temperature = value.coerceIn(0.1f, 1f)) }
+    fun setAiMaxResponseTokens(value: Int) = updateAiConfig { copy(maxResponseTokens = value) }
+
+    fun downloadAiModel() {
+        if (aiDownloadJob?.isActive == true) return
+        aiDownloadJob = viewModelScope.launch {
+            aiRepository.downloadModel().collect { state -> form.value = form.value.copy(aiModelState = state) }
+        }
+    }
+
+    fun cancelAiDownload() {
+        aiDownloadJob?.cancel()
+        aiDownloadJob = null
+    }
+
+    fun deleteAiModel() {
+        viewModelScope.launch {
+            financeAssistant.reset()
+            aiRepository.deleteModel()
+        }
     }
 
     fun test() {
@@ -154,6 +196,12 @@ class SettingsViewModel @Inject constructor(
                 preferences.categoryRangeMode,
             )
         }
+    }
+
+    private fun updateAiConfig(transform: AiConfig.() -> AiConfig) {
+        val updated = form.value.aiConfig.transform()
+        form.value = form.value.copy(aiConfig = updated)
+        viewModelScope.launch { aiSettingsRepository.saveConfig(updated) }
     }
 
     private fun Result<Unit>.toFeedback(success: SettingsFeedback): SettingsFeedback = when (this) {

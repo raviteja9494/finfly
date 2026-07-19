@@ -1,6 +1,6 @@
 # FinFly
 
-FinFly is an offline-first Android companion for a self-hosted Firefly III server. Phase 6 hardens Firefly editing, adds category-and-tag parsing, rich reviewed imports, duplicate protection, and native top-level drawer navigation while keeping AI disabled.
+FinFly is an offline-first Android companion for a self-hosted Firefly III server. Phase 7 adds an optional private, on-device finance assistant powered by MediaPipe and Qwen 2.5 while keeping Firefly data local.
 
 ## Architecture
 
@@ -8,13 +8,14 @@ FinFly uses Clean Architecture inside one Android module:
 
 - `presentation`: Jetpack Compose screens, screen state, Hilt ViewModels, and type-safe navigation.
 - `domain/model`: Android-free finance, rule, parsing, and sync models.
-- `domain/usecase`: business rules, including the independently testable `SmsParserEngine`.
+- `domain/usecase`: business rules, including the independently testable `SmsParserEngine` and Room-backed `FinanceContextBuilder`.
 - `domain/repository`: documented persistence, transfer, and network contracts.
 - `data/local`: Room entities and DAOs for cached finance data, JSON rule configs, and SMS logs.
 - `data/network`: Retrofit, OkHttp, Firefly DTOs, and dynamic server authentication.
 - `data/repository`: offline-first repository implementations and Android storage adapters.
 - `data/sms`: the friendly-pattern compiler, default rule configs, and the SMS receiver adapter.
-- `data/settings`: DataStore-backed connection and display preferences.
+- `data/ai`: optional model storage/download and the MediaPipe assistant adapter.
+- `data/settings`: DataStore-backed connection, display, and assistant preferences.
 - `di`: Hilt providers and bindings.
 
 Dependencies point inward. Domain has no Android dependency, presentation consumes domain contracts, and data implements those contracts. Exceptions are converted to `Result<T>` at repository boundaries.
@@ -29,6 +30,14 @@ Dependencies point inward. Domain has no Android dependency, presentation consum
 Every push to `main`, pull request, or manual workflow run executes unit tests, lint, and debug/release APK builds. Successful runs upload `finfly-debug-apk`, `finfly-release-apk`, and verification reports. No local Android toolchain is required for CI verification.
 
 Cleartext HTTP is enabled for trusted local-network Firefly installations. Prefer HTTPS outside a private LAN.
+
+## Private AI assistant
+
+The fourth tab hosts an optional on-device assistant. The Qwen 2.5 3B Instruct Q4 model is not bundled in the APK and is downloaded only after explicit confirmation. It is stored in the app-specific external-files directory at `models/qwen2.5-3b-instruct-q4.bin`; deleting it in Settings does not change Firefly or cached finance data.
+
+`FinanceContextBuilder` reads only the existing Room-backed repository streams and applies the saved transaction count, date range, balance, category, and parsing-rule limits. Chat history stays in memory, is capped at 20 user/assistant pairs, and is cleared when the process ends. No prompt or response is sent to a hosted AI provider.
+
+Presentation and domain code depend on the `FinanceAssistant` interface. To replace MediaPipe later, add another implementation, bind it in `AiModule`, and leave the chat ViewModel and UI unchanged.
 
 ## Parsing
 
@@ -91,7 +100,8 @@ Server URL and bearer-token handling remain centralized in interceptors.
 - Phase 5 adds edit flows for transactions, accounts, budgets, categories, tags, bills, and piggy banks; Firefly rule browsing/editing; transaction budgets; budget limit-versus-spend cards; independent category-chart periods; calendar date selection; one-month report defaults; and confirmed on-demand SMS previews.
 - Phase 6 validates ISO currencies across editors, uses Firefly's auto-budget currency on edit, corrects piggy-bank update payloads, surfaces server validation details, adds keyword/global tag rules, carries tags into parsed transactions, shows complete preview metadata and per-row push results, detects likely duplicates, and treats drawer destinations as replaceable top-level screens.
 - Phase 6.1 fixes parameterized management-destination restoration, adds multi-category and multi-tag report filters with cash-flow/category transaction drill-downs, and separates parser tags into bank-rule, category-rule, and universal tag scopes.
+- Phase 7 adds the optional MediaPipe/Qwen on-device assistant, cancellable model management, persisted context and generation controls, cached-finance prompt construction, bounded memory-only history, streaming responses, and local inference metrics.
 - Reports provide date-range, category, and tag filters with filtered income, spending, net-flow, monthly cash-flow, and top-category summaries from the offline transaction cache.
 - Firefly management includes confirmed deletion for transactions, accounts, budgets, categories, tags, bills, and piggy banks, plus local credential logout.
 
-Deferred after Phase 6: notification-listener inputs, AI rule suggestions, on-device models, and advanced report exports/comparisons.
+Deferred after Phase 7: notification-listener inputs, AI-assisted parsing-rule suggestions, alternate local model providers, and advanced report exports/comparisons.

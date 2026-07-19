@@ -22,6 +22,9 @@ import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -33,6 +36,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
+import androidx.compose.material3.Slider
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -53,6 +58,7 @@ import com.teja.finfly.R
 import com.teja.finfly.domain.model.CategoryChartStyle
 import com.teja.finfly.domain.model.DashboardChartPeriod
 import com.teja.finfly.domain.model.DashboardRangeMode
+import com.teja.finfly.domain.model.AiModelState
 import com.teja.finfly.presentation.components.ErrorState
 import com.teja.finfly.presentation.components.LoadingState
 import com.teja.finfly.presentation.components.ConfirmationDialog
@@ -92,6 +98,16 @@ private fun SettingsFormContent(form: SettingsForm, viewModel: SettingsViewModel
         }
         item {
             CollapsibleSettingsSection(
+                title = R.string.ai_settings_title,
+                description = R.string.ai_settings_description,
+                icon = Icons.Rounded.AutoAwesome,
+                initiallyExpanded = false,
+            ) {
+                AiSettings(form, viewModel)
+            }
+        }
+        item {
+            CollapsibleSettingsSection(
                 title = R.string.timezone_settings,
                 description = R.string.timezone_settings_description,
                 icon = Icons.Rounded.Schedule,
@@ -126,6 +142,124 @@ private fun SettingsFormContent(form: SettingsForm, viewModel: SettingsViewModel
             }
         }
     }
+}
+
+@Composable
+private fun AiSettings(form: SettingsForm, viewModel: SettingsViewModel) {
+    val spacing = FinFlyThemeTokens.spacing
+    val config = form.aiConfig
+    var showDeleteConfirmation by rememberSaveable { mutableStateOf(false) }
+    if (showDeleteConfirmation) {
+        ConfirmationDialog(
+            title = R.string.ai_delete_model,
+            message = stringResource(R.string.ai_delete_model_confirmation),
+            confirmLabel = R.string.delete,
+            onConfirm = {
+                showDeleteConfirmation = false
+                viewModel.deleteAiModel()
+            },
+            onDismiss = { showDeleteConfirmation = false },
+        )
+    }
+
+    Text(stringResource(R.string.ai_model_status), style = MaterialTheme.typography.titleMedium)
+    when (val state = form.aiModelState) {
+        is AiModelState.NotDownloaded -> {
+            Text(stringResource(R.string.ai_model_not_downloaded, state.availableMb))
+            Button(onClick = viewModel::downloadAiModel, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Rounded.Download, contentDescription = null)
+                Text(stringResource(R.string.ai_download_model), Modifier.padding(start = spacing.small))
+            }
+        }
+        is AiModelState.Downloading -> {
+            LinearProgressIndicator(
+                progress = { state.progressPercent / 100f },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(stringResource(R.string.ai_download_progress, state.downloadedMb, state.totalMb, state.progressPercent))
+            OutlinedButton(onClick = viewModel::cancelAiDownload, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.cancel))
+            }
+        }
+        is AiModelState.Downloaded -> {
+            Text(stringResource(R.string.ai_model_downloaded, state.modelSizeGb))
+            Text(
+                stringResource(R.string.ai_model_location, state.filePath),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedButton(onClick = { showDeleteConfirmation = true }, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Rounded.Delete, contentDescription = null)
+                Text(stringResource(R.string.ai_delete_model), Modifier.padding(start = spacing.small))
+            }
+        }
+        AiModelState.Loading -> Text(stringResource(R.string.ai_loading_model))
+        AiModelState.Ready -> Text(stringResource(R.string.ai_model_ready))
+        is AiModelState.Error -> {
+            Text(stringResource(R.string.ai_error_download), color = MaterialTheme.colorScheme.error)
+            OutlinedButton(onClick = viewModel::downloadAiModel) { Text(stringResource(R.string.retry)) }
+        }
+    }
+
+    ChoiceLabel(R.string.ai_max_transactions)
+    Text(stringResource(R.string.ai_max_transactions_value, config.maxTransactions))
+    Slider(
+        value = config.maxTransactions.toFloat(),
+        onValueChange = { viewModel.setAiMaxTransactions((it / 10).toInt() * 10) },
+        valueRange = 10f..100f,
+        steps = 8,
+    )
+    ChoiceLabel(R.string.ai_date_range)
+    Row(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
+        listOf(7, 30, 90).forEach { days ->
+            FilterChip(
+                selected = config.dateRangeDays == days,
+                onClick = { viewModel.setAiDateRangeDays(days) },
+                label = { Text(stringResource(R.string.ai_days, days)) },
+            )
+        }
+    }
+    SettingsSwitch(
+        title = R.string.ai_include_balances,
+        description = R.string.ai_include_balances_description,
+        checked = config.includeBalances,
+        onCheckedChange = viewModel::setAiIncludeBalances,
+    )
+    SettingsSwitch(
+        title = R.string.ai_include_categories,
+        description = R.string.ai_include_categories_description,
+        checked = config.includeCategories,
+        onCheckedChange = viewModel::setAiIncludeCategories,
+    )
+    SettingsSwitch(
+        title = R.string.ai_include_sms_rules,
+        description = R.string.ai_include_sms_rules_description,
+        checked = config.includeSmsRules,
+        onCheckedChange = viewModel::setAiIncludeSmsRules,
+    )
+    ChoiceLabel(R.string.ai_response_tokens)
+    Row(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
+        listOf(256, 512, 1024).forEach { tokens ->
+            FilterChip(
+                selected = config.maxResponseTokens == tokens,
+                onClick = { viewModel.setAiMaxResponseTokens(tokens) },
+                label = { Text(tokens.toString()) },
+            )
+        }
+    }
+    ChoiceLabel(R.string.ai_temperature)
+    Text(stringResource(R.string.ai_temperature_value, config.temperature))
+    Slider(
+        value = config.temperature,
+        onValueChange = viewModel::setAiTemperature,
+        valueRange = 0.1f..1f,
+        steps = 8,
+    )
+    Text(
+        stringResource(R.string.ai_private_notice),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.primary,
+    )
 }
 
 @Composable

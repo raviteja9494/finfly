@@ -4,6 +4,8 @@ package com.teja.finfly.presentation.settings
 import com.teja.finfly.domain.model.DashboardChartPeriod
 import com.teja.finfly.domain.model.DashboardRangeMode
 import com.teja.finfly.domain.model.CategoryChartStyle
+import com.teja.finfly.domain.model.AiConfig
+import com.teja.finfly.domain.model.AiModelState
 import java.time.Instant
 
 data class SettingsForm(
@@ -24,6 +26,8 @@ data class SettingsForm(
     val categoryChartPeriod: DashboardChartPeriod = DashboardChartPeriod.MONTH,
     val categoryRangeMode: DashboardRangeMode = DashboardRangeMode.CALENDAR,
     val useDeviceTimezone: Boolean = true,
+    val aiConfig: AiConfig = AiConfig(),
+    val aiModelState: AiModelState = AiModelState.NotDownloaded(0),
 )
 
 enum class SettingsFeedback { CONNECTION_SUCCESS, CONNECTION_FAILED, SAVED, LOGGED_OUT, INVALID_URL, TOKEN_REQUIRED }
