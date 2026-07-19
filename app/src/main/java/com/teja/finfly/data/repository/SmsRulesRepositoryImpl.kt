@@ -64,10 +64,10 @@ class SmsRulesRepositoryImpl @Inject constructor(
     override suspend fun ensureDefaults(): Result<Unit> = runCatching {
         database.withTransaction {
             if (dao.bankRuleCount() == 0) {
-                dao.upsertBankRules(DefaultSmsRules.bankRules(clock.millis()).map(BankRule::toEntity))
+                dao.upsertBankRules(DefaultSmsRules.bankRules(clock.millis()).map { it.toEntity() })
             }
             if (dao.categoryRuleCount() == 0) {
-                dao.upsertCategoryRules(DefaultSmsRules.categoryRules().map(CategoryRule::toEntity))
+                dao.upsertCategoryRules(DefaultSmsRules.categoryRules().map { it.toEntity() })
             }
         }
     }.toUnitResult(WRITE_ERROR)
@@ -97,8 +97,8 @@ class SmsRulesRepositoryImpl @Inject constructor(
                 bankRules = bankRules.filterNot { it.name.lowercase() in bankNames }
                 categoryRules = categoryRules.filterNot { it.name.lowercase() in categoryNames }
             }
-            dao.upsertBankRules(bankRules.map(BankRule::toEntity))
-            dao.upsertCategoryRules(categoryRules.map(CategoryRule::toEntity))
+            dao.upsertBankRules(bankRules.map { it.toEntity() })
+            dao.upsertCategoryRules(categoryRules.map { it.toEntity() })
         }
         RulesImportSummary(bankRules.size, categoryRules.size)
     }.toResult(IMPORT_ERROR)

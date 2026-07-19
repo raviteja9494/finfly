@@ -19,7 +19,7 @@ class SmsLogRepositoryImpl @Inject constructor(
     private val database: FinFlyDatabase,
 ) : SmsLogRepository {
     override fun observeLogs(): Flow<Result<List<SmsLog>>> = database.smsLogDao().observeAll()
-        .map { Result.Success(it.map(SmsLogEntity::toDomain)) as Result<List<SmsLog>> }
+        .map { rows -> Result.Success(rows.map { it.toDomain() }) as Result<List<SmsLog>> }
         .catch { emit(Result.Error(it.message ?: READ_ERROR, it)) }
 
     override fun observeLog(id: String): Flow<Result<SmsLog?>> = database.smsLogDao().observeById(id)
