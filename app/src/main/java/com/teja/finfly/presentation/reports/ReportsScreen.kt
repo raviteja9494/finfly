@@ -160,6 +160,7 @@ private fun ReportsList(
     onClearTags: () -> Unit,
     onApplyFilters: () -> Unit,
     onClearFilters: () -> Unit,
+    onOpenTransactions: (Long, Long, Set<String>, Set<String>) -> Unit,
 ) {
     val spacing = FinFlyThemeTokens.spacing
     LazyColumn(

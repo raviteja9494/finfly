@@ -9,6 +9,7 @@ import com.teja.finfly.domain.common.Result
 import com.teja.finfly.domain.model.Category
 import com.teja.finfly.domain.model.TransactionFilter
 import com.teja.finfly.domain.model.TransactionType
+import com.teja.finfly.domain.model.Tag
 import com.teja.finfly.domain.repository.TransactionRepository
 import com.teja.finfly.domain.repository.TagRepository
 import com.teja.finfly.domain.usecase.ObserveTransactionsUseCase
@@ -41,7 +42,7 @@ class TransactionsViewModel @Inject constructor(
     private val syncFinances: SyncFinancesUseCase,
 ) : ViewModel() {
     private val route = savedStateHandle.toRoute<AppRoute.Transactions>()
-    private val baseFilter = TransactionFilter(
+    private val baseFilter: TransactionFilter = TransactionFilter(
         accountIds = route.accountId?.let(::setOf).orEmpty(),
         categories = route.categories.split(REPORT_FILTER_SEPARATOR).filter(String::isNotBlank).toSet(),
         tags = route.tags.split(REPORT_FILTER_SEPARATOR).filter(String::isNotBlank).toSet(),
@@ -49,15 +50,15 @@ class TransactionsViewModel @Inject constructor(
         until = route.untilEpochMillis?.let(Instant::ofEpochMilli),
     )
     private val requestedCount = MutableStateFlow(PAGE_SIZE)
-    private val filter = MutableStateFlow(baseFilter)
+    private val filter: MutableStateFlow<TransactionFilter> = MutableStateFlow(baseFilter)
     private val searchQuery = MutableStateFlow(baseFilter.query)
-    private val categories = transactionRepository.observeCategories().map { result ->
+    private val categories: Flow<List<Category>> = transactionRepository.observeCategories().map { result ->
         when (result) {
             is Result.Success -> result.value
             is Result.Error -> emptyList()
         }
     }
-    private val tags = tagRepository.observeTags().map { result ->
+    private val tags: Flow<List<Tag>> = tagRepository.observeTags().map { result ->
         when (result) {
             is Result.Success -> result.value
             is Result.Error -> emptyList()
