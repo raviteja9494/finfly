@@ -39,7 +39,7 @@ class LiteRtFinanceAssistant @Inject constructor(
         ensureEngine()
         val activeConversation = recreateConversation(config)
         activeConversation.sendMessageAsync(prompt).collect { partial ->
-            val text = partial.text
+            val text = partial.toString()
             if (text.isNotEmpty()) emit(AssistantResponseChunk(text, false))
         }
         emit(AssistantResponseChunk("", true))
