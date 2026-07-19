@@ -88,5 +88,6 @@ Server URL and bearer-token handling remain centralized in interceptors.
 - Phase 2 added filters, transaction detail/editing, drawer navigation, account and organizational-resource browsing, synchronization, charts, and CI artifacts.
 - Phase 3 fixed search and drawer state, added tags, configurable Dashboard periods and visuals, creation flows, compact transaction controls, and consistent loading/empty/error states.
 - Phase 4 implements JSON-backed BankRule and CategoryRule editing, default Indian-bank rules, placeholder compilation, permission-aware SMS reception, Firefly submission, the capped Room log, JSON merge/replace transfer, and device-versus-UTC display settings.
+- The first Reports experience adds a compact current-month summary, three-month cash-flow graph, and top-category breakdown from the offline transaction cache.
 
-Deferred after Phase 4: AI rule suggestions, on-device models, the dedicated Reports experience, and notifications.
+Deferred after Phase 4: AI rule suggestions, on-device models, advanced/customizable reports, and notifications.
