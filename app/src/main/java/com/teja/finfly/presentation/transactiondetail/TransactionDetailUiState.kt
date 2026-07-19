@@ -15,3 +15,9 @@ sealed interface TransactionDetailUiState {
     data object Empty : TransactionDetailUiState
     data object Error : TransactionDetailUiState
 }
+
+data class TransactionDeletionState(
+    val isDeleting: Boolean = false,
+    val deleted: Boolean = false,
+    val failed: Boolean = false,
+)

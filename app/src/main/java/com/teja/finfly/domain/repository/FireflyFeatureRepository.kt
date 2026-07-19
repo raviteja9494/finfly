@@ -10,4 +10,5 @@ import com.teja.finfly.domain.model.FireflyFeatureDraft
 interface FireflyFeatureRepository {
     suspend fun load(feature: FireflyFeature): Result<List<FireflyFeatureItem>>
     suspend fun create(draft: FireflyFeatureDraft): Result<FireflyFeatureItem>
+    suspend fun delete(feature: FireflyFeature, id: String): Result<Unit>
 }

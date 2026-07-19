@@ -18,4 +18,7 @@ interface TagDao {
 
     @Query("DELETE FROM tags")
     suspend fun clear()
+
+    @Query("DELETE FROM tags WHERE id = :id")
+    suspend fun delete(id: String)
 }

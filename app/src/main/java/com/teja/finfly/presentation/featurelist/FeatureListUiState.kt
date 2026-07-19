@@ -10,3 +10,8 @@ sealed interface FeatureListUiState {
     data object Empty : FeatureListUiState
     data object Error : FeatureListUiState
 }
+
+data class FeatureDeletionState(
+    val deletingId: String? = null,
+    val failed: Boolean = false,
+)

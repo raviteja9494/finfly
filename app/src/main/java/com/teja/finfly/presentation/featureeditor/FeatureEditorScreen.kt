@@ -88,6 +88,7 @@ fun FeatureEditorScreen(
                 }
             }
             FireflyFeature.CATEGORIES -> Unit
+            FireflyFeature.TAGS -> Unit
             FireflyFeature.BILLS -> {
                 item {
                     Row(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
@@ -255,6 +256,7 @@ private fun AccountSelector(state: FeatureEditorUiState, onSelect: (String) -> U
 private fun FireflyFeature.nameLabel(): Int = when (this) {
     FireflyFeature.BUDGETS -> R.string.budget_name
     FireflyFeature.CATEGORIES -> R.string.category_name
+    FireflyFeature.TAGS -> R.string.tag_name
     FireflyFeature.BILLS -> R.string.bill_name
     FireflyFeature.PIGGY_BANKS -> R.string.piggy_bank_name
 }
@@ -262,6 +264,7 @@ private fun FireflyFeature.nameLabel(): Int = when (this) {
 private fun FireflyFeature.createLabel(): Int = when (this) {
     FireflyFeature.BUDGETS -> R.string.create_budget
     FireflyFeature.CATEGORIES -> R.string.create_category
+    FireflyFeature.TAGS -> R.string.create_tag
     FireflyFeature.BILLS -> R.string.create_bill
     FireflyFeature.PIGGY_BANKS -> R.string.create_piggy_bank
 }

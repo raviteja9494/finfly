@@ -24,5 +24,6 @@ interface TransactionRepository {
     fun observeDailySpending(from: Instant, until: Instant): Flow<Result<List<DailySpend>>>
     fun observeCategories(): Flow<Result<List<Category>>>
     suspend fun saveTransaction(draft: TransactionDraft): Result<Transaction>
+    suspend fun deleteTransaction(remoteGroupId: String): Result<Unit>
     suspend fun sync(from: Instant? = null, until: Instant? = null): Result<Unit>
 }

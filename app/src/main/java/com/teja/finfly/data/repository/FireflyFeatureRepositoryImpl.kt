@@ -13,6 +13,8 @@ import com.teja.finfly.data.network.dto.StoreBudgetRequest
 import com.teja.finfly.data.network.dto.StoreCategoryRequest
 import com.teja.finfly.data.network.dto.StorePiggyBankAccountRequest
 import com.teja.finfly.data.network.dto.StorePiggyBankRequest
+import com.teja.finfly.data.network.dto.StoreTagRequest
+import com.teja.finfly.data.local.FinFlyDatabase
 import java.time.Clock
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -25,6 +27,7 @@ class FireflyFeatureRepositoryImpl @Inject constructor(
     private val api: FireflyApiService,
     private val settingsRepository: SettingsRepository,
     private val clock: Clock,
+    private val database: FinFlyDatabase,
 ) : FireflyFeatureRepository {
     override suspend fun load(feature: FireflyFeature): Result<List<FireflyFeatureItem>> {
         if (!isConfigured()) return Result.Error(NOT_CONFIGURED)
@@ -33,6 +36,9 @@ class FireflyFeatureRepositoryImpl @Inject constructor(
                 FireflyFeature.BUDGETS -> loadBudgets()
                 FireflyFeature.CATEGORIES -> api.getCategories(limit = PAGE_SIZE).data.map {
                     FireflyFeatureItem(it.id, it.attributes.name)
+                }
+                FireflyFeature.TAGS -> api.getTags(limit = PAGE_SIZE).data.map {
+                    FireflyFeatureItem(it.id, it.attributes.tag)
                 }
                 FireflyFeature.BILLS -> loadBills()
                 FireflyFeature.PIGGY_BANKS -> api.getPiggyBanks(limit = PAGE_SIZE).data.map {
@@ -87,6 +93,15 @@ class FireflyFeatureRepositoryImpl @Inject constructor(
                         )
                     ).data
                     FireflyFeatureItem(resource.id, resource.attributes.name)
+                }
+                is FireflyFeatureDraft.Tag -> {
+                    val resource = api.createTag(
+                        StoreTagRequest(
+                            tag = draft.name.trim(),
+                            description = draft.notes.trim().takeIf(String::isNotBlank),
+                        )
+                    ).data
+                    FireflyFeatureItem(resource.id, resource.attributes.tag)
                 }
                 is FireflyFeatureDraft.Bill -> {
                     val resource = api.createBill(
@@ -147,6 +162,26 @@ class FireflyFeatureRepositoryImpl @Inject constructor(
         )
     }
 
+    override suspend fun delete(feature: FireflyFeature, id: String): Result<Unit> {
+        if (!isConfigured()) return Result.Error(NOT_CONFIGURED)
+        return runCatching {
+            val response = when (feature) {
+                FireflyFeature.BUDGETS -> api.deleteBudget(id)
+                FireflyFeature.CATEGORIES -> api.deleteCategory(id)
+                FireflyFeature.TAGS -> api.deleteTag(id)
+                FireflyFeature.BILLS -> api.deleteBill(id)
+                FireflyFeature.PIGGY_BANKS -> api.deletePiggyBank(id)
+            }
+            check(response.isSuccessful)
+            when (feature) {
+                FireflyFeature.CATEGORIES -> database.categoryDao().delete(id)
+                FireflyFeature.TAGS -> database.tagDao().delete(id)
+                else -> Unit
+            }
+            Result.Success(Unit)
+        }.getOrElse { Result.Error(it.message ?: DELETE_ERROR, it) }
+    }
+
     private suspend fun loadBudgets(): List<FireflyFeatureItem> {
         val today = clock.instant().atZone(ZoneId.systemDefault()).toLocalDate()
         val response = api.getBudgets(
@@ -185,5 +220,6 @@ class FireflyFeatureRepositoryImpl @Inject constructor(
         const val NOT_CONFIGURED = "not_configured"
         const val LOAD_ERROR = "feature_load_error"
         const val SAVE_ERROR = "feature_save_error"
+        const val DELETE_ERROR = "feature_delete_error"
     }
 }

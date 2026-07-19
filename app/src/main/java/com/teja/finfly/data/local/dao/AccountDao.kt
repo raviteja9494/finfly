@@ -15,4 +15,7 @@ interface AccountDao {
 
     @Upsert
     suspend fun upsertAll(accounts: List<AccountEntity>)
+
+    @Query("DELETE FROM accounts WHERE id = :id")
+    suspend fun delete(id: String)
 }

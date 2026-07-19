@@ -30,4 +30,10 @@ interface TransactionDao {
 
     @Upsert
     suspend fun upsert(transaction: TransactionEntity)
+
+    @Query("DELETE FROM transactions WHERE remoteGroupId = :remoteGroupId")
+    suspend fun deleteByRemoteGroupId(remoteGroupId: String)
+
+    @Query("DELETE FROM transactions WHERE sourceAccountId = :accountId OR destinationAccountId = :accountId")
+    suspend fun deleteByAccountId(accountId: String)
 }

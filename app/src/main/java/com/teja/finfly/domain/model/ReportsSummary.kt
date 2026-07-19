@@ -14,10 +14,20 @@ data class MonthlyCashFlow(
 /** A small reporting snapshot derived entirely from cached transactions. */
 data class ReportsSummary(
     val currency: String,
-    val monthIncome: BigDecimal,
-    val monthExpenses: BigDecimal,
-    val monthNetFlow: BigDecimal,
+    val income: BigDecimal,
+    val expenses: BigDecimal,
+    val netFlow: BigDecimal,
     val monthlyCashFlow: List<MonthlyCashFlow>,
     val categorySpending: List<CategorySpend>,
     val transactionCount: Int,
+    val fromDate: java.time.LocalDate,
+    val untilDate: java.time.LocalDate,
+)
+
+/** Date, category, and tag criteria combined with AND semantics for reports. */
+data class ReportsFilter(
+    val fromDate: java.time.LocalDate,
+    val untilDate: java.time.LocalDate,
+    val category: String? = null,
+    val tag: String? = null,
 )

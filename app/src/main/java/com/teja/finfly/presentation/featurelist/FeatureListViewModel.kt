@@ -24,6 +24,8 @@ class FeatureListViewModel @Inject constructor(
     val feature: FireflyFeature = savedStateHandle.toRoute<AppRoute.FeatureList>().feature
     private val mutableState = MutableStateFlow<FeatureListUiState>(FeatureListUiState.Loading)
     val uiState = mutableState.asStateFlow()
+    private val mutableDeletionState = MutableStateFlow(FeatureDeletionState())
+    val deletionState = mutableDeletionState.asStateFlow()
 
     fun load() {
         viewModelScope.launch {
@@ -34,5 +36,23 @@ class FeatureListViewModel @Inject constructor(
                 else FeatureListUiState.Success(result.value)
             }
         }
+    }
+
+    fun delete(itemId: String) {
+        if (mutableDeletionState.value.deletingId != null) return
+        viewModelScope.launch {
+            mutableDeletionState.value = FeatureDeletionState(deletingId = itemId)
+            when (repository.delete(feature, itemId)) {
+                is Result.Error -> mutableDeletionState.value = FeatureDeletionState(failed = true)
+                is Result.Success -> {
+                    mutableDeletionState.value = FeatureDeletionState()
+                    load()
+                }
+            }
+        }
+    }
+
+    fun dismissDeleteError() {
+        mutableDeletionState.value = FeatureDeletionState()
     }
 }

@@ -55,6 +55,7 @@ import com.teja.finfly.domain.model.DashboardChartPeriod
 import com.teja.finfly.domain.model.DashboardRangeMode
 import com.teja.finfly.presentation.components.ErrorState
 import com.teja.finfly.presentation.components.LoadingState
+import com.teja.finfly.presentation.components.ConfirmationDialog
 import com.teja.finfly.presentation.theme.FinFlyThemeTokens
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -109,7 +110,7 @@ private fun SettingsFormContent(form: SettingsForm, viewModel: SettingsViewModel
                 title = R.string.dashboard_settings,
                 description = R.string.dashboard_settings_description,
                 icon = Icons.Rounded.Dashboard,
-                initiallyExpanded = true,
+                initiallyExpanded = false,
             ) {
                 DashboardSettings(form, viewModel)
             }
@@ -267,6 +268,19 @@ private fun ChoiceLabel(label: Int) {
 @Composable
 private fun ConnectionSettings(form: SettingsForm, viewModel: SettingsViewModel) {
     val spacing = FinFlyThemeTokens.spacing
+    var showLogoutConfirmation by rememberSaveable { mutableStateOf(false) }
+    if (showLogoutConfirmation) {
+        ConfirmationDialog(
+            title = R.string.logout_firefly,
+            message = stringResource(R.string.logout_firefly_message),
+            confirmLabel = R.string.logout,
+            onConfirm = {
+                showLogoutConfirmation = false
+                viewModel.logout()
+            },
+            onDismiss = { showLogoutConfirmation = false },
+        )
+    }
     OutlinedTextField(
         value = form.serverUrl,
         onValueChange = viewModel::updateServerUrl,
@@ -318,6 +332,15 @@ private fun ConnectionSettings(form: SettingsForm, viewModel: SettingsViewModel)
             Text(stringResource(R.string.save_settings))
         }
     }
+    if (form.serverUrl.isNotBlank() || form.bearerToken.isNotBlank()) {
+        OutlinedButton(
+            onClick = { showLogoutConfirmation = true },
+            enabled = !form.isSaving && !form.isTesting && !form.isLoggingOut,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(if (form.isLoggingOut) R.string.logging_out else R.string.logout_firefly))
+        }
+    }
 }
 
 private fun DashboardChartPeriod.labelResource(): Int = when (this) {
@@ -345,11 +368,13 @@ private fun SettingsForm.rangeDescriptionResource(): Int = when (dashboardChartP
 @Composable
 private fun Feedback(feedback: SettingsFeedback?) {
     if (feedback == null) return
-    val success = feedback == SettingsFeedback.CONNECTION_SUCCESS || feedback == SettingsFeedback.SAVED
+    val success = feedback == SettingsFeedback.CONNECTION_SUCCESS || feedback == SettingsFeedback.SAVED ||
+        feedback == SettingsFeedback.LOGGED_OUT
     val message = when (feedback) {
         SettingsFeedback.CONNECTION_SUCCESS -> R.string.connection_success
         SettingsFeedback.CONNECTION_FAILED -> R.string.connection_failed
         SettingsFeedback.SAVED -> R.string.settings_saved
+        SettingsFeedback.LOGGED_OUT -> R.string.logout_complete
         SettingsFeedback.INVALID_URL -> R.string.settings_invalid_url
         SettingsFeedback.TOKEN_REQUIRED -> R.string.settings_token_required
     }

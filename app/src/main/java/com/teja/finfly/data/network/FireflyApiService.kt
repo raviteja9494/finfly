@@ -17,12 +17,15 @@ import com.teja.finfly.data.network.dto.StoreBudgetRequest
 import com.teja.finfly.data.network.dto.StoreCategoryRequest
 import com.teja.finfly.data.network.dto.StoreBillRequest
 import com.teja.finfly.data.network.dto.StorePiggyBankRequest
+import com.teja.finfly.data.network.dto.StoreTagRequest
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
+import retrofit2.Response
 
 /**
  * Defines the Firefly III REST surface used through Phase 3.
@@ -104,4 +107,28 @@ interface FireflyApiService {
 
     @POST("api/v1/piggy-banks")
     suspend fun createPiggyBank(@Body request: StorePiggyBankRequest): ApiSingleResponse<PiggyBankResource>
+
+    @POST("api/v1/tags")
+    suspend fun createTag(@Body request: StoreTagRequest): ApiSingleResponse<TagResource>
+
+    @DELETE("api/v1/transactions/{id}")
+    suspend fun deleteTransaction(@Path("id") id: String): Response<Unit>
+
+    @DELETE("api/v1/accounts/{id}")
+    suspend fun deleteAccount(@Path("id") id: String): Response<Unit>
+
+    @DELETE("api/v1/budgets/{id}")
+    suspend fun deleteBudget(@Path("id") id: String): Response<Unit>
+
+    @DELETE("api/v1/categories/{id}")
+    suspend fun deleteCategory(@Path("id") id: String): Response<Unit>
+
+    @DELETE("api/v1/bills/{id}")
+    suspend fun deleteBill(@Path("id") id: String): Response<Unit>
+
+    @DELETE("api/v1/piggy-banks/{id}")
+    suspend fun deletePiggyBank(@Path("id") id: String): Response<Unit>
+
+    @DELETE("api/v1/tags/{id}")
+    suspend fun deleteTag(@Path("id") id: String): Response<Unit>
 }

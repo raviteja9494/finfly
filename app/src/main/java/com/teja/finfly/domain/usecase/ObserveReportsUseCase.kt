@@ -1,9 +1,10 @@
-/* Domain use case aggregating cached transactions into a compact report. */
+/* Domain use case aggregating filtered cached transactions into a compact report. */
 package com.teja.finfly.domain.usecase
 
 import com.teja.finfly.domain.common.Result
 import com.teja.finfly.domain.model.CategorySpend
 import com.teja.finfly.domain.model.MonthlyCashFlow
+import com.teja.finfly.domain.model.ReportsFilter
 import com.teja.finfly.domain.model.ReportsSummary
 import com.teja.finfly.domain.model.Transaction
 import com.teja.finfly.domain.model.TransactionFilter
@@ -12,46 +13,48 @@ import com.teja.finfly.domain.repository.TransactionRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.math.BigDecimal
-import java.time.Clock
 import java.time.YearMonth
 import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 import javax.inject.Inject
 
-/** Builds current-month totals, a three-month cash-flow trend, and top spending categories. */
+/** Applies AND-combined report criteria and builds totals, monthly cash flow, and top categories. */
 class ObserveReportsUseCase @Inject constructor(
     private val repository: TransactionRepository,
-    private val clock: Clock,
 ) {
-    operator fun invoke(): Flow<Result<ReportsSummary>> {
+    operator fun invoke(filter: ReportsFilter): Flow<Result<ReportsSummary>> {
         val zone = ZoneId.systemDefault()
-        val today = clock.instant().atZone(zone).toLocalDate()
-        val currentMonth = YearMonth.from(today)
-        val firstMonth = currentMonth.minusMonths(REPORT_MONTHS - 1L)
-        val from = firstMonth.atDay(1).atStartOfDay(zone).toInstant()
-        val until = today.plusDays(1).atStartOfDay(zone).toInstant()
+        val from = filter.fromDate.atStartOfDay(zone).toInstant()
+        val until = filter.untilDate.plusDays(1).atStartOfDay(zone).toInstant()
         return repository.observeTransactions(
-            filter = TransactionFilter(from = from, until = until),
+            filter = TransactionFilter(
+                categories = filter.category?.let(::setOf).orEmpty(),
+                tags = filter.tag?.let(::setOf).orEmpty(),
+                from = from,
+                until = until,
+            ),
             limit = REPORT_TRANSACTION_LIMIT,
             offset = 0,
         ).map { result ->
             when (result) {
                 is Result.Error -> result
-                is Result.Success -> Result.Success(buildSummary(result.value, currentMonth, firstMonth, zone))
+                is Result.Success -> Result.Success(buildSummary(result.value, filter, zone))
             }
         }
     }
 
     private fun buildSummary(
         transactions: List<Transaction>,
-        currentMonth: YearMonth,
-        firstMonth: YearMonth,
+        filter: ReportsFilter,
         zone: ZoneId,
     ): ReportsSummary {
+        val firstMonth = YearMonth.from(filter.fromDate)
+        val lastMonth = YearMonth.from(filter.untilDate)
+        val monthCount = ChronoUnit.MONTHS.between(firstMonth, lastMonth).toInt() + 1
         val rowsByMonth = transactions.groupBy { YearMonth.from(it.date.atZone(zone)) }
-        val currentRows = rowsByMonth[currentMonth].orEmpty()
-        val income = currentRows.totalFor(TransactionType.DEPOSIT)
-        val expenses = currentRows.totalFor(TransactionType.WITHDRAWAL)
-        val cashFlow = (0 until REPORT_MONTHS).map { offset ->
+        val income = transactions.totalFor(TransactionType.DEPOSIT)
+        val expenses = transactions.totalFor(TransactionType.WITHDRAWAL)
+        val cashFlow = (0 until monthCount).map { offset ->
             val month = firstMonth.plusMonths(offset.toLong())
             val rows = rowsByMonth[month].orEmpty()
             MonthlyCashFlow(
@@ -60,7 +63,7 @@ class ObserveReportsUseCase @Inject constructor(
                 expenses = rows.totalFor(TransactionType.WITHDRAWAL),
             )
         }
-        val categories = currentRows.asSequence()
+        val categories = transactions.asSequence()
             .filter { it.type == TransactionType.WITHDRAWAL }
             .groupBy(Transaction::category)
             .map { (category, rows) ->
@@ -69,13 +72,15 @@ class ObserveReportsUseCase @Inject constructor(
             .sortedByDescending(CategorySpend::amount)
             .take(CATEGORY_COUNT)
         return ReportsSummary(
-            currency = currentRows.firstOrNull()?.currency ?: transactions.firstOrNull()?.currency ?: DEFAULT_CURRENCY,
-            monthIncome = income,
-            monthExpenses = expenses,
-            monthNetFlow = income - expenses,
+            currency = transactions.firstOrNull()?.currency ?: DEFAULT_CURRENCY,
+            income = income,
+            expenses = expenses,
+            netFlow = income - expenses,
             monthlyCashFlow = cashFlow,
             categorySpending = categories,
             transactionCount = transactions.count { it.type != TransactionType.TRANSFER },
+            fromDate = filter.fromDate,
+            untilDate = filter.untilDate,
         )
     }
 
@@ -84,7 +89,6 @@ class ObserveReportsUseCase @Inject constructor(
         .fold(BigDecimal.ZERO) { total, row -> total + row.amount.abs() }
 
     private companion object {
-        const val REPORT_MONTHS = 3
         const val REPORT_TRANSACTION_LIMIT = 10_000
         const val CATEGORY_COUNT = 5
         const val DEFAULT_CURRENCY = "XXX"

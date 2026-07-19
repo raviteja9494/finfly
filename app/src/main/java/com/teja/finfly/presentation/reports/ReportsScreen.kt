@@ -2,6 +2,7 @@
 package com.teja.finfly.presentation.reports
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,18 +16,32 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Insights
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.FilterList
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -56,12 +71,30 @@ import kotlin.math.max
 @Composable
 fun ReportsScreen(viewModel: ReportsViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    ReportsContent(state, viewModel::refresh)
+    ReportsContent(
+        state = state,
+        onRefresh = viewModel::refresh,
+        onFromDateChange = viewModel::setFromDate,
+        onUntilDateChange = viewModel::setUntilDate,
+        onCategoryChange = viewModel::setCategory,
+        onTagChange = viewModel::setTag,
+        onApplyFilters = viewModel::applyFilters,
+        onClearFilters = viewModel::clearFilters,
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ReportsContent(state: ReportsUiState, onRefresh: () -> Unit) {
+private fun ReportsContent(
+    state: ReportsUiState,
+    onRefresh: () -> Unit,
+    onFromDateChange: (String) -> Unit,
+    onUntilDateChange: (String) -> Unit,
+    onCategoryChange: (String?) -> Unit,
+    onTagChange: (String?) -> Unit,
+    onApplyFilters: () -> Unit,
+    onClearFilters: () -> Unit,
+) {
     val refreshing = when (state) {
         is ReportsUiState.Success -> state.isRefreshing
         is ReportsUiState.Empty -> state.isRefreshing
@@ -75,14 +108,40 @@ private fun ReportsContent(state: ReportsUiState, onRefresh: () -> Unit) {
         when (state) {
             ReportsUiState.Loading -> LoadingState()
             ReportsUiState.Error -> ErrorState(onRetry = onRefresh)
-            is ReportsUiState.Empty -> EmptyState(R.string.no_report_data, R.string.no_report_data_message)
-            is ReportsUiState.Success -> ReportsList(state.summary)
+            is ReportsUiState.Empty -> ReportsEmpty(
+                state.filterForm,
+                onFromDateChange,
+                onUntilDateChange,
+                onCategoryChange,
+                onTagChange,
+                onApplyFilters,
+                onClearFilters,
+            )
+            is ReportsUiState.Success -> ReportsList(
+                state.summary,
+                state.filterForm,
+                onFromDateChange,
+                onUntilDateChange,
+                onCategoryChange,
+                onTagChange,
+                onApplyFilters,
+                onClearFilters,
+            )
         }
     }
 }
 
 @Composable
-private fun ReportsList(summary: ReportsSummary) {
+private fun ReportsList(
+    summary: ReportsSummary,
+    filterForm: ReportsFilterForm,
+    onFromDateChange: (String) -> Unit,
+    onUntilDateChange: (String) -> Unit,
+    onCategoryChange: (String?) -> Unit,
+    onTagChange: (String?) -> Unit,
+    onApplyFilters: () -> Unit,
+    onClearFilters: () -> Unit,
+) {
     val spacing = FinFlyThemeTokens.spacing
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -96,32 +155,228 @@ private fun ReportsList(summary: ReportsSummary) {
     ) {
         item { ReportsIntro() }
         item {
+            ReportFilters(
+                filterForm,
+                onFromDateChange,
+                onUntilDateChange,
+                onCategoryChange,
+                onTagChange,
+                onApplyFilters,
+                onClearFilters,
+            )
+        }
+        item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(spacing.medium),
             ) {
                 SummaryCard(
                     title = stringResource(R.string.report_income),
-                    amount = summary.monthIncome,
+                    amount = summary.income,
                     currency = summary.currency,
                     amountColor = MaterialTheme.colorScheme.creditAmount,
                     modifier = Modifier.weight(1f),
                 )
                 SummaryCard(
                     title = stringResource(R.string.report_expenses),
-                    amount = summary.monthExpenses,
+                    amount = summary.expenses,
                     currency = summary.currency,
                     amountColor = MaterialTheme.colorScheme.debitAmount,
                     modifier = Modifier.weight(1f),
                 )
             }
         }
-        item { NetFlowCard(summary.monthNetFlow, summary.currency) }
-        item { CashFlowChart(summary.monthlyCashFlow, summary.currency) }
+        item { NetFlowCard(summary.netFlow, summary.currency) }
+        item { CashFlowChart(summary, summary.currency) }
         if (summary.categorySpending.isNotEmpty()) {
-            item { CategoryReport(summary.categorySpending, summary.monthExpenses, summary.currency) }
+            item { CategoryReport(summary.categorySpending, summary.expenses, summary.currency) }
         }
     }
+}
+
+@Composable
+private fun ReportsEmpty(
+    form: ReportsFilterForm,
+    onFromDateChange: (String) -> Unit,
+    onUntilDateChange: (String) -> Unit,
+    onCategoryChange: (String?) -> Unit,
+    onTagChange: (String?) -> Unit,
+    onApplyFilters: () -> Unit,
+    onClearFilters: () -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(FinFlyThemeTokens.spacing.medium),
+        verticalArrangement = Arrangement.spacedBy(FinFlyThemeTokens.spacing.medium),
+    ) {
+        ReportFilters(
+            form,
+            onFromDateChange,
+            onUntilDateChange,
+            onCategoryChange,
+            onTagChange,
+            onApplyFilters,
+            onClearFilters,
+        )
+        EmptyState(
+            R.string.no_report_data,
+            R.string.no_report_data_message,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ReportFilters(
+    form: ReportsFilterForm,
+    onFromDateChange: (String) -> Unit,
+    onUntilDateChange: (String) -> Unit,
+    onCategoryChange: (String?) -> Unit,
+    onTagChange: (String?) -> Unit,
+    onApplyFilters: () -> Unit,
+    onClearFilters: () -> Unit,
+) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    val spacing = FinFlyThemeTokens.spacing
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(FinFlyThemeTokens.radii.card),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    ) {
+        Column {
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(spacing.medium),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(spacing.small),
+            ) {
+                Icon(Icons.Rounded.FilterList, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        stringResource(R.string.report_filters_count, form.activeCount),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        stringResource(
+                            R.string.report_filter_summary,
+                            form.appliedFilter.fromDate.toString(),
+                            form.appliedFilter.untilDate.toString(),
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Icon(
+                    if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                    contentDescription = stringResource(
+                        if (expanded) R.string.collapse_section else R.string.expand_section
+                    ),
+                )
+            }
+            if (expanded) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(
+                        start = spacing.medium,
+                        end = spacing.medium,
+                        bottom = spacing.medium,
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(spacing.medium),
+                ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
+                        OutlinedTextField(
+                            value = form.fromDate,
+                            onValueChange = onFromDateChange,
+                            modifier = Modifier.weight(1f),
+                            label = { Text(stringResource(R.string.report_from_date)) },
+                            supportingText = { Text(stringResource(R.string.date_format_hint)) },
+                            singleLine = true,
+                        )
+                        OutlinedTextField(
+                            value = form.untilDate,
+                            onValueChange = onUntilDateChange,
+                            modifier = Modifier.weight(1f),
+                            label = { Text(stringResource(R.string.report_until_date)) },
+                            supportingText = { Text(stringResource(R.string.date_format_hint)) },
+                            singleLine = true,
+                        )
+                    }
+                    ReportDropdown(
+                        label = stringResource(R.string.category),
+                        allLabel = stringResource(R.string.all_categories),
+                        choices = form.categories.map { it.name },
+                        selected = form.category,
+                        onSelected = onCategoryChange,
+                    )
+                    ReportDropdown(
+                        label = stringResource(R.string.tags),
+                        allLabel = stringResource(R.string.all_tags),
+                        choices = form.tags.map { it.name },
+                        selected = form.tag,
+                        onSelected = onTagChange,
+                    )
+                    form.error?.let { error ->
+                        Text(
+                            stringResource(error.messageResource()),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(spacing.small, Alignment.End),
+                    ) {
+                        OutlinedButton(onClick = onClearFilters) { Text(stringResource(R.string.clear_filters)) }
+                        Button(onClick = onApplyFilters) { Text(stringResource(R.string.apply_filters)) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ReportDropdown(
+    label: String,
+    allLabel: String,
+    choices: List<String>,
+    selected: String?,
+    onSelected: (String?) -> Unit,
+) {
+    var expanded by rememberSaveable(label) { mutableStateOf(false) }
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+        OutlinedTextField(
+            value = selected ?: allLabel,
+            onValueChange = {},
+            modifier = Modifier.fillMaxWidth().menuAnchor(),
+            readOnly = true,
+            label = { Text(label) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text(allLabel) },
+                onClick = {
+                    onSelected(null)
+                    expanded = false
+                },
+            )
+            choices.distinct().forEach { choice ->
+                DropdownMenuItem(
+                    text = { Text(choice) },
+                    onClick = {
+                        onSelected(choice)
+                        expanded = false
+                    },
+                )
+            }
+        }
+    }
+}
+
+private fun ReportsFilterError.messageResource(): Int = when (this) {
+    ReportsFilterError.INVALID_DATE -> R.string.report_invalid_date
+    ReportsFilterError.INVALID_RANGE -> R.string.report_invalid_range
+    ReportsFilterError.RANGE_TOO_LARGE -> R.string.report_range_too_large
 }
 
 @Composable
@@ -215,40 +470,67 @@ private fun NetFlowCard(amount: BigDecimal, currency: String) {
 }
 
 @Composable
-private fun CashFlowChart(rows: List<MonthlyCashFlow>, currency: String) {
+private fun CashFlowChart(summary: ReportsSummary, currency: String) {
+    val rows = summary.monthlyCashFlow
     val locale = LocalConfiguration.current.locales[0]
     val maximum = rows.maxOfOrNull { maxOf(it.income, it.expenses) } ?: BigDecimal.ZERO
     val incomeColor = MaterialTheme.colorScheme.creditAmount
     val expenseColor = MaterialTheme.colorScheme.debitAmount
+    val rangeFormatter = DateTimeFormatter.ofPattern(stringResource(R.string.report_range_date_pattern), locale)
     ReportCard(title = stringResource(R.string.report_cash_flow)) {
         Text(
-            stringResource(R.string.report_last_three_months),
+            stringResource(
+                R.string.report_range_value,
+                summary.fromDate.format(rangeFormatter),
+                summary.untilDate.format(rangeFormatter),
+            ),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         ChartLegend(incomeColor, expenseColor)
-        Row(
-            modifier = Modifier.fillMaxWidth().height(172.dp),
-            horizontalArrangement = Arrangement.spacedBy(FinFlyThemeTokens.spacing.medium),
-            verticalAlignment = Alignment.Bottom,
-        ) {
-            rows.forEach { row ->
-                MonthBars(
-                    row = row,
-                    maximum = maximum,
-                    incomeColor = incomeColor,
-                    expenseColor = expenseColor,
-                    monthLabel = row.month.format(
-                        DateTimeFormatter.ofPattern(stringResource(R.string.report_month_pattern), locale)
-                    ),
-                    modifier = Modifier.weight(1f),
-                )
+        if (rows.size <= COMPACT_MONTH_COUNT) {
+            Row(
+                modifier = Modifier.fillMaxWidth().height(172.dp),
+                horizontalArrangement = Arrangement.spacedBy(FinFlyThemeTokens.spacing.medium),
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                rows.forEach { row ->
+                    MonthBars(
+                        row = row,
+                        maximum = maximum,
+                        incomeColor = incomeColor,
+                        expenseColor = expenseColor,
+                        monthLabel = row.month.format(
+                            DateTimeFormatter.ofPattern(stringResource(R.string.report_month_pattern), locale)
+                        ),
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        } else {
+            LazyRow(
+                modifier = Modifier.fillMaxWidth().height(172.dp),
+                horizontalArrangement = Arrangement.spacedBy(FinFlyThemeTokens.spacing.small),
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                items(rows, key = MonthlyCashFlow::month) { row ->
+                    MonthBars(
+                        row = row,
+                        maximum = maximum,
+                        incomeColor = incomeColor,
+                        expenseColor = expenseColor,
+                        monthLabel = row.month.format(
+                            DateTimeFormatter.ofPattern(stringResource(R.string.report_month_pattern), locale)
+                        ),
+                        modifier = Modifier.width(72.dp),
+                    )
+                }
             }
         }
         Text(
             stringResource(
-                R.string.report_current_month_total,
-                formatCurrency(rows.lastOrNull()?.expenses ?: BigDecimal.ZERO, currency),
+                R.string.report_range_expense_total,
+                formatCurrency(summary.expenses, currency),
             ),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -373,3 +655,4 @@ private const val MINIMUM_BAR_HEIGHT = 4f
 private const val MAXIMUM_BAR_HEIGHT = 128f
 private const val MINIMUM_BAR_RATIO = 0.02f
 private const val PERCENT_MULTIPLIER = 100f
+private const val COMPACT_MONTH_COUNT = 4

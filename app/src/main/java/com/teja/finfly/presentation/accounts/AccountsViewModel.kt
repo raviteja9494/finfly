@@ -12,15 +12,18 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /** Combines every cached account type with pull-to-refresh feedback from the shared sync operation. */
 @HiltViewModel
 class AccountsViewModel @Inject constructor(
-    repository: AccountRepository,
+    private val repository: AccountRepository,
     private val syncFinances: SyncFinancesUseCase,
 ) : ViewModel() {
+    private val mutableDeletionState = kotlinx.coroutines.flow.MutableStateFlow(AccountDeletionState())
+    val deletionState = mutableDeletionState.asStateFlow()
     val uiState = combine(repository.observeAccounts(), syncFinances.state) { result, syncState ->
         val refreshing = syncState is SyncState.Syncing
         when (result) {
@@ -33,6 +36,21 @@ class AccountsViewModel @Inject constructor(
     fun refresh() {
         viewModelScope.launch { syncFinances() }
     }
+
+    fun delete(accountId: String) {
+        if (mutableDeletionState.value.deletingId != null) return
+        viewModelScope.launch {
+            mutableDeletionState.value = AccountDeletionState(deletingId = accountId)
+            mutableDeletionState.value = when (repository.deleteAccount(accountId)) {
+                is Result.Success -> AccountDeletionState()
+                is Result.Error -> AccountDeletionState(failed = true)
+            }
+        }
+    }
+
+    fun dismissDeleteError() {
+        mutableDeletionState.value = AccountDeletionState()
+    }
 }
 
 /** Loading, grouped content, empty, and failure states for the Accounts screen. */
@@ -42,3 +60,8 @@ sealed interface AccountsUiState {
     data class Empty(val isRefreshing: Boolean) : AccountsUiState
     data object Error : AccountsUiState
 }
+
+data class AccountDeletionState(
+    val deletingId: String? = null,
+    val failed: Boolean = false,
+)

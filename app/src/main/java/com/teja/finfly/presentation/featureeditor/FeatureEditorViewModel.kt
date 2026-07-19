@@ -96,6 +96,7 @@ class FeatureEditorViewModel @Inject constructor(
                 } else FireflyFeatureDraft.Budget(name, notes, minimum, currencyCode)
             }
             FireflyFeature.CATEGORIES -> FireflyFeatureDraft.Category(name, notes)
+            FireflyFeature.TAGS -> FireflyFeatureDraft.Tag(name, notes)
             FireflyFeature.BILLS -> when {
                 minimum == null || maximum == null || minimum.signum() <= 0 || maximum.signum() <= 0 ->
                     invalid(FeatureEditorError.INVALID_AMOUNT)

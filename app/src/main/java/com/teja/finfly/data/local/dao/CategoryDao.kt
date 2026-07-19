@@ -15,4 +15,7 @@ interface CategoryDao {
 
     @Upsert
     suspend fun upsertAll(categories: List<CategoryEntity>)
+
+    @Query("DELETE FROM categories WHERE id = :id")
+    suspend fun delete(id: String)
 }

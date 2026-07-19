@@ -14,17 +14,24 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -36,6 +43,7 @@ import com.teja.finfly.domain.model.AccountGroup
 import com.teja.finfly.presentation.components.EmptyState
 import com.teja.finfly.presentation.components.ErrorState
 import com.teja.finfly.presentation.components.LoadingState
+import com.teja.finfly.presentation.components.ConfirmationDialog
 import com.teja.finfly.presentation.theme.FinFlyThemeTokens
 import com.teja.finfly.presentation.theme.creditAmount
 import com.teja.finfly.presentation.theme.debitAmount
@@ -51,9 +59,34 @@ fun AccountsScreen(
     viewModel: AccountsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val deletionState by viewModel.deletionState.collectAsStateWithLifecycle()
+    var pendingDelete by remember { mutableStateOf<Account?>(null) }
     val refreshing = (state as? AccountsUiState.Success)?.isRefreshing
         ?: (state as? AccountsUiState.Empty)?.isRefreshing
         ?: false
+    pendingDelete?.let { account ->
+        ConfirmationDialog(
+            title = R.string.delete_account,
+            message = stringResource(R.string.delete_account_message, account.name),
+            confirmLabel = R.string.delete,
+            onConfirm = {
+                pendingDelete = null
+                viewModel.delete(account.id)
+            },
+            onDismiss = { pendingDelete = null },
+            destructive = true,
+        )
+    }
+    if (deletionState.failed) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissDeleteError,
+            title = { Text(stringResource(R.string.delete_failed)) },
+            text = { Text(stringResource(R.string.delete_account_failed_message)) },
+            confirmButton = {
+                TextButton(onClick = viewModel::dismissDeleteError) { Text(stringResource(R.string.ok)) }
+            },
+        )
+    }
     Scaffold(
         floatingActionButton = {
             ExtendedFloatingActionButton(
@@ -72,14 +105,24 @@ fun AccountsScreen(
                 AccountsUiState.Loading -> LoadingState()
                 AccountsUiState.Error -> ErrorState(onRetry = viewModel::refresh)
                 is AccountsUiState.Empty -> EmptyState(R.string.no_bank_accounts, R.string.no_bank_accounts_message)
-                is AccountsUiState.Success -> GroupedAccountList(value.accounts, onAccountClick)
+                is AccountsUiState.Success -> GroupedAccountList(
+                    value.accounts,
+                    onAccountClick,
+                    deletionState.deletingId,
+                    onDelete = { pendingDelete = it },
+                )
             }
         }
     }
 }
 
 @Composable
-private fun GroupedAccountList(accounts: List<Account>, onAccountClick: (String) -> Unit) {
+private fun GroupedAccountList(
+    accounts: List<Account>,
+    onAccountClick: (String) -> Unit,
+    deletingId: String?,
+    onDelete: (Account) -> Unit,
+) {
     val grouped = AccountGroup.entries.mapNotNull { group ->
         val rows = accounts.filter { it.group == group }
         if (rows.isNotEmpty()) group to rows else null
@@ -101,6 +144,8 @@ private fun GroupedAccountList(accounts: List<Account>, onAccountClick: (String)
                 AccountCard(
                     account = account,
                     modifier = Modifier.clickable { onAccountClick(account.id) },
+                    deleting = deletingId == account.id,
+                    onDelete = { onDelete(account) },
                 )
             }
         }
@@ -108,7 +153,12 @@ private fun GroupedAccountList(accounts: List<Account>, onAccountClick: (String)
 }
 
 @Composable
-fun AccountCard(account: Account, modifier: Modifier = Modifier) {
+fun AccountCard(
+    account: Account,
+    modifier: Modifier = Modifier,
+    deleting: Boolean = false,
+    onDelete: (() -> Unit)? = null,
+) {
     Card(modifier = modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.padding(FinFlyThemeTokens.spacing.medium),
@@ -134,6 +184,15 @@ fun AccountCard(account: Account, modifier: Modifier = Modifier) {
                 color = if (account.balance < BigDecimal.ZERO) MaterialTheme.colorScheme.debitAmount
                 else MaterialTheme.colorScheme.creditAmount,
             )
+            if (onDelete != null) {
+                IconButton(onClick = onDelete, enabled = !deleting) {
+                    Icon(
+                        Icons.Rounded.DeleteOutline,
+                        contentDescription = stringResource(R.string.delete_item_named, account.name),
+                        tint = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
         }
     }
 }

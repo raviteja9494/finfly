@@ -7,7 +7,7 @@ import java.time.LocalDate
 
 /** Secondary Firefly sections exposed from the application drawer. */
 @Serializable
-enum class FireflyFeature { BUDGETS, CATEGORIES, BILLS, PIGGY_BANKS }
+enum class FireflyFeature { BUDGETS, CATEGORIES, TAGS, BILLS, PIGGY_BANKS }
 
 /** Display-ready summary of one secondary Firefly resource. */
 data class FireflyFeatureItem(
@@ -30,6 +30,11 @@ sealed interface FireflyFeatureDraft {
     ) : FireflyFeatureDraft
 
     data class Category(
+        override val name: String,
+        override val notes: String,
+    ) : FireflyFeatureDraft
+
+    data class Tag(
         override val name: String,
         override val notes: String,
     ) : FireflyFeatureDraft

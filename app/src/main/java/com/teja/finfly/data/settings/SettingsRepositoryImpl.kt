@@ -64,6 +64,15 @@ class SettingsRepositoryImpl @Inject constructor(
         Result.Success(Unit)
     }.getOrElse { Result.Error(it.message ?: it.javaClass.simpleName, it) }
 
+    override suspend fun logout(): Result<Unit> = runCatching {
+        dataStore.edit { preferences ->
+            preferences.remove(SERVER_URL)
+            preferences.remove(BEARER_TOKEN)
+            preferences.remove(LAST_SYNC)
+        }
+        Result.Success(Unit)
+    }.getOrElse { Result.Error(it.message ?: it.javaClass.simpleName, it) }
+
     override suspend fun updateLastSyncTime(instant: Instant): Result<Unit> = runCatching {
         dataStore.edit { it[LAST_SYNC] = instant.toEpochMilli() }
         Result.Success(Unit)

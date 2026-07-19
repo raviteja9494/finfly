@@ -153,6 +153,15 @@ class TransactionRepositoryImpl @Inject constructor(
         )
     }
 
+    override suspend fun deleteTransaction(remoteGroupId: String): Result<Unit> {
+        if (!isConfigured()) return Result.Error(NOT_CONFIGURED)
+        return runCatching {
+            check(api.deleteTransaction(remoteGroupId).isSuccessful)
+            database.transactionDao().deleteByRemoteGroupId(remoteGroupId)
+            Result.Success(Unit)
+        }.getOrElse { Result.Error(it.message ?: DELETE_ERROR, it) }
+    }
+
     override suspend fun sync(from: Instant?, until: Instant?): Result<Unit> {
         if (!isConfigured()) return Result.Error(NOT_CONFIGURED)
         return runCatching {
@@ -220,6 +229,7 @@ class TransactionRepositoryImpl @Inject constructor(
         const val CACHE_ERROR = "cache_error"
         const val SYNC_ERROR = "sync_error"
         const val SAVE_ERROR = "save_error"
+        const val DELETE_ERROR = "transaction_delete_error"
         const val NOT_CONFIGURED = "not_configured"
     }
 }

@@ -25,15 +25,17 @@ class SyncFinancesUseCase @Inject constructor(
     private val mutableState = MutableStateFlow<SyncState>(SyncState.Idle)
     val state: StateFlow<SyncState> = mutableState.asStateFlow()
 
-    suspend operator fun invoke(): Result<Unit> {
+    suspend operator fun invoke(from: java.time.Instant? = null, until: java.time.Instant? = null): Result<Unit> {
         if (mutableState.value is SyncState.Syncing) return Result.Success(Unit)
         mutableState.value = SyncState.Syncing
         val now = clock.instant()
+        val syncFrom = from ?: now.minus(SYNC_DAYS, ChronoUnit.DAYS)
+        val syncUntil = until ?: now
         val result = when (val accounts = accountRepository.sync()) {
             is Result.Error -> accounts
             is Result.Success -> when (val transactions = transactionRepository.sync(
-                from = now.minus(SYNC_DAYS, ChronoUnit.DAYS),
-                until = now,
+                from = syncFrom,
+                until = syncUntil,
             )) {
                 is Result.Error -> transactions
                 is Result.Success -> tagRepository.refresh()

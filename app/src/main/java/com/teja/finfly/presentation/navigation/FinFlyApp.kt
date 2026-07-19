@@ -27,6 +27,7 @@ import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Sms
+import androidx.compose.material.icons.rounded.Label
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -242,6 +243,11 @@ private fun drawerDestinations(): List<DrawerDestination> = listOf(
         AppRoute.FeatureList(FireflyFeature.CATEGORIES),
     ),
     DrawerDestination(
+        R.string.drawer_tags,
+        Icons.Rounded.Label,
+        AppRoute.FeatureList(FireflyFeature.TAGS),
+    ),
+    DrawerDestination(
         R.string.drawer_bills,
         Icons.Rounded.ReceiptLong,
         AppRoute.FeatureList(FireflyFeature.BILLS),
@@ -251,8 +257,8 @@ private fun drawerDestinations(): List<DrawerDestination> = listOf(
         Icons.Rounded.Savings,
         AppRoute.FeatureList(FireflyFeature.PIGGY_BANKS),
     ),
-    DrawerDestination(R.string.nav_settings, Icons.Rounded.Settings, AppRoute.Settings),
     DrawerDestination(R.string.drawer_sms_parsing, Icons.Rounded.Sms, AppRoute.SmsParsing),
+    DrawerDestination(R.string.nav_settings, Icons.Rounded.Settings, AppRoute.Settings),
 )
 
 @Composable
@@ -387,6 +393,7 @@ private fun destinationTitle(entry: NavBackStackEntry?): String {
 private fun FireflyFeature.titleResource(): Int = when (this) {
     FireflyFeature.BUDGETS -> R.string.drawer_budgets
     FireflyFeature.CATEGORIES -> R.string.drawer_categories
+    FireflyFeature.TAGS -> R.string.drawer_tags
     FireflyFeature.BILLS -> R.string.drawer_bills
     FireflyFeature.PIGGY_BANKS -> R.string.drawer_piggy_banks
 }
@@ -485,6 +492,7 @@ private fun FinFlyBottomBar(destination: NavDestination?, onSelect: (FinFlyTab) 
 private fun FireflyFeature.createTitleResource(): Int = when (this) {
     FireflyFeature.BUDGETS -> R.string.new_budget
     FireflyFeature.CATEGORIES -> R.string.new_category
+    FireflyFeature.TAGS -> R.string.new_tag
     FireflyFeature.BILLS -> R.string.new_bill
     FireflyFeature.PIGGY_BANKS -> R.string.new_piggy_bank
 }

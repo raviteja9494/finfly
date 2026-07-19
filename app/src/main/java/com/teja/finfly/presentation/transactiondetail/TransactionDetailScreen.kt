@@ -16,6 +16,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material3.Button
@@ -29,6 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,6 +49,7 @@ import com.teja.finfly.presentation.components.EmptyState
 import com.teja.finfly.presentation.components.ErrorState
 import com.teja.finfly.presentation.components.LoadingState
 import com.teja.finfly.presentation.components.TagPill
+import com.teja.finfly.presentation.components.ConfirmationDialog
 import com.teja.finfly.presentation.theme.FinFlyThemeTokens
 import com.teja.finfly.presentation.theme.creditAmount
 import com.teja.finfly.presentation.theme.debitAmount
@@ -62,11 +66,43 @@ fun TransactionDetailScreen(
     viewModel: TransactionDetailViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val deletionState by viewModel.deletionState.collectAsStateWithLifecycle()
+    var pendingDelete by rememberSaveable { mutableStateOf<Transaction?>(null) }
+    LaunchedEffect(deletionState.deleted) { if (deletionState.deleted) onBack() }
+    pendingDelete?.let { transaction ->
+        ConfirmationDialog(
+            title = R.string.delete_transaction,
+            message = stringResource(R.string.delete_transaction_message, transaction.description),
+            confirmLabel = R.string.delete,
+            onConfirm = {
+                pendingDelete = null
+                viewModel.delete(transaction)
+            },
+            onDismiss = { pendingDelete = null },
+            destructive = true,
+        )
+    }
+    if (deletionState.failed) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissDeleteError,
+            title = { Text(stringResource(R.string.delete_failed)) },
+            text = { Text(stringResource(R.string.delete_failed_message)) },
+            confirmButton = {
+                TextButton(onClick = viewModel::dismissDeleteError) { Text(stringResource(R.string.ok)) }
+            },
+        )
+    }
     when (val value = state) {
         TransactionDetailUiState.Loading -> LoadingState()
         TransactionDetailUiState.Error -> ErrorState(onRetry = viewModel::retry)
         TransactionDetailUiState.Empty -> EmptyState(R.string.transaction_not_found, R.string.transaction_load_failed)
-        is TransactionDetailUiState.Success -> DetailContent(value, onBack, onEdit)
+        is TransactionDetailUiState.Success -> DetailContent(
+            value,
+            onBack,
+            onEdit,
+            deletionState.isDeleting,
+            onDelete = { pendingDelete = value.transaction },
+        )
     }
 }
 
@@ -75,6 +111,8 @@ private fun DetailContent(
     state: TransactionDetailUiState.Success,
     onBack: () -> Unit,
     onEdit: (String) -> Unit,
+    isDeleting: Boolean,
+    onDelete: () -> Unit,
 ) {
     val transaction = state.transaction
     val spacing = FinFlyThemeTokens.spacing
@@ -86,12 +124,20 @@ private fun DetailContent(
         verticalArrangement = Arrangement.spacedBy(spacing.medium),
     ) {
         item {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
                 OutlinedButton(onClick = onBack) {
                     Icon(Icons.Rounded.ArrowBack, contentDescription = null)
                     Text(stringResource(R.string.back), modifier = Modifier.padding(start = spacing.small))
                 }
-                Button(onClick = { onEdit(transaction.id) }) {
+                OutlinedButton(onClick = onDelete, enabled = !isDeleting) {
+                    Icon(Icons.Rounded.DeleteOutline, contentDescription = null)
+                    Text(
+                        stringResource(if (isDeleting) R.string.deleting else R.string.delete),
+                        modifier = Modifier.padding(start = spacing.small),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+                Button(onClick = { onEdit(transaction.id) }, enabled = !isDeleting) {
                     Icon(Icons.Rounded.Edit, contentDescription = null)
                     Text(stringResource(R.string.edit), modifier = Modifier.padding(start = spacing.small))
                 }

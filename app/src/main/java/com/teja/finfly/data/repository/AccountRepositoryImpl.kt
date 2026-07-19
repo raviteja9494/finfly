@@ -1,6 +1,7 @@
 /* Data-layer offline-first implementation of the account repository. */
 package com.teja.finfly.data.repository
 
+import androidx.room.withTransaction
 import com.teja.finfly.data.local.FinFlyDatabase
 import com.teja.finfly.data.mapper.toDomain
 import com.teja.finfly.data.mapper.toEntity
@@ -48,6 +49,18 @@ class AccountRepositoryImpl @Inject constructor(
         )
     }
 
+    override suspend fun deleteAccount(id: String): Result<Unit> {
+        if (!isConfigured()) return Result.Error(NOT_CONFIGURED)
+        return runCatching {
+            check(api.deleteAccount(id).isSuccessful)
+            database.withTransaction {
+                database.accountDao().delete(id)
+                database.transactionDao().deleteByAccountId(id)
+            }
+            Result.Success(Unit)
+        }.getOrElse { Result.Error(it.message ?: DELETE_ERROR, it) }
+    }
+
     override suspend fun sync(): Result<Unit> {
         if (!isConfigured()) return Result.Error(NOT_CONFIGURED)
         return runCatching {
@@ -75,6 +88,7 @@ class AccountRepositoryImpl @Inject constructor(
         const val CACHE_ERROR = "cache_error"
         const val SYNC_ERROR = "sync_error"
         const val SAVE_ERROR = "save_error"
+        const val DELETE_ERROR = "account_delete_error"
         const val NOT_CONFIGURED = "not_configured"
     }
 }

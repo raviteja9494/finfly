@@ -167,6 +167,11 @@ data class StoreCategoryRequest(
     val notes: String? = null,
 )
 
+data class StoreTagRequest(
+    val tag: String,
+    val description: String? = null,
+)
+
 data class StoreBillRequest(
     val name: String,
     @SerializedName("amount_min") val amountMin: String,

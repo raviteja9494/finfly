@@ -117,6 +117,19 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun logout() {
+        if (form.value.isLoggingOut) return
+        viewModelScope.launch {
+            form.value = form.value.copy(isLoggingOut = true, feedback = null)
+            val result = settingsRepository.logout()
+            form.value = form.value.copy(
+                isLoggingOut = false,
+                showToken = false,
+                feedback = result.toFeedback(success = SettingsFeedback.LOGGED_OUT),
+            )
+        }
+    }
+
     private fun persistDashboardPreferences() {
         val preferences = form.value
         viewModelScope.launch {

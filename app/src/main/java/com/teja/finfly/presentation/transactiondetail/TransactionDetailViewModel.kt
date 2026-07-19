@@ -12,6 +12,7 @@ import com.teja.finfly.domain.usecase.SyncFinancesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -20,10 +21,12 @@ import javax.inject.Inject
 @HiltViewModel
 class TransactionDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    repository: TransactionRepository,
+    private val repository: TransactionRepository,
     private val syncFinances: SyncFinancesUseCase,
 ) : ViewModel() {
     private val transactionId = savedStateHandle.toRoute<AppRoute.TransactionDetail>().transactionId
+    private val mutableDeletionState = kotlinx.coroutines.flow.MutableStateFlow(TransactionDeletionState())
+    val deletionState = mutableDeletionState.asStateFlow()
 
     val uiState = repository.observeTransaction(transactionId).map { result ->
         when (result) {
@@ -42,6 +45,21 @@ class TransactionDetailViewModel @Inject constructor(
 
     fun retry() {
         viewModelScope.launch { syncFinances() }
+    }
+
+    fun delete(transaction: com.teja.finfly.domain.model.Transaction) {
+        if (mutableDeletionState.value.isDeleting) return
+        viewModelScope.launch {
+            mutableDeletionState.value = TransactionDeletionState(isDeleting = true)
+            mutableDeletionState.value = when (repository.deleteTransaction(transaction.remoteGroupId)) {
+                is Result.Success -> TransactionDeletionState(deleted = true)
+                is Result.Error -> TransactionDeletionState(failed = true)
+            }
+        }
+    }
+
+    fun dismissDeleteError() {
+        mutableDeletionState.value = TransactionDeletionState()
     }
 
     private fun extractFields(notes: String?, storedRawSms: String?): DetailFields {

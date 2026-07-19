@@ -13,6 +13,7 @@ data class SettingsForm(
     val showToken: Boolean = false,
     val isTesting: Boolean = false,
     val isSaving: Boolean = false,
+    val isLoggingOut: Boolean = false,
     val feedback: SettingsFeedback? = null,
     val showNetWorthSummary: Boolean = false,
     val recentTransactionsCount: Int = 10,
@@ -23,7 +24,7 @@ data class SettingsForm(
     val useDeviceTimezone: Boolean = true,
 )
 
-enum class SettingsFeedback { CONNECTION_SUCCESS, CONNECTION_FAILED, SAVED, INVALID_URL, TOKEN_REQUIRED }
+enum class SettingsFeedback { CONNECTION_SUCCESS, CONNECTION_FAILED, SAVED, LOGGED_OUT, INVALID_URL, TOKEN_REQUIRED }
 
 sealed interface SettingsUiState {
     data object Loading : SettingsUiState
