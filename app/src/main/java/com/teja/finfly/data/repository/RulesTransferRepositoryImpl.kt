@@ -54,8 +54,9 @@ class RulesTransferRepositoryImpl @Inject constructor(
         require(root.has("version") && root.get("version").isJsonPrimitive) { INVALID_CONFIG }
         require(root.has("bankRules") && root.get("bankRules").isJsonArray) { INVALID_CONFIG }
         require(root.get("version").asInt == RulesConfig.CURRENT_VERSION) { UNSUPPORTED_VERSION }
-        gson.fromJson(json, RulesConfig::class.java).also {
+        gson.fromJson(json, RulesConfig::class.java).let {
             requireNotNull(it.bankRules) { INVALID_CONFIG }
+            it.copy(universalTags = it.universalTags.orEmpty())
         }
     }.fold(
         onSuccess = { Result.Success(it) },

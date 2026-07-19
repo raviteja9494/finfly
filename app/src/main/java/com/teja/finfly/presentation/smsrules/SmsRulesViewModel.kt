@@ -55,18 +55,24 @@ class SmsRulesViewModel @Inject constructor(
             combine(
                 repository.observeBankRules(),
                 repository.observeCategoryRules(),
+                repository.observeUniversalTags(),
                 settingsRepository.settings,
-            ) { banks, categories, settings -> Triple(banks, categories, settings) }
-                .collect { (banks, categories, settings) ->
+            ) { banks, categories, universalTags, settings ->
+                ParsingRuleSnapshot(banks, categories, universalTags, settings)
+            }.collect { snapshot ->
+                    val banks = snapshot.banks
+                    val categories = snapshot.categories
                     val bankValues = (banks as? Result.Success)?.value
                     val categoryValues = (categories as? Result.Success)?.value
+                    val universalTagValues = (snapshot.universalTags as? Result.Success)?.value
                     update {
                         copy(
                             loading = false,
-                            error = bankValues == null || categoryValues == null,
-                            enabled = settings.smsParsingEnabled,
+                            error = bankValues == null || categoryValues == null || universalTagValues == null,
+                            enabled = snapshot.settings.smsParsingEnabled,
                             bankRules = bankValues ?: bankRules,
                             categoryRules = categoryValues ?: categoryRules,
+                            universalTags = universalTagValues ?: universalTags,
                         )
                     }
                 }
@@ -85,6 +91,20 @@ class SmsRulesViewModel @Inject constructor(
 
     fun toggleCategoryRule(rule: CategoryRule, enabled: Boolean) {
         viewModelScope.launch { repository.saveCategoryRule(rule.copy(enabled = enabled)) }
+    }
+
+    fun addUniversalTag(value: String) {
+        val additions = value.split(',').map(String::trim).filter(String::isNotBlank)
+        if (additions.isEmpty()) return
+        val updated = (mutableState.value.universalTags + additions).distinctBy(String::lowercase)
+        update { copy(universalTags = updated) }
+        viewModelScope.launch { repository.saveUniversalTags(updated) }
+    }
+
+    fun removeUniversalTag(value: String) {
+        val updated = mutableState.value.universalTags.filterNot { it.equals(value, true) }
+        update { copy(universalTags = updated) }
+        viewModelScope.launch { repository.saveUniversalTags(updated) }
     }
 
     fun exportRules() {
@@ -266,4 +286,11 @@ class SmsRulesViewModel @Inject constructor(
         const val MAX_DUPLICATE_CANDIDATES = 5_000
         const val DUPLICATE_TIME_WINDOW_MILLIS = 120_000L
     }
+
+    private data class ParsingRuleSnapshot(
+        val banks: Result<List<BankRule>>,
+        val categories: Result<List<CategoryRule>>,
+        val universalTags: Result<List<String>>,
+        val settings: com.teja.finfly.domain.model.AppSettings,
+    )
 }

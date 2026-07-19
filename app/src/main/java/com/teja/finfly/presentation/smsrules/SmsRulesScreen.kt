@@ -152,6 +152,8 @@ fun SmsRulesScreen(
                 onExport = viewModel::exportRules,
                 onImport = { importLauncher.launch(arrayOf(JSON_MIME, TEXT_MIME)) },
                 onOpenLogs = onOpenLogs,
+                onAddUniversalTag = viewModel::addUniversalTag,
+                onRemoveUniversalTag = viewModel::removeUniversalTag,
                 onScanFromDate = viewModel::setScanFromDate,
                 onScanUntilDate = viewModel::setScanUntilDate,
                 onScan = {
@@ -222,6 +224,8 @@ private fun SmsRulesContent(
     onExport: () -> Unit,
     onImport: () -> Unit,
     onOpenLogs: () -> Unit,
+    onAddUniversalTag: (String) -> Unit,
+    onRemoveUniversalTag: (String) -> Unit,
     onScanFromDate: (String) -> Unit,
     onScanUntilDate: (String) -> Unit,
     onScan: () -> Unit,
@@ -268,6 +272,27 @@ private fun SmsRulesContent(
                             Text(stringResource(R.string.open_app_settings))
                         }
                     }
+                }
+            }
+        }
+        item {
+            Card(Modifier.fillMaxWidth()) {
+                Column(
+                    Modifier.padding(spacing.medium),
+                    verticalArrangement = Arrangement.spacedBy(spacing.small),
+                ) {
+                    Text(stringResource(R.string.universal_parsing_tags), style = MaterialTheme.typography.titleLarge)
+                    Text(
+                        stringResource(R.string.universal_parsing_tags_description),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    ChipInput(
+                        R.string.firefly_tags,
+                        R.string.firefly_tags_hint,
+                        state.universalTags,
+                        onAddUniversalTag,
+                        onRemoveUniversalTag,
+                    )
                 }
             }
         }
@@ -334,6 +359,10 @@ private fun BankRuleCard(rule: BankRule, onClick: () -> Unit, onToggle: (Boolean
             Column(Modifier.weight(1f)) {
                 Text(rule.name, style = MaterialTheme.typography.titleMedium)
                 Text(rule.senderIds.joinToString(), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (rule.fireflyTags.isNotEmpty()) Text(
+                    stringResource(R.string.parsed_tags_value, rule.fireflyTags.joinToString()),
+                    style = MaterialTheme.typography.bodySmall,
+                )
             }
             Switch(rule.enabled, onToggle)
         }
@@ -357,11 +386,6 @@ private fun CategoryRuleCard(rule: CategoryRule, onClick: () -> Unit, onToggle: 
                 if (rule.fireflyTags.isNotEmpty()) Text(
                     stringResource(R.string.parsed_tags_value, rule.fireflyTags.joinToString()),
                     style = MaterialTheme.typography.bodySmall,
-                )
-                if (rule.applyTagsToAll) Text(
-                    stringResource(R.string.applies_to_every_transaction),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
                 )
             }
             Switch(rule.enabled, onToggle)

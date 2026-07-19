@@ -9,6 +9,8 @@ sealed interface AppRoute {
         val accountId: String? = null,
         val fromEpochMillis: Long? = null,
         val untilEpochMillis: Long? = null,
+        val categories: String = "",
+        val tags: String = "",
     ) : AppRoute
     @Serializable data object Reports : AppRoute
     @Serializable data object Settings : AppRoute

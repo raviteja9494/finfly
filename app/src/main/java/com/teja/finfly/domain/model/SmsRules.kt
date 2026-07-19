@@ -15,6 +15,7 @@ data class BankRule(
     val referencePatterns: List<String>,
     val createdAt: Long,
     val updatedAt: Long,
+    val fireflyTags: List<String> = emptyList(),
 )
 
 data class CategoryRule(
@@ -54,6 +55,7 @@ data class RulesConfig(
     val exportedAt: Long,
     val bankRules: List<BankRule>,
     val categoryRules: List<CategoryRule>,
+    val universalTags: List<String> = emptyList(),
 ) {
     companion object { const val CURRENT_VERSION = 1 }
 }

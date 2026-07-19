@@ -21,10 +21,13 @@ class SmsParserEngine @Inject constructor(
             ?: return SmsParseResult.Skipped(REASON_RULES_UNAVAILABLE, message)
         val categoryRules = repository.getCategoryRules().valueOrNull()
             ?: return SmsParseResult.Skipped(REASON_RULES_UNAVAILABLE, message)
+        val universalTags = repository.getUniversalTags().valueOrNull()
+            ?: return SmsParseResult.Skipped(REASON_RULES_UNAVAILABLE, message)
         latestCategories = categoryRules.filter(CategoryRule::enabled)
         return parserFactory.create(
             bankRules.filter(BankRule::enabled),
             latestCategories,
+            universalTags,
         ).parse(sender, message, timestamp)
     }
 

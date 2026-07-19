@@ -58,8 +58,17 @@ class ReportsViewModel @Inject constructor(
 
     fun setFromDate(value: String) = updateForm { copy(fromDate = value, error = null) }
     fun setUntilDate(value: String) = updateForm { copy(untilDate = value, error = null) }
-    fun setCategory(value: String?) = updateForm { copy(category = value, error = null) }
-    fun setTag(value: String?) = updateForm { copy(tag = value, error = null) }
+    fun toggleCategory(value: String) = updateForm {
+        copy(
+            selectedCategories = if (value in selectedCategories) selectedCategories - value else selectedCategories + value,
+            error = null,
+        )
+    }
+    fun toggleTag(value: String) = updateForm {
+        copy(selectedTags = if (value in selectedTags) selectedTags - value else selectedTags + value, error = null)
+    }
+    fun clearCategories() = updateForm { copy(selectedCategories = emptySet(), error = null) }
+    fun clearTags() = updateForm { copy(selectedTags = emptySet(), error = null) }
 
     fun applyFilters() {
         val form = filterForm.value
@@ -76,7 +85,7 @@ class ReportsViewModel @Inject constructor(
             updateForm { copy(error = error) }
             return
         }
-        val filter = ReportsFilter(from!!, until!!, form.category, form.tag)
+        val filter = ReportsFilter(from!!, until!!, form.selectedCategories, form.selectedTags)
         filterForm.value = form.copy(appliedFilter = filter, error = null)
         appliedFilter.value = filter
         syncFilterRange(filter)
@@ -105,8 +114,8 @@ class ReportsViewModel @Inject constructor(
     private fun ReportsFilter.toForm() = ReportsFilterForm(
         fromDate = fromDate.toString(),
         untilDate = untilDate.toString(),
-        category = category,
-        tag = tag,
+        selectedCategories = categories,
+        selectedTags = tags,
         appliedFilter = this,
     )
 

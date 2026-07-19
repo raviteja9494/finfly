@@ -12,6 +12,7 @@ data class SmsRulesUiState(
     val enabled: Boolean = false,
     val bankRules: List<BankRule> = emptyList(),
     val categoryRules: List<CategoryRule> = emptyList(),
+    val universalTags: List<String> = emptyList(),
     val busy: Boolean = false,
     val importPreview: RulesConfig? = null,
     val feedback: SmsRulesFeedback? = null,

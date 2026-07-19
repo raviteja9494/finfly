@@ -9,14 +9,14 @@ import com.teja.finfly.domain.model.Tag
 data class ReportsFilterForm(
     val fromDate: String,
     val untilDate: String,
-    val category: String? = null,
-    val tag: String? = null,
+    val selectedCategories: Set<String> = emptySet(),
+    val selectedTags: Set<String> = emptySet(),
     val categories: List<Category> = emptyList(),
     val tags: List<Tag> = emptyList(),
     val appliedFilter: ReportsFilter,
     val error: ReportsFilterError? = null,
 ) {
-    val activeCount: Int get() = 1 + listOfNotNull(appliedFilter.category, appliedFilter.tag).size
+    val activeCount: Int get() = 1 + appliedFilter.categories.size + appliedFilter.tags.size
 }
 
 enum class ReportsFilterError { INVALID_DATE, INVALID_RANGE, RANGE_TOO_LARGE }

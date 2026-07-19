@@ -88,12 +88,15 @@ class SmsParserEngineTest {
 
     @Test
     fun `applies matching and global tags`() = runBlocking {
-        val taggedRules = categories + listOf(
-            CategoryRule("merchant-tag", "Delivery", listOf("SWIGGY"), "", 1, true, listOf("delivery")),
-            CategoryRule("global-tag", "Imported", emptyList(), "", 1, true, listOf("parsed"), true),
+        val taggedRules = categories + CategoryRule(
+            "merchant-tag", "Delivery", listOf("SWIGGY"), "", 1, true, listOf("delivery")
         )
         val taggedEngine = SmsParserEngine(
-            FakeRulesRepository(banks, taggedRules),
+            FakeRulesRepository(
+                banks.map { if (it.name == "HDFC Savings") it.copy(fireflyTags = listOf("bank-tag")) else it },
+                taggedRules,
+                listOf("parsed"),
+            ),
             RuleBasedSmsParserFactory(),
         )
         val result = taggedEngine.process(
@@ -101,7 +104,7 @@ class SmsParserEngineTest {
             "A/c debited Rs.100 To SWIGGY On 19-07 Ref ABCDEF123",
             60L,
         ).success()
-        assertEquals(listOf("delivery", "parsed"), result.tags)
+        assertEquals(listOf("bank-tag", "delivery", "parsed"), result.tags)
     }
 
     private fun SmsParseResult.success() = (this as SmsParseResult.Success).transaction
@@ -109,15 +112,19 @@ class SmsParserEngineTest {
     private class FakeRulesRepository(
         private val banks: List<BankRule>,
         private val categories: List<CategoryRule>,
+        private val universalTags: List<String> = emptyList(),
     ) : SmsRulesRepository {
         override fun observeBankRules(): Flow<Result<List<BankRule>>> = flowOf(Result.Success(banks))
         override fun observeCategoryRules(): Flow<Result<List<CategoryRule>>> = flowOf(Result.Success(categories))
+        override fun observeUniversalTags(): Flow<Result<List<String>>> = flowOf(Result.Success(universalTags))
         override suspend fun getBankRules() = Result.Success(banks)
         override suspend fun getCategoryRules() = Result.Success(categories)
+        override suspend fun getUniversalTags() = Result.Success(universalTags)
         override suspend fun saveBankRule(rule: BankRule) = Result.Success(Unit)
         override suspend fun deleteBankRule(id: String) = Result.Success(Unit)
         override suspend fun saveCategoryRule(rule: CategoryRule) = Result.Success(Unit)
         override suspend fun deleteCategoryRule(id: String) = Result.Success(Unit)
+        override suspend fun saveUniversalTags(tags: List<String>) = Result.Success(Unit)
         override suspend fun ensureDefaults() = Result.Success(Unit)
         override suspend fun createConfig(exportedAt: Long) =
             Result.Success(RulesConfig(exportedAt = exportedAt, bankRules = banks, categoryRules = categories))

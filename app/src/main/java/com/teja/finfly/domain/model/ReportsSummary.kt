@@ -28,6 +28,6 @@ data class ReportsSummary(
 data class ReportsFilter(
     val fromDate: java.time.LocalDate,
     val untilDate: java.time.LocalDate,
-    val category: String? = null,
-    val tag: String? = null,
+    val categories: Set<String> = emptySet(),
+    val tags: Set<String> = emptySet(),
 )

@@ -14,6 +14,7 @@ import javax.inject.Singleton
 class RuleBasedSmsParser(
     private val bankRules: List<BankRule>,
     private val categoryRules: List<CategoryRule>,
+    private val universalTags: List<String> = emptyList(),
 ) : SmsParser {
     override fun canParse(sender: String, message: String): Boolean = matchingRules(sender).isNotEmpty()
 
@@ -45,9 +46,10 @@ class RuleBasedSmsParser(
             .firstOrNull { rule ->
                 rule.fireflyCategory.isNotBlank() && rule.matches(description)
             }?.fireflyCategory.orEmpty()
-        val tags = enabledCategoryRules.asSequence()
-            .filter { it.applyTagsToAll || it.matches(description) }
-            .flatMap { it.fireflyTags.asSequence() }
+        val categoryTags = enabledCategoryRules.asSequence()
+            .filter { it.matches(description) }
+            .flatMap { it.fireflyTags.orEmpty().asSequence() }
+        val tags = (selected.fireflyTags.orEmpty().asSequence() + categoryTags + universalTags.asSequence())
             .map(String::trim)
             .filter(String::isNotBlank)
             .distinctBy(String::lowercase)
@@ -131,6 +133,9 @@ class RuleBasedSmsParser(
 
 @Singleton
 class RuleBasedSmsParserFactory @Inject constructor() : SmsParserFactory {
-    override fun create(bankRules: List<BankRule>, categoryRules: List<CategoryRule>): SmsParser =
-        RuleBasedSmsParser(bankRules, categoryRules)
+    override fun create(
+        bankRules: List<BankRule>,
+        categoryRules: List<CategoryRule>,
+        universalTags: List<String>,
+    ): SmsParser = RuleBasedSmsParser(bankRules, categoryRules, universalTags)
 }

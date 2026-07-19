@@ -171,7 +171,20 @@ fun FinFlyApp(viewModel: AppShellViewModel = hiltViewModel()) {
                         onTransactionClick = { navController.navigate(AppRoute.TransactionDetail(it)) },
                     )
                 }
-                composable<AppRoute.Reports> { ReportsScreen() }
+                composable<AppRoute.Reports> {
+                    ReportsScreen(
+                        onOpenTransactions = { from, until, categories, tags ->
+                            navController.navigate(
+                                AppRoute.Transactions(
+                                    fromEpochMillis = from,
+                                    untilEpochMillis = until,
+                                    categories = categories.joinToString(REPORT_FILTER_SEPARATOR),
+                                    tags = tags.joinToString(REPORT_FILTER_SEPARATOR),
+                                )
+                            )
+                        }
+                    )
+                }
                 composable<AppRoute.Settings> { SettingsScreen() }
                 composable<AppRoute.Assistant> { AssistantScreen() }
                 composable<AppRoute.TransactionDetail> {
@@ -469,14 +482,15 @@ private fun NavHostController.navigateDrawerRoute(route: AppRoute) {
         AppRoute.Accounts,
         AppRoute.Settings,
         AppRoute.SmsParsing,
-        is AppRoute.FeatureList -> navigate(route) {
-            popUpTo(graph.findStartDestination().id) { saveState = true }
-            launchSingleTop = true
-            restoreState = true
+        is AppRoute.FeatureList -> {
+            popBackStack(graph.findStartDestination().id, inclusive = false)
+            navigate(route) { launchSingleTop = true }
         }
         else -> Unit
     }
 }
+
+private const val REPORT_FILTER_SEPARATOR = "\u001F"
 
 @Composable
 private fun FinFlyBottomBar(destination: NavDestination?, onSelect: (FinFlyTab) -> Unit) {

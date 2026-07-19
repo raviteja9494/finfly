@@ -35,6 +35,7 @@ data class BankRuleEditorUiState(
     val amountPatterns: List<String> = emptyList(),
     val descriptionPatterns: List<String> = emptyList(),
     val referencePatterns: List<String> = emptyList(),
+    val fireflyTags: List<String> = emptyList(),
     val sampleSms: String = "",
     val testResult: SmsParseResult? = null,
     val isSaving: Boolean = false,
@@ -95,6 +96,15 @@ class BankRuleEditorViewModel @Inject constructor(
     fun removeDescription(value: String) = update { copy(descriptionPatterns = descriptionPatterns - value) }
     fun addReference(value: String) = add(value) { copy(referencePatterns = referencePatterns + it) }
     fun removeReference(value: String) = update { copy(referencePatterns = referencePatterns - value) }
+    fun addTag(value: String) {
+        value.split(',').map(String::trim).filter(String::isNotBlank).forEach { tag ->
+            update {
+                if (fireflyTags.any { it.equals(tag, true) }) this
+                else copy(fireflyTags = fireflyTags + tag, error = null)
+            }
+        }
+    }
+    fun removeTag(value: String) = update { copy(fireflyTags = fireflyTags - value) }
 
     fun test() {
         val state = mutableState.value
@@ -133,6 +143,7 @@ class BankRuleEditorViewModel @Inject constructor(
                 senderIds = rule.senderIds, debitKeywords = rule.debitKeywords,
                 creditKeywords = rule.creditKeywords, amountPatterns = rule.amountPatterns,
                 descriptionPatterns = rule.descriptionPatterns, referencePatterns = rule.referencePatterns,
+                fireflyTags = rule.fireflyTags.orEmpty(),
             )
         }
     }
@@ -156,6 +167,7 @@ class BankRuleEditorViewModel @Inject constructor(
             id, name.trim(), enabled, senderIds, account?.name.orEmpty(), accountId,
             debitKeywords, creditKeywords, amountPatterns, descriptionPatterns, referencePatterns,
             createdAt, clock.millis(),
+            fireflyTags,
         )
     }
 

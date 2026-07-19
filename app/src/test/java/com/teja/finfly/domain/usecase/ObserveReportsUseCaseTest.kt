@@ -46,7 +46,7 @@ class ObserveReportsUseCaseTest {
     }
 
     @Test
-    fun `combines date category and tag filters with AND semantics`() = runBlocking {
+    fun `supports multiple categories with tag groups combined using AND semantics`() = runBlocking {
         val rows = listOf(
             transaction("matching", "2026-07-05", "200", TransactionType.WITHDRAWAL, "Food", listOf("Essential")),
             transaction("wrong-tag", "2026-07-06", "100", TransactionType.WITHDRAWAL, "Food", listOf("Fun")),
@@ -56,14 +56,14 @@ class ObserveReportsUseCaseTest {
             ReportsFilter(
                 LocalDate.parse("2026-07-01"),
                 LocalDate.parse("2026-07-31"),
-                category = "Food",
-                tag = "Essential",
+                categories = setOf("Food", "Shopping"),
+                tags = setOf("Essential"),
             )
         ).first()
         val summary = (result as Result.Success).value
 
-        assertEquals(BigDecimal("200"), summary.expenses)
-        assertEquals(1, summary.transactionCount)
+        assertEquals(BigDecimal("500"), summary.expenses)
+        assertEquals(2, summary.transactionCount)
     }
 
     private fun transaction(

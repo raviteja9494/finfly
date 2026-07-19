@@ -94,6 +94,7 @@
     <string name="no_report_data">No report data yet</string>
     <string name="no_report_data_message">Sync your ledger or adjust the report filters.</string>
     <string name="report_filters_count">Filters (%1$d)</string>
+    <string name="report_selected_count">%1$d selected</string>
     <string name="report_filter_summary">%1$s to %2$s</string>
     <string name="report_from_date">From</string>
     <string name="report_until_date">To</string>
@@ -347,6 +348,8 @@
     <string name="firefly_tags_hint">food, recurring</string>
     <string name="apply_tags_to_all">Apply these tags to every parsed transaction</string>
     <string name="applies_to_every_transaction">Applied to every parsed transaction</string>
+    <string name="universal_parsing_tags">Universal tags</string>
+    <string name="universal_parsing_tags_description">These tags are added to every transaction created by Parsing.</string>
     <string name="rule_priority">Priority</string>
     <string name="rule_priority_description">Lower numbers are checked first.</string>
     <string name="category_keywords">Keywords</string>

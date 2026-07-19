@@ -80,6 +80,7 @@ fun BankRuleEditorScreen(
         item { ChipInput(R.string.amount_patterns, R.string.amount_pattern_hint, state.amountPatterns, viewModel::addAmount, viewModel::removeAmount) }
         item { ChipInput(R.string.description_patterns, R.string.description_pattern_hint, state.descriptionPatterns, viewModel::addDescription, viewModel::removeDescription) }
         item { ChipInput(R.string.reference_patterns, R.string.reference_pattern_hint, state.referencePatterns, viewModel::addReference, viewModel::removeReference) }
+        item { ChipInput(R.string.firefly_tags, R.string.firefly_tags_hint, state.fireflyTags, viewModel::addTag, viewModel::removeTag) }
         item {
             Text(stringResource(R.string.test_this_rule), style = MaterialTheme.typography.titleLarge)
             OutlinedTextField(
@@ -147,7 +148,6 @@ fun CategoryRuleEditorScreen(
         item { ToggleRow(R.string.rule_enabled, state.enabled, viewModel::setEnabled) }
         item { ChipInput(R.string.category_keywords, R.string.category_keywords_hint, state.keywords, viewModel::addKeyword, viewModel::removeKeyword) }
         item { ChipInput(R.string.firefly_tags, R.string.firefly_tags_hint, state.fireflyTags, viewModel::addTag, viewModel::removeTag) }
-        item { ToggleRow(R.string.apply_tags_to_all, state.applyTagsToAll, viewModel::setApplyTagsToAll) }
         state.error?.let { error -> item { ErrorText(error.messageResource()) } }
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
@@ -201,7 +201,7 @@ private fun AccountDropdown(accounts: List<Account>, selectedId: String, onSelec
 }
 
 @Composable
-private fun ChipInput(
+internal fun ChipInput(
     label: Int,
     hint: Int,
     values: List<String>,

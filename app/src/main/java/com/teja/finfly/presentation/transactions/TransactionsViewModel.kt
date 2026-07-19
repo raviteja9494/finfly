@@ -43,6 +43,8 @@ class TransactionsViewModel @Inject constructor(
     private val route = savedStateHandle.toRoute<AppRoute.Transactions>()
     private val baseFilter = TransactionFilter(
         accountIds = route.accountId?.let(::setOf).orEmpty(),
+        categories = route.categories.split(REPORT_FILTER_SEPARATOR).filter(String::isNotBlank).toSet(),
+        tags = route.tags.split(REPORT_FILTER_SEPARATOR).filter(String::isNotBlank).toSet(),
         from = route.fromEpochMillis?.let(Instant::ofEpochMilli),
         until = route.untilEpochMillis?.let(Instant::ofEpochMilli),
     )
@@ -150,5 +152,6 @@ class TransactionsViewModel @Inject constructor(
     private companion object {
         const val PAGE_SIZE = 25
         const val SEARCH_DEBOUNCE_MILLIS = 300L
+        const val REPORT_FILTER_SEPARATOR = "\u001F"
     }
 }

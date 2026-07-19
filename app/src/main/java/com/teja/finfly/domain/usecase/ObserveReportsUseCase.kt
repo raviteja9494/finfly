@@ -28,8 +28,8 @@ class ObserveReportsUseCase @Inject constructor(
         val until = filter.untilDate.plusDays(1).atStartOfDay(zone).toInstant()
         return repository.observeTransactions(
             filter = TransactionFilter(
-                categories = filter.category?.let(::setOf).orEmpty(),
-                tags = filter.tag?.let(::setOf).orEmpty(),
+                categories = filter.categories,
+                tags = filter.tags,
                 from = from,
                 until = until,
             ),

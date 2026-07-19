@@ -25,6 +25,7 @@ import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -55,6 +56,7 @@ import com.teja.finfly.R
 import com.teja.finfly.domain.model.CategorySpend
 import com.teja.finfly.domain.model.MonthlyCashFlow
 import com.teja.finfly.domain.model.ReportsSummary
+import com.teja.finfly.domain.model.ReportsFilter
 import com.teja.finfly.presentation.components.EmptyState
 import com.teja.finfly.presentation.components.ErrorState
 import com.teja.finfly.presentation.components.LoadingState
@@ -70,17 +72,23 @@ import java.util.Currency
 import kotlin.math.max
 
 @Composable
-fun ReportsScreen(viewModel: ReportsViewModel = hiltViewModel()) {
+fun ReportsScreen(
+    onOpenTransactions: (Long, Long, Set<String>, Set<String>) -> Unit,
+    viewModel: ReportsViewModel = hiltViewModel(),
+) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     ReportsContent(
         state = state,
         onRefresh = viewModel::refresh,
         onFromDateChange = viewModel::setFromDate,
         onUntilDateChange = viewModel::setUntilDate,
-        onCategoryChange = viewModel::setCategory,
-        onTagChange = viewModel::setTag,
+        onCategoryToggle = viewModel::toggleCategory,
+        onTagToggle = viewModel::toggleTag,
+        onClearCategories = viewModel::clearCategories,
+        onClearTags = viewModel::clearTags,
         onApplyFilters = viewModel::applyFilters,
         onClearFilters = viewModel::clearFilters,
+        onOpenTransactions = onOpenTransactions,
     )
 }
 
@@ -91,10 +99,13 @@ private fun ReportsContent(
     onRefresh: () -> Unit,
     onFromDateChange: (String) -> Unit,
     onUntilDateChange: (String) -> Unit,
-    onCategoryChange: (String?) -> Unit,
-    onTagChange: (String?) -> Unit,
+    onCategoryToggle: (String) -> Unit,
+    onTagToggle: (String) -> Unit,
+    onClearCategories: () -> Unit,
+    onClearTags: () -> Unit,
     onApplyFilters: () -> Unit,
     onClearFilters: () -> Unit,
+    onOpenTransactions: (Long, Long, Set<String>, Set<String>) -> Unit,
 ) {
     val refreshing = when (state) {
         is ReportsUiState.Success -> state.isRefreshing
@@ -113,8 +124,10 @@ private fun ReportsContent(
                 state.filterForm,
                 onFromDateChange,
                 onUntilDateChange,
-                onCategoryChange,
-                onTagChange,
+                onCategoryToggle,
+                onTagToggle,
+                onClearCategories,
+                onClearTags,
                 onApplyFilters,
                 onClearFilters,
             )
@@ -123,10 +136,13 @@ private fun ReportsContent(
                 state.filterForm,
                 onFromDateChange,
                 onUntilDateChange,
-                onCategoryChange,
-                onTagChange,
+                onCategoryToggle,
+                onTagToggle,
+                onClearCategories,
+                onClearTags,
                 onApplyFilters,
                 onClearFilters,
+                onOpenTransactions,
             )
         }
     }
@@ -138,8 +154,10 @@ private fun ReportsList(
     filterForm: ReportsFilterForm,
     onFromDateChange: (String) -> Unit,
     onUntilDateChange: (String) -> Unit,
-    onCategoryChange: (String?) -> Unit,
-    onTagChange: (String?) -> Unit,
+    onCategoryToggle: (String) -> Unit,
+    onTagToggle: (String) -> Unit,
+    onClearCategories: () -> Unit,
+    onClearTags: () -> Unit,
     onApplyFilters: () -> Unit,
     onClearFilters: () -> Unit,
 ) {
@@ -160,8 +178,10 @@ private fun ReportsList(
                 filterForm,
                 onFromDateChange,
                 onUntilDateChange,
-                onCategoryChange,
-                onTagChange,
+                onCategoryToggle,
+                onTagToggle,
+                onClearCategories,
+                onClearTags,
                 onApplyFilters,
                 onClearFilters,
             )
@@ -188,9 +208,19 @@ private fun ReportsList(
             }
         }
         item { NetFlowCard(summary.netFlow, summary.currency) }
-        item { CashFlowChart(summary, summary.currency) }
+        item { CashFlowChart(summary, summary.currency, filterForm.appliedFilter, onOpenTransactions) }
         if (summary.categorySpending.isNotEmpty()) {
-            item { CategoryReport(summary.categorySpending, summary.expenses, summary.currency) }
+            item {
+                CategoryReport(summary.categorySpending, summary.expenses, summary.currency) { category ->
+                    val zone = java.time.ZoneId.systemDefault()
+                    onOpenTransactions(
+                        summary.fromDate.atStartOfDay(zone).toInstant().toEpochMilli(),
+                        summary.untilDate.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli(),
+                        setOf(category),
+                        filterForm.appliedFilter.tags,
+                    )
+                }
+            }
         }
     }
 }
@@ -200,8 +230,10 @@ private fun ReportsEmpty(
     form: ReportsFilterForm,
     onFromDateChange: (String) -> Unit,
     onUntilDateChange: (String) -> Unit,
-    onCategoryChange: (String?) -> Unit,
-    onTagChange: (String?) -> Unit,
+    onCategoryToggle: (String) -> Unit,
+    onTagToggle: (String) -> Unit,
+    onClearCategories: () -> Unit,
+    onClearTags: () -> Unit,
     onApplyFilters: () -> Unit,
     onClearFilters: () -> Unit,
 ) {
@@ -213,8 +245,10 @@ private fun ReportsEmpty(
             form,
             onFromDateChange,
             onUntilDateChange,
-            onCategoryChange,
-            onTagChange,
+            onCategoryToggle,
+            onTagToggle,
+            onClearCategories,
+            onClearTags,
             onApplyFilters,
             onClearFilters,
         )
@@ -232,8 +266,10 @@ private fun ReportFilters(
     form: ReportsFilterForm,
     onFromDateChange: (String) -> Unit,
     onUntilDateChange: (String) -> Unit,
-    onCategoryChange: (String?) -> Unit,
-    onTagChange: (String?) -> Unit,
+    onCategoryToggle: (String) -> Unit,
+    onTagToggle: (String) -> Unit,
+    onClearCategories: () -> Unit,
+    onClearTags: () -> Unit,
     onApplyFilters: () -> Unit,
     onClearFilters: () -> Unit,
 ) {
@@ -296,19 +332,21 @@ private fun ReportFilters(
                             label = R.string.report_until_date,
                         )
                     }
-                    ReportDropdown(
+                    ReportMultiSelectDropdown(
                         label = stringResource(R.string.category),
                         allLabel = stringResource(R.string.all_categories),
                         choices = form.categories.map { it.name },
-                        selected = form.category,
-                        onSelected = onCategoryChange,
+                        selected = form.selectedCategories,
+                        onToggle = onCategoryToggle,
+                        onClear = onClearCategories,
                     )
-                    ReportDropdown(
+                    ReportMultiSelectDropdown(
                         label = stringResource(R.string.tags),
                         allLabel = stringResource(R.string.all_tags),
                         choices = form.tags.map { it.name },
-                        selected = form.tag,
-                        onSelected = onTagChange,
+                        selected = form.selectedTags,
+                        onToggle = onTagToggle,
+                        onClear = onClearTags,
                     )
                     form.error?.let { error ->
                         Text(
@@ -332,17 +370,18 @@ private fun ReportFilters(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ReportDropdown(
+private fun ReportMultiSelectDropdown(
     label: String,
     allLabel: String,
     choices: List<String>,
-    selected: String?,
-    onSelected: (String?) -> Unit,
+    selected: Set<String>,
+    onToggle: (String) -> Unit,
+    onClear: () -> Unit,
 ) {
     var expanded by rememberSaveable(label) { mutableStateOf(false) }
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
         OutlinedTextField(
-            value = selected ?: allLabel,
+            value = if (selected.isEmpty()) allLabel else stringResource(R.string.report_selected_count, selected.size),
             onValueChange = {},
             modifier = Modifier.fillMaxWidth().menuAnchor(),
             readOnly = true,
@@ -353,17 +392,19 @@ private fun ReportDropdown(
             DropdownMenuItem(
                 text = { Text(allLabel) },
                 onClick = {
-                    onSelected(null)
+                    onClear()
                     expanded = false
                 },
             )
             choices.distinct().forEach { choice ->
                 DropdownMenuItem(
-                    text = { Text(choice) },
-                    onClick = {
-                        onSelected(choice)
-                        expanded = false
+                    text = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked = choice in selected, onCheckedChange = null)
+                            Text(choice)
+                        }
                     },
+                    onClick = { onToggle(choice) },
                 )
             }
         }
@@ -467,7 +508,12 @@ private fun NetFlowCard(amount: BigDecimal, currency: String) {
 }
 
 @Composable
-private fun CashFlowChart(summary: ReportsSummary, currency: String) {
+private fun CashFlowChart(
+    summary: ReportsSummary,
+    currency: String,
+    filter: ReportsFilter,
+    onOpenTransactions: (Long, Long, Set<String>, Set<String>) -> Unit,
+) {
     val rows = summary.monthlyCashFlow
     val locale = LocalConfiguration.current.locales[0]
     val maximum = rows.maxOfOrNull { maxOf(it.income, it.expenses) } ?: BigDecimal.ZERO
@@ -501,6 +547,12 @@ private fun CashFlowChart(summary: ReportsSummary, currency: String) {
                             DateTimeFormatter.ofPattern(stringResource(R.string.report_month_pattern), locale)
                         ),
                         modifier = Modifier.weight(1f),
+                        onClick = {
+                            val zone = java.time.ZoneId.systemDefault()
+                            val from = row.month.atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
+                            val until = row.month.plusMonths(1).atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
+                            onOpenTransactions(from, until, filter.categories, filter.tags)
+                        },
                     )
                 }
             }
@@ -520,6 +572,12 @@ private fun CashFlowChart(summary: ReportsSummary, currency: String) {
                             DateTimeFormatter.ofPattern(stringResource(R.string.report_month_pattern), locale)
                         ),
                         modifier = Modifier.width(72.dp),
+                        onClick = {
+                            val zone = java.time.ZoneId.systemDefault()
+                            val from = row.month.atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
+                            val until = row.month.plusMonths(1).atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
+                            onOpenTransactions(from, until, filter.categories, filter.tags)
+                        },
                     )
                 }
             }
@@ -559,9 +617,10 @@ private fun MonthBars(
     expenseColor: Color,
     monthLabel: String,
     modifier: Modifier = Modifier,
+    onClick: () -> Unit,
 ) {
     Column(
-        modifier = modifier.fillMaxHeight(),
+        modifier = modifier.fillMaxHeight().clickable(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Bottom,
     ) {
@@ -589,13 +648,21 @@ private fun ReportBar(amount: BigDecimal, maximum: BigDecimal, color: Color) {
 }
 
 @Composable
-private fun CategoryReport(rows: List<CategorySpend>, totalExpenses: BigDecimal, currency: String) {
+private fun CategoryReport(
+    rows: List<CategorySpend>,
+    totalExpenses: BigDecimal,
+    currency: String,
+    onCategoryClick: (String) -> Unit,
+) {
     val maximum = rows.maxOfOrNull(CategorySpend::amount) ?: BigDecimal.ZERO
     ReportCard(title = stringResource(R.string.report_top_categories)) {
         rows.forEach { row ->
             val barRatio = row.amount.ratioOf(maximum)
             val percentage = row.amount.ratioOf(totalExpenses) * PERCENT_MULTIPLIER
-            Column(verticalArrangement = Arrangement.spacedBy(FinFlyThemeTokens.spacing.xSmall)) {
+            Column(
+                modifier = Modifier.fillMaxWidth().clickable { onCategoryClick(row.category) },
+                verticalArrangement = Arrangement.spacedBy(FinFlyThemeTokens.spacing.xSmall),
+            ) {
                 Row(modifier = Modifier.fillMaxWidth()) {
                     Text(
                         row.category.ifBlank { stringResource(R.string.category_uncategorized) },

@@ -13,5 +13,9 @@ interface SmsParser {
 
 /** Creates a parser from the current enabled rule snapshot. */
 interface SmsParserFactory {
-    fun create(bankRules: List<BankRule>, categoryRules: List<CategoryRule>): SmsParser
+    fun create(
+        bankRules: List<BankRule>,
+        categoryRules: List<CategoryRule>,
+        universalTags: List<String> = emptyList(),
+    ): SmsParser
 }
