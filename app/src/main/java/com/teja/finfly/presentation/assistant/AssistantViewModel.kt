@@ -119,7 +119,13 @@ class AssistantViewModel @Inject constructor(
                 }
                 var receivedAnyToken = false
                 var responseCharacters = 0
-                val responseCharacterLimit = snapshot.config.maxResponseTokens * MAX_CHARACTERS_PER_TOKEN
+                val estimatedPromptTokens = FinanceContextBuilder.estimateTokens(promptData.text)
+                val safeResponseTokens = minOf(
+                    snapshot.config.maxResponseTokens,
+                    (MODEL_CONTEXT_TOKENS - estimatedPromptTokens - TOKEN_SAFETY_MARGIN)
+                        .coerceAtLeast(MIN_RESPONSE_TOKENS),
+                )
+                val responseCharacterLimit = safeResponseTokens * MAX_CHARACTERS_PER_TOKEN
                 withTimeout(RESPONSE_TIMEOUT_MILLIS) {
                     financeAssistant.streamResponse(promptData.text, snapshot.config)
                         .catch { throw it }
@@ -314,5 +320,8 @@ class AssistantViewModel @Inject constructor(
         const val INR_CURRENCY = "INR"
         val LARGE_TRANSACTION_AMOUNT = java.math.BigDecimal("1000")
         const val MAX_CHARACTERS_PER_TOKEN = 6
+        const val MODEL_CONTEXT_TOKENS = 2_048
+        const val TOKEN_SAFETY_MARGIN = 128
+        const val MIN_RESPONSE_TOKENS = 64
     }
 }

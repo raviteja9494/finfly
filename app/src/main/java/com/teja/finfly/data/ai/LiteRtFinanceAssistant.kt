@@ -5,11 +5,8 @@ import android.content.Context
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Conversation
 import com.google.ai.edge.litertlm.ConversationConfig
-import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
-import com.google.ai.edge.litertlm.NoRepeatNgramConfig
-import com.google.ai.edge.litertlm.RepetitionPenaltyConfig
 import com.google.ai.edge.litertlm.SamplerConfig
 import com.teja.finfly.domain.assistant.FinanceAssistant
 import com.teja.finfly.domain.model.AiConfig
@@ -41,22 +38,8 @@ class LiteRtFinanceAssistant @Inject constructor(
     override fun streamResponse(prompt: String, config: AiConfig): Flow<AssistantResponseChunk> = flow {
         ensureEngine()
         val activeConversation = recreateConversation(config)
-        val outputTokenLimit = calculateOutputTokenLimit(prompt, config.maxResponseTokens)
-        activeConversation.sendMessageAsync(
-            text = prompt,
-            repetitionPenaltyConfig = RepetitionPenaltyConfig(
-                repetitionPenalty = REPETITION_PENALTY,
-                windowSize = REPETITION_WINDOW,
-            ),
-            noRepeatNgramConfig = NoRepeatNgramConfig(
-                noRepeatNgramSize = NO_REPEAT_NGRAM_SIZE,
-                windowSize = REPETITION_WINDOW,
-            ),
-            maxOutputToken = outputTokenLimit,
-        ).collect { partial ->
-            val text = partial.contents.contents
-                .filterIsInstance<Content.Text>()
-                .joinToString(separator = "") { it.text }
+        activeConversation.sendMessageAsync(prompt).collect { partial ->
+            val text = partial.toString()
             if (text.isNotEmpty()) emit(AssistantResponseChunk(text, false))
         }
         emit(AssistantResponseChunk("", true))
@@ -126,17 +109,5 @@ class LiteRtFinanceAssistant @Inject constructor(
         const val TOP_K = 64
         const val TOP_P = 0.95
         const val BYTES_PER_GIGABYTE = 1024.0 * 1024.0 * 1024.0
-        const val TOKEN_SAFETY_MARGIN = 128
-        const val MIN_OUTPUT_TOKENS = 64
-        const val REPETITION_WINDOW = 256
-        const val NO_REPEAT_NGRAM_SIZE = 4
-        const val REPETITION_PENALTY = 1.15f
-
-        fun calculateOutputTokenLimit(prompt: String, requested: Int): Int {
-            val estimatedInputTokens = (prompt.length + 3) / 4
-            val available = (MAX_CONTEXT_TOKENS - estimatedInputTokens - TOKEN_SAFETY_MARGIN)
-                .coerceAtLeast(MIN_OUTPUT_TOKENS)
-            return requested.coerceIn(MIN_OUTPUT_TOKENS, available)
-        }
     }
 }
