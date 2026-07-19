@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import com.teja.finfly.domain.common.Result
 import com.teja.finfly.domain.model.AiConfig
 import com.teja.finfly.domain.repository.AiSettingsRepository
@@ -39,6 +40,10 @@ class AiSettingsRepositoryImpl @Inject constructor(
         .catch { emit(androidx.datastore.preferences.core.emptyPreferences()) }
         .map { it[MODEL_DOWNLOADED] ?: false }
 
+    override val huggingFaceToken: Flow<String> = dataStore.data
+        .catch { emit(androidx.datastore.preferences.core.emptyPreferences()) }
+        .map { it[HUGGING_FACE_TOKEN].orEmpty() }
+
     override suspend fun saveConfig(config: AiConfig): Result<Unit> = runCatching {
         dataStore.edit { preferences ->
             preferences[MAX_TRANSACTIONS] = config.maxTransactions.coerceIn(10, 100)
@@ -57,6 +62,14 @@ class AiSettingsRepositoryImpl @Inject constructor(
         Result.Success(Unit)
     }.getOrElse { Result.Error(it.message ?: SETTINGS_ERROR, it) }
 
+    override suspend fun saveHuggingFaceToken(token: String): Result<Unit> = runCatching {
+        dataStore.edit { preferences ->
+            if (token.isBlank()) preferences.remove(HUGGING_FACE_TOKEN)
+            else preferences[HUGGING_FACE_TOKEN] = token.trim()
+        }
+        Result.Success(Unit)
+    }.getOrElse { Result.Error(it.message ?: SETTINGS_ERROR, it) }
+
     private companion object {
         val MAX_TRANSACTIONS = intPreferencesKey("ai_max_transactions")
         val DATE_RANGE_DAYS = intPreferencesKey("ai_date_range_days")
@@ -66,6 +79,7 @@ class AiSettingsRepositoryImpl @Inject constructor(
         val TEMPERATURE = floatPreferencesKey("ai_temperature")
         val MAX_RESPONSE_TOKENS = intPreferencesKey("ai_max_response_tokens")
         val MODEL_DOWNLOADED = booleanPreferencesKey("ai_model_downloaded")
+        val HUGGING_FACE_TOKEN = stringPreferencesKey("ai_hugging_face_token")
         val SUPPORTED_DAYS = setOf(7, 30, 90)
         val SUPPORTED_RESPONSE_TOKENS = setOf(256, 512, 1024)
         const val SETTINGS_ERROR = "ai_settings_error"

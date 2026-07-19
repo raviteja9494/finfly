@@ -2,7 +2,7 @@
 package com.teja.finfly.di
 
 import com.teja.finfly.data.ai.AiRepositoryImpl
-import com.teja.finfly.data.ai.MediaPipeFinanceAssistant
+import com.teja.finfly.data.ai.LiteRtFinanceAssistant
 import com.teja.finfly.domain.assistant.FinanceAssistant
 import com.teja.finfly.domain.repository.AiRepository
 import dagger.Binds
@@ -20,5 +20,5 @@ abstract class AiModule {
 
     @Binds
     @Singleton
-    abstract fun bindFinanceAssistant(implementation: MediaPipeFinanceAssistant): FinanceAssistant
+    abstract fun bindFinanceAssistant(implementation: LiteRtFinanceAssistant): FinanceAssistant
 }

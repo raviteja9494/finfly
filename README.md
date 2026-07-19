@@ -1,6 +1,6 @@
 # FinFly
 
-FinFly is an offline-first Android companion for a self-hosted Firefly III server. Phase 7 adds an optional private, on-device finance assistant powered by MediaPipe and Qwen 2.5 while keeping Firefly data local.
+FinFly is an offline-first Android companion for a self-hosted Firefly III server. Phase 7.1 provides an optional private, on-device finance assistant powered by LiteRT-LM and Gemma 3 1B while keeping Firefly data local.
 
 ## Architecture
 
@@ -14,7 +14,7 @@ FinFly uses Clean Architecture inside one Android module:
 - `data/network`: Retrofit, OkHttp, Firefly DTOs, and dynamic server authentication.
 - `data/repository`: offline-first repository implementations and Android storage adapters.
 - `data/sms`: the friendly-pattern compiler, default rule configs, and the SMS receiver adapter.
-- `data/ai`: optional model storage/download and the MediaPipe assistant adapter.
+- `data/ai`: optional model storage/download, exact-file integrity validation, and the LiteRT-LM assistant adapter.
 - `data/settings`: DataStore-backed connection, display, and assistant preferences.
 - `di`: Hilt providers and bindings.
 
@@ -33,11 +33,15 @@ Cleartext HTTP is enabled for trusted local-network Firefly installations. Prefe
 
 ## Private AI assistant
 
-The fourth tab hosts an optional on-device assistant. The Qwen 2.5 3B Instruct Q4 model is not bundled in the APK and is downloaded only after explicit confirmation. It is stored in the app-specific external-files directory at `models/qwen2.5-3b-instruct-q4.bin`; deleting it in Settings does not change Firefly or cached finance data.
+The fourth tab hosts an optional on-device assistant. FinFly uses the official **Gemma 3 1B INT4 QAT** LiteRT-LM model (584,417,280 bytes, about 557 MB). It is not bundled in the APK and is downloaded only after explicit confirmation from [litert-community/Gemma3-1B-IT](https://huggingface.co/litert-community/Gemma3-1B-IT/blob/main/gemma3-1b-it-int4.litertlm). The file is stored in the app-specific external-files directory at `models/gemma3-1b-it-int4.litertlm`; deleting it in Settings does not change Firefly or cached finance data.
 
-`FinanceContextBuilder` reads only the existing Room-backed repository streams and applies the saved transaction count, date range, balance, category, and parsing-rule limits. Chat history stays in memory, is capped at 20 user/assistant pairs, and is cleared when the process ends. No prompt or response is sent to a hosted AI provider.
+Gemma is license-gated. Accept the model license on Hugging Face and add a read access token under **Settings → AI assistant** before downloading. FinFly pins the official model commit and requires the completed file to match the published 584,417,280-byte size before marking it downloaded.
 
-Presentation and domain code depend on the `FinanceAssistant` interface. To replace MediaPipe later, add another implementation, bind it in `AiModule`, and leave the chat ViewModel and UI unchanged.
+The runtime is `com.google.ai.edge.litertlm:litertlm-android:0.14.0` from Google Maven. LiteRT-LM is available as a stable Android package, so the MediaPipe `tasks-genai:0.10.27` fallback is not used. Engine initialization runs on a dedicated background dispatcher with the CPU backend for broad device compatibility.
+
+`FinanceContextBuilder` reads only the existing Room-backed repository streams and applies the saved transaction count, date range, balance, category, and parsing-rule limits. Chat history stays in memory, is capped at 20 user/assistant pairs, and is cleared when the process ends. Each new Gemma prompt includes only the latest three pairs, preserving follow-up context without overflowing the model. No prompt or response is sent to a hosted AI provider.
+
+Presentation and domain code depend on the `FinanceAssistant` interface. To replace LiteRT-LM later, add another implementation, bind it in `AiModule`, and leave the chat ViewModel and UI unchanged.
 
 ## Parsing
 
@@ -101,6 +105,7 @@ Server URL and bearer-token handling remain centralized in interceptors.
 - Phase 6 validates ISO currencies across editors, uses Firefly's auto-budget currency on edit, corrects piggy-bank update payloads, surfaces server validation details, adds keyword/global tag rules, carries tags into parsed transactions, shows complete preview metadata and per-row push results, detects likely duplicates, and treats drawer destinations as replaceable top-level screens.
 - Phase 6.1 fixes parameterized management-destination restoration, adds multi-category and multi-tag report filters with cash-flow/category transaction drill-downs, and separates parser tags into bank-rule, category-rule, and universal tag scopes.
 - Phase 7 adds the optional MediaPipe/Qwen on-device assistant, cancellable model management, persisted context and generation controls, cached-finance prompt construction, bounded memory-only history, streaming responses, and local inference metrics.
+- Phase 7.1 migrates the assistant to Gemma 3 1B and LiteRT-LM, fixes authenticated and complete-file downloads, removes Qwen prompt markers, adds cache-aware suggestions, limits prompt history to three pairs, and supports copying and sharing responses.
 - Reports provide date-range, category, and tag filters with filtered income, spending, net-flow, monthly cash-flow, and top-category summaries from the offline transaction cache.
 - Firefly management includes confirmed deletion for transactions, accounts, budgets, categories, tags, bills, and piggy banks, plus local credential logout.
 

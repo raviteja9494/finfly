@@ -28,6 +28,8 @@ data class SettingsForm(
     val useDeviceTimezone: Boolean = true,
     val aiConfig: AiConfig = AiConfig(),
     val aiModelState: AiModelState = AiModelState.NotDownloaded(0),
+    val huggingFaceToken: String = "",
+    val showHuggingFaceToken: Boolean = false,
 )
 
 enum class SettingsFeedback { CONNECTION_SUCCESS, CONNECTION_FAILED, SAVED, LOGGED_OUT, INVALID_URL, TOKEN_REQUIRED }

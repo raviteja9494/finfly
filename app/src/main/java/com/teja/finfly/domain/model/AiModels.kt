@@ -56,9 +56,19 @@ data class FinanceContext(
 data class AiModelInfo(
     val name: String,
     val provider: String,
+    val quantization: String,
     val filePath: String,
     val sizeGb: Double,
 )
+
+/** Suggested prompts selected from the current Room cache without embedding UI copy in the domain. */
+enum class AssistantSuggestion {
+    FOOD_THIS_MONTH,
+    SPEND_TODAY,
+    BIG_EXPENSES_TODAY,
+    MONTH_SUMMARY,
+    BALANCE,
+}
 
 /** A streamed response fragment and its completion marker. */
 data class AssistantResponseChunk(val text: String, val isComplete: Boolean)

@@ -107,7 +107,7 @@ class FinanceContextBuilder @Inject constructor(
     }
 
     companion object {
-        private const val MAX_CONTEXT_CHARACTERS = 12_000
+        private const val MAX_CONTEXT_CHARACTERS = 4_000
         private const val TRUNCATION_MARKER = "\n[Context truncated to fit the on-device model.]"
         private val DATE_FORMAT = DateTimeFormatter.ISO_LOCAL_DATE
 

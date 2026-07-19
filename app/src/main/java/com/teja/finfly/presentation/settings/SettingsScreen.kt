@@ -48,6 +48,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -148,6 +149,7 @@ private fun SettingsFormContent(form: SettingsForm, viewModel: SettingsViewModel
 private fun AiSettings(form: SettingsForm, viewModel: SettingsViewModel) {
     val spacing = FinFlyThemeTokens.spacing
     val config = form.aiConfig
+    val uriHandler = LocalUriHandler.current
     var showDeleteConfirmation by rememberSaveable { mutableStateOf(false) }
     if (showDeleteConfirmation) {
         ConfirmationDialog(
@@ -163,6 +165,37 @@ private fun AiSettings(form: SettingsForm, viewModel: SettingsViewModel) {
     }
 
     Text(stringResource(R.string.ai_model_status), style = MaterialTheme.typography.titleMedium)
+    Text(
+        stringResource(R.string.ai_hugging_face_token_description),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    OutlinedTextField(
+        value = form.huggingFaceToken,
+        onValueChange = viewModel::updateHuggingFaceToken,
+        modifier = Modifier.fillMaxWidth(),
+        label = { Text(stringResource(R.string.ai_hugging_face_token)) },
+        singleLine = true,
+        visualTransformation = if (form.showHuggingFaceToken) {
+            VisualTransformation.None
+        } else PasswordVisualTransformation(),
+        trailingIcon = {
+            IconButton(onClick = viewModel::toggleHuggingFaceTokenVisibility) {
+                Icon(
+                    if (form.showHuggingFaceToken) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
+                    contentDescription = stringResource(
+                        if (form.showHuggingFaceToken) R.string.hide_token else R.string.show_token
+                    ),
+                )
+            }
+        },
+    )
+    OutlinedButton(
+        onClick = { uriHandler.openUri(GEMMA_MODEL_PAGE) },
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(stringResource(R.string.ai_accept_gemma_license))
+    }
     when (val state = form.aiModelState) {
         is AiModelState.NotDownloaded -> {
             Text(stringResource(R.string.ai_model_not_downloaded, state.availableMb))
@@ -196,7 +229,13 @@ private fun AiSettings(form: SettingsForm, viewModel: SettingsViewModel) {
         AiModelState.Loading -> Text(stringResource(R.string.ai_loading_model))
         AiModelState.Ready -> Text(stringResource(R.string.ai_model_ready))
         is AiModelState.Error -> {
-            Text(stringResource(R.string.ai_error_download), color = MaterialTheme.colorScheme.error)
+            Text(
+                stringResource(
+                    if (state.message == "ai_model_access_error") R.string.ai_error_model_access
+                    else R.string.ai_error_download
+                ),
+                color = MaterialTheme.colorScheme.error,
+            )
             OutlinedButton(onClick = viewModel::downloadAiModel) { Text(stringResource(R.string.retry)) }
         }
     }
@@ -261,6 +300,8 @@ private fun AiSettings(form: SettingsForm, viewModel: SettingsViewModel) {
         color = MaterialTheme.colorScheme.primary,
     )
 }
+
+private const val GEMMA_MODEL_PAGE = "https://huggingface.co/litert-community/Gemma3-1B-IT"
 
 @Composable
 private fun CollapsibleSettingsSection(

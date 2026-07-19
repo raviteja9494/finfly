@@ -7,9 +7,16 @@ import com.teja.finfly.domain.assistant.FinanceAssistant
 import com.teja.finfly.domain.model.AiModelState
 import com.teja.finfly.domain.model.ChatMessage
 import com.teja.finfly.domain.model.ChatRole
+import com.teja.finfly.domain.model.AssistantSuggestion
+import com.teja.finfly.domain.model.TransactionFilter
+import com.teja.finfly.domain.model.TransactionType
 import com.teja.finfly.domain.repository.AiRepository
 import com.teja.finfly.domain.repository.AiSettingsRepository
+import com.teja.finfly.domain.repository.SettingsRepository
+import com.teja.finfly.domain.repository.TransactionRepository
 import com.teja.finfly.domain.usecase.FinanceContextBuilder
+import com.teja.finfly.domain.usecase.RagPromptBuilder
+import com.teja.finfly.domain.common.Result
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Clock
 import javax.inject.Inject
@@ -22,8 +29,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
+import java.time.LocalDate
 
 /**
  * Owns model setup, bounded in-memory history, finance-context assembly, and streamed response metrics.
@@ -35,6 +44,8 @@ class AssistantViewModel @Inject constructor(
     private val aiSettingsRepository: AiSettingsRepository,
     private val financeContextBuilder: FinanceContextBuilder,
     private val financeAssistant: FinanceAssistant,
+    private val transactionRepository: TransactionRepository,
+    private val settingsRepository: SettingsRepository,
     private val clock: Clock,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(AssistantUiState())
@@ -51,6 +62,7 @@ class AssistantViewModel @Inject constructor(
         viewModelScope.launch {
             aiSettingsRepository.config.collect { config -> mutableState.update { it.copy(config = config) } }
         }
+        viewModelScope.launch { refreshSuggestions() }
     }
 
     fun setInput(value: String) {
@@ -62,6 +74,7 @@ class AssistantViewModel @Inject constructor(
         downloadJob = viewModelScope.launch {
             aiRepository.downloadModel().collect { modelState ->
                 mutableState.update { it.copy(modelState = modelState, error = modelState.toAssistantError()) }
+                if (modelState is AiModelState.Downloaded) prepareModel()
             }
         }
     }
@@ -74,7 +87,11 @@ class AssistantViewModel @Inject constructor(
     fun sendMessage(message: String = mutableState.value.input) {
         val question = message.trim()
         val snapshot = mutableState.value
-        if (question.isEmpty() || snapshot.isGenerating || !aiRepository.isModelReady()) return
+        if (question.isEmpty() || !aiRepository.isModelReady()) return
+        if (snapshot.isGenerating) {
+            mutableState.update { it.copy(error = AssistantError.WARMING_UP) }
+            return
+        }
         generationJob = viewModelScope.launch {
             val previousMessages = snapshot.messages.takeLast(MAX_HISTORY_MESSAGES)
             val userMessage = ChatMessage(role = ChatRole.USER, content = question, timestamp = clock.instant())
@@ -91,7 +108,9 @@ class AssistantViewModel @Inject constructor(
             val startedAt = clock.millis()
             try {
                 val context = financeContextBuilder.buildContext(snapshot.config)
-                val promptData = buildPrompt(context.prompt, previousMessages, question)
+                if (context.transactionCount == 0) throw NoTransactionsException()
+                val promptData = RagPromptBuilder.build(context.prompt, previousMessages, question)
+                if (promptData.isTooLarge) throw ContextTooLargeException()
                 mutableState.update {
                     it.copy(
                         context = context,
@@ -100,7 +119,7 @@ class AssistantViewModel @Inject constructor(
                 }
                 var receivedAnyToken = false
                 withTimeout(RESPONSE_TIMEOUT_MILLIS) {
-                    financeAssistant.streamResponse(promptData.prompt, snapshot.config)
+                    financeAssistant.streamResponse(promptData.text, snapshot.config)
                         .catch { throw it }
                         .collect { chunk ->
                             if (!receivedAnyToken) {
@@ -117,6 +136,10 @@ class AssistantViewModel @Inject constructor(
             } catch (_: OutOfMemoryError) {
                 financeAssistant.cancel()
                 finishWithError(AssistantError.OUT_OF_MEMORY, startedAt)
+            } catch (_: NoTransactionsException) {
+                finishWithError(AssistantError.NO_TRANSACTIONS, startedAt)
+            } catch (_: ContextTooLargeException) {
+                finishWithError(AssistantError.CONTEXT_TOO_LARGE, startedAt)
             } catch (_: CancellationException) {
                 finishAssistantMessage(mutableState.value.context?.estimatedTokens ?: 0, startedAt)
             } catch (_: Throwable) {
@@ -156,6 +179,61 @@ class AssistantViewModel @Inject constructor(
 
     fun modelInfo() = financeAssistant.modelInfo()
 
+    private suspend fun prepareModel() {
+        mutableState.update { it.copy(modelState = AiModelState.Loading, error = null) }
+        try {
+            withTimeout(RESPONSE_TIMEOUT_MILLIS) { financeAssistant.prepare() }
+            mutableState.update { it.copy(modelState = AiModelState.Ready) }
+        } catch (_: OutOfMemoryError) {
+            mutableState.update {
+                it.copy(modelState = AiModelState.Error("memory"), error = AssistantError.OUT_OF_MEMORY)
+            }
+        } catch (_: TimeoutCancellationException) {
+            mutableState.update { it.copy(modelState = AiModelState.Error("timeout"), error = AssistantError.TIMEOUT) }
+        } catch (_: Throwable) {
+            mutableState.update {
+                it.copy(modelState = AiModelState.Error("initialization"), error = AssistantError.MODEL_LOAD)
+            }
+        }
+    }
+
+    private suspend fun refreshSuggestions() {
+        val zone = clock.zone
+        val today = LocalDate.now(clock)
+        val from = today.withDayOfMonth(1).atStartOfDay(zone).toInstant()
+        val until = today.plusDays(1).atStartOfDay(zone).toInstant()
+        val transactions = when (val result = transactionRepository.observeTransactions(
+            TransactionFilter(from = from, until = until),
+            limit = SUGGESTION_TRANSACTION_LIMIT,
+            offset = 0,
+        ).first()) {
+            is Result.Success -> result.value
+            is Result.Error -> emptyList()
+        }
+        val todayTransactions = transactions.filter { it.date.atZone(zone).toLocalDate() == today }
+        val suggestions = buildList {
+            if (transactions.any {
+                    it.type == TransactionType.WITHDRAWAL &&
+                        it.category.contains(FOOD_CATEGORY, ignoreCase = true)
+                }) {
+                add(AssistantSuggestion.FOOD_THIS_MONTH)
+            }
+            if (settingsRepository.settings.value.lastSyncTime?.atZone(zone)?.toLocalDate() == today) {
+                add(AssistantSuggestion.SPEND_TODAY)
+            }
+            if (todayTransactions.any {
+                    it.type == TransactionType.WITHDRAWAL &&
+                        it.currency.equals(INR_CURRENCY, ignoreCase = true) &&
+                        it.amount.abs() > LARGE_TRANSACTION_AMOUNT
+                }) {
+                add(AssistantSuggestion.BIG_EXPENSES_TODAY)
+            }
+            add(AssistantSuggestion.MONTH_SUMMARY)
+            add(AssistantSuggestion.BALANCE)
+        }.distinct()
+        mutableState.update { it.copy(suggestions = suggestions) }
+    }
+
     private fun appendAssistantText(fragment: String) {
         mutableState.update { state ->
             val messages = state.messages.toMutableList()
@@ -189,34 +267,21 @@ class AssistantViewModel @Inject constructor(
 
     private fun finishWithError(error: AssistantError, startedAt: Long) {
         finishAssistantMessage(mutableState.value.context?.estimatedTokens ?: 0, startedAt)
-        mutableState.update { it.copy(error = error, modelState = AiModelState.Error(error.name)) }
-    }
-
-    private fun buildPrompt(context: String, messages: List<ChatMessage>, question: String): PromptData {
-        val pairs = messages.filter { it.role != ChatRole.SYSTEM }.takeLast(MAX_HISTORY_MESSAGES)
-        var included = pairs
-        fun historyText() = included.joinToString("\n") { message ->
-            val role = if (message.role == ChatRole.USER) "user" else "assistant"
-            "<|im_start|>$role\n${message.content}\n<|im_end|>"
+        mutableState.update { state ->
+            val messages = state.messages.toMutableList()
+            if (messages.lastOrNull()?.let { it.role == ChatRole.ASSISTANT && it.content.isBlank() } == true) {
+                messages.removeAt(messages.lastIndex)
+            }
+            state.copy(messages = messages, error = error, modelState = AiModelState.Error(error.name))
         }
-        while (included.isNotEmpty() && historyText().length > MAX_HISTORY_CHARACTERS) {
-            included = included.drop(2.coerceAtMost(included.size))
-        }
-        val prompt = buildString {
-            append("<|im_start|>system\n")
-            append("You are FinFly, a concise personal finance assistant. Analyze only the supplied private cached data. ")
-            append("Do not invent balances or transactions. Explain calculations clearly and note data limitations.\n\n")
-            append(context)
-            append("\n<|im_end|>\n")
-            val history = historyText()
-            if (history.isNotEmpty()) append(history).append('\n')
-            append("<|im_start|>user\n").append(question).append("\n<|im_end|>\n<|im_start|>assistant\n")
-        }
-        return PromptData(prompt, included.size < pairs.size)
     }
 
     private fun AiModelState.toAssistantError(): AssistantError? = when (this) {
-        is AiModelState.Error -> if (message == "ai_storage_error") AssistantError.STORAGE else AssistantError.DOWNLOAD
+        is AiModelState.Error -> when (message) {
+            "ai_storage_error" -> AssistantError.STORAGE
+            "ai_model_access_error" -> AssistantError.MODEL_ACCESS
+            else -> AssistantError.DOWNLOAD
+        }
         else -> null
     }
 
@@ -225,11 +290,15 @@ class AssistantViewModel @Inject constructor(
         super.onCleared()
     }
 
-    private data class PromptData(val prompt: String, val historyWasTruncated: Boolean)
+    private class NoTransactionsException : Exception()
+    private class ContextTooLargeException : Exception()
 
     private companion object {
         const val MAX_HISTORY_MESSAGES = 40
-        const val MAX_HISTORY_CHARACTERS = 6_000
         const val RESPONSE_TIMEOUT_MILLIS = 60_000L
+        const val SUGGESTION_TRANSACTION_LIMIT = 1_000
+        const val FOOD_CATEGORY = "food"
+        const val INR_CURRENCY = "INR"
+        val LARGE_TRANSACTION_AMOUNT = java.math.BigDecimal("1000")
     }
 }

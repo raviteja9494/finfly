@@ -70,6 +70,11 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             aiRepository.getModelState().collect { state -> form.value = form.value.copy(aiModelState = state) }
         }
+        viewModelScope.launch {
+            aiSettingsRepository.huggingFaceToken.collect { token ->
+                form.value = form.value.copy(huggingFaceToken = token)
+            }
+        }
     }
 
     fun updateServerUrl(value: String) { form.value = form.value.copy(serverUrl = value, feedback = null) }
@@ -119,11 +124,35 @@ class SettingsViewModel @Inject constructor(
     fun setAiIncludeSmsRules(value: Boolean) = updateAiConfig { copy(includeSmsRules = value) }
     fun setAiTemperature(value: Float) = updateAiConfig { copy(temperature = value.coerceIn(0.1f, 1f)) }
     fun setAiMaxResponseTokens(value: Int) = updateAiConfig { copy(maxResponseTokens = value) }
+    fun updateHuggingFaceToken(value: String) {
+        form.value = form.value.copy(huggingFaceToken = value)
+        viewModelScope.launch { aiSettingsRepository.saveHuggingFaceToken(value) }
+    }
+    fun toggleHuggingFaceTokenVisibility() {
+        form.value = form.value.copy(showHuggingFaceToken = !form.value.showHuggingFaceToken)
+    }
 
     fun downloadAiModel() {
         if (aiDownloadJob?.isActive == true) return
         aiDownloadJob = viewModelScope.launch {
-            aiRepository.downloadModel().collect { state -> form.value = form.value.copy(aiModelState = state) }
+            aiRepository.downloadModel().collect { state ->
+                form.value = form.value.copy(aiModelState = state)
+                if (state is com.teja.finfly.domain.model.AiModelState.Downloaded) {
+                    form.value = form.value.copy(aiModelState = com.teja.finfly.domain.model.AiModelState.Loading)
+                    runCatching { financeAssistant.prepare() }.fold(
+                        onSuccess = {
+                            form.value = form.value.copy(
+                                aiModelState = com.teja.finfly.domain.model.AiModelState.Ready
+                            )
+                        },
+                        onFailure = {
+                            form.value = form.value.copy(
+                                aiModelState = com.teja.finfly.domain.model.AiModelState.Error("initialization")
+                            )
+                        },
+                    )
+                }
+            }
         }
     }
 

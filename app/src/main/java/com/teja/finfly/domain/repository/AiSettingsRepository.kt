@@ -9,6 +9,8 @@ import kotlinx.coroutines.flow.Flow
 interface AiSettingsRepository {
     val config: Flow<AiConfig>
     val modelDownloaded: Flow<Boolean>
+    val huggingFaceToken: Flow<String>
     suspend fun saveConfig(config: AiConfig): Result<Unit>
     suspend fun setModelDownloaded(downloaded: Boolean): Result<Unit>
+    suspend fun saveHuggingFaceToken(token: String): Result<Unit>
 }

@@ -1,4 +1,4 @@
-/* Data-layer storage and streaming download for the optional MediaPipe model. */
+/* Data-layer storage and streaming download for the optional LiteRT-LM model. */
 package com.teja.finfly.data.ai
 
 import android.content.Context
@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -37,13 +38,15 @@ class AiRepositoryImpl @Inject constructor(
     @ApplicationScope private val applicationScope: CoroutineScope,
 ) : AiRepository {
     private val modelDirectory = File(context.getExternalFilesDir(null) ?: context.filesDir, MODEL_DIRECTORY)
-    private val modelFile = File(modelDirectory, MODEL_FILE_NAME)
-    private val partialFile = File(modelDirectory, "$MODEL_FILE_NAME.part")
+    private val modelFile = File(modelDirectory, GemmaModelSpec.FILE_NAME)
+    private val partialFile = File(modelDirectory, "${GemmaModelSpec.FILE_NAME}.part")
+    private val legacyModelFile = File(modelDirectory, LEGACY_MODEL_FILE_NAME)
     private val downloadMutex = Mutex()
     private val state = MutableStateFlow(discoverState())
 
     init {
         applicationScope.launch {
+            withContext(Dispatchers.IO) { legacyModelFile.delete() }
             settingsRepository.setModelDownloaded(isModelReady())
         }
     }
@@ -68,12 +71,21 @@ class AiRepositoryImpl @Inject constructor(
 
             try {
                 sendAndStore(AiModelState.Downloading(0, 0, 0))
-                val request = Request.Builder().url(MODEL_URL).build()
+                val accessToken = settingsRepository.huggingFaceToken.first().trim()
+                if (accessToken.isBlank()) error(MODEL_ACCESS_ERROR)
+                val request = Request.Builder()
+                    .url(GemmaModelSpec.DOWNLOAD_URL)
+                    .header(AUTHORIZATION_HEADER, "Bearer $accessToken")
+                    .build()
                 withContext(Dispatchers.IO) {
                     client.newCall(request).execute().use { response ->
+                        if (response.code == 401 || response.code == 403) error(MODEL_ACCESS_ERROR)
                         check(response.isSuccessful) { DOWNLOAD_HTTP_ERROR }
                         val body = response.body
                         val totalBytes = body.contentLength().coerceAtLeast(0L)
+                        if (totalBytes > 0 && totalBytes != GemmaModelSpec.EXPECTED_SIZE_BYTES) {
+                            error(DOWNLOAD_SIZE_ERROR)
+                        }
                         if (totalBytes > 0 && availableBytes() < totalBytes + STORAGE_HEADROOM_BYTES) {
                             error(STORAGE_ERROR)
                         }
@@ -105,7 +117,7 @@ class AiRepositoryImpl @Inject constructor(
                             }
                         }
                     }
-                    check(partialFile.length() >= MIN_VALID_MODEL_BYTES) { DOWNLOAD_INCOMPLETE_ERROR }
+                    check(GemmaModelSpec.isComplete(partialFile)) { DOWNLOAD_INCOMPLETE_ERROR }
                     check(partialFile.renameTo(modelFile)) { DOWNLOAD_MOVE_ERROR }
                 }
                 settingsRepository.setModelDownloaded(true)
@@ -126,13 +138,14 @@ class AiRepositoryImpl @Inject constructor(
         runCatching {
             partialFile.delete()
             if (modelFile.exists()) check(modelFile.delete())
+            legacyModelFile.delete()
             settingsRepository.setModelDownloaded(false)
             state.value = discoverState()
             Result.Success(Unit)
         }.getOrElse { Result.Error(it.message ?: DELETE_ERROR, it) }
     }
 
-    override fun isModelReady(): Boolean = modelFile.isFile && modelFile.length() >= MIN_VALID_MODEL_BYTES
+    override fun isModelReady(): Boolean = GemmaModelSpec.isComplete(modelFile)
 
     override fun modelPath(): String = modelFile.absolutePath
 
@@ -155,14 +168,14 @@ class AiRepositoryImpl @Inject constructor(
 
     private companion object {
         const val MODEL_DIRECTORY = "models"
-        const val MODEL_FILE_NAME = "qwen2.5-3b-instruct-q4.bin"
-        const val MODEL_URL =
-            "https://huggingface.co/litaotju/qwen2.5-3b-instruct-mediapipe/resolve/main/qwen2.5-3b-instruct-q4.bin"
+        const val LEGACY_MODEL_FILE_NAME = "qwen2.5-3b-instruct-q4.bin"
         const val BUFFER_SIZE = 64 * 1024
         const val BYTES_PER_MEGABYTE = 1024L * 1024L
         const val BYTES_PER_GIGABYTE = 1024.0 * 1024.0 * 1024.0
         const val STORAGE_HEADROOM_BYTES = 200L * BYTES_PER_MEGABYTE
-        const val MIN_VALID_MODEL_BYTES = 100L * BYTES_PER_MEGABYTE
+        const val AUTHORIZATION_HEADER = "Authorization"
+        const val MODEL_ACCESS_ERROR = "ai_model_access_error"
+        const val DOWNLOAD_SIZE_ERROR = "ai_download_size_error"
         const val DOWNLOAD_HTTP_ERROR = "ai_download_http_error"
         const val STORAGE_ERROR = "ai_storage_error"
         const val DOWNLOAD_INCOMPLETE_ERROR = "ai_download_incomplete"
