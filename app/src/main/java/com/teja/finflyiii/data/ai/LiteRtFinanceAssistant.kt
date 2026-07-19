@@ -41,7 +41,7 @@ class LiteRtFinanceAssistant @Inject constructor(
         try {
             val pendingText = StringBuilder()
             activeConversation.sendMessageAsync(prompt).collect { partial ->
-                pendingText.append(partial.text)
+                pendingText.append(partial.toString())
                 if (pendingText.length >= STREAM_BATCH_CHARACTERS) {
                     emit(AssistantResponseChunk(pendingText.toString(), false))
                     pendingText.clear()
