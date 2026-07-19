@@ -100,8 +100,7 @@ class RuleBasedSmsParser(
         val before = Regex.escape(pattern.substring(0, index))
         val afterText = pattern.substring(index + token.length)
         val after = Regex.escape(afterText)
-        val end = if (afterText.isEmpty()) "$" else ""
-        return Regex(before + capture + after + end, setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+        return Regex(before + capture + after, setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
     }
 
     companion object {
