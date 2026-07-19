@@ -107,7 +107,7 @@ class AssistantViewModel @Inject constructor(
             }
             val startedAt = clock.millis()
             try {
-                val context = financeContextBuilder.buildContext(snapshot.config)
+                val context = financeContextBuilder.buildContext(snapshot.config, question)
                 if (context.transactionCount == 0) throw NoTransactionsException()
                 val promptData = RagPromptBuilder.build(context.prompt, previousMessages, question)
                 if (promptData.isTooLarge) throw ContextTooLargeException()
@@ -118,6 +118,8 @@ class AssistantViewModel @Inject constructor(
                     )
                 }
                 var receivedAnyToken = false
+                var responseCharacters = 0
+                val responseCharacterLimit = snapshot.config.maxResponseTokens * MAX_CHARACTERS_PER_TOKEN
                 withTimeout(RESPONSE_TIMEOUT_MILLIS) {
                     financeAssistant.streamResponse(promptData.text, snapshot.config)
                         .catch { throw it }
@@ -126,7 +128,14 @@ class AssistantViewModel @Inject constructor(
                                 receivedAnyToken = true
                                 mutableState.update { it.copy(modelState = AiModelState.Ready) }
                             }
-                            if (chunk.text.isNotEmpty()) appendAssistantText(chunk.text)
+                            if (chunk.text.isNotEmpty()) {
+                                val remaining = responseCharacterLimit - responseCharacters
+                                if (remaining <= 0) throw ResponseLimitReachedException()
+                                val bounded = chunk.text.take(remaining)
+                                appendAssistantText(bounded)
+                                responseCharacters += bounded.length
+                                if (bounded.length < chunk.text.length) throw ResponseLimitReachedException()
+                            }
                         }
                 }
                 finishAssistantMessage(context.estimatedTokens, startedAt)
@@ -140,6 +149,9 @@ class AssistantViewModel @Inject constructor(
                 finishWithError(AssistantError.NO_TRANSACTIONS, startedAt)
             } catch (_: ContextTooLargeException) {
                 finishWithError(AssistantError.CONTEXT_TOO_LARGE, startedAt)
+            } catch (_: ResponseLimitReachedException) {
+                financeAssistant.cancel()
+                finishAssistantMessage(mutableState.value.context?.estimatedTokens ?: 0, startedAt)
             } catch (_: CancellationException) {
                 finishAssistantMessage(mutableState.value.context?.estimatedTokens ?: 0, startedAt)
             } catch (_: Throwable) {
@@ -292,6 +304,7 @@ class AssistantViewModel @Inject constructor(
 
     private class NoTransactionsException : Exception()
     private class ContextTooLargeException : Exception()
+    private class ResponseLimitReachedException : Exception()
 
     private companion object {
         const val MAX_HISTORY_MESSAGES = 40
@@ -300,5 +313,6 @@ class AssistantViewModel @Inject constructor(
         const val FOOD_CATEGORY = "food"
         const val INR_CURRENCY = "INR"
         val LARGE_TRANSACTION_AMOUNT = java.math.BigDecimal("1000")
+        const val MAX_CHARACTERS_PER_TOKEN = 6
     }
 }

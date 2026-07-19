@@ -24,6 +24,9 @@ class RagPromptBuilderTest {
         assertTrue(prompt.text.contains("answer 4"))
         assertTrue(prompt.text.contains("And last month?"))
         assertFalse(prompt.text.contains("<|im_start|>"))
+        assertTrue(prompt.text.contains("count only rows marked expense"))
+        assertTrue(prompt.text.contains("Do not echo the transaction dataset"))
+        assertTrue(prompt.text.contains("at most five short bullets"))
         assertTrue(prompt.historyWasTruncated)
         assertFalse(prompt.isTooLarge)
     }

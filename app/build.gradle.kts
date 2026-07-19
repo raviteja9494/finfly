@@ -15,8 +15,8 @@ android {
         applicationId = "com.teja.finfly"
         minSdk = 26
         targetSdk = 36
-        versionCode = 12
-        versionName = "0.8.1"
+        versionCode = 13
+        versionName = "0.8.2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "DEFAULT_SERVER_URL", "\"http://127.0.0.1/\"")
     }

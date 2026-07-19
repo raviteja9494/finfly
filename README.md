@@ -1,6 +1,6 @@
 # FinFly
 
-FinFly is an offline-first Android companion for a self-hosted Firefly III server. Phase 7.1 provides an optional private, on-device finance assistant powered by LiteRT-LM and Gemma 3 1B while keeping Firefly data local.
+FinFly is an offline-first Android companion for a self-hosted Firefly III server. Phase 7.2 provides a stable optional on-device Gemma assistant, reusable local model files, and full-history Firefly synchronization while keeping finance data local.
 
 ## Architecture
 
@@ -37,9 +37,11 @@ The fourth tab hosts an optional on-device assistant. FinFly uses the official *
 
 Gemma is license-gated. Accept the model license on Hugging Face and add a read access token under **Settings → AI assistant** before downloading. FinFly pins the official model commit and requires the completed file to match the published 584,417,280-byte size before marking it downloaded.
 
+The Hugging Face token is used only for the initial model download. It may be removed after the model is ready; inference remains fully offline. Use **Save reusable model copy** to keep the verified `.litertlm` file in Downloads or another user-selected folder, then use **Import model from device** after reinstalling FinFly. Imports are copied into app storage and must match the same exact published byte size before initialization.
+
 The runtime is `com.google.ai.edge.litertlm:litertlm-android:0.14.0` from Google Maven. LiteRT-LM is available as a stable Android package, so the MediaPipe `tasks-genai:0.10.27` fallback is not used. Engine initialization runs on a dedicated background dispatcher with the CPU backend for broad device compatibility.
 
-`FinanceContextBuilder` reads only the existing Room-backed repository streams and applies the saved transaction count, date range, balance, category, and parsing-rule limits. Chat history stays in memory, is capped at 20 user/assistant pairs, and is cleared when the process ends. Each new Gemma prompt includes only the latest three pairs, preserving follow-up context without overflowing the model. No prompt or response is sent to a hosted AI provider.
+`FinanceContextBuilder` reads only the existing Room-backed repository streams and applies the saved transaction count, date range, balance, category, and parsing-rule limits. Today, this-month, and last-month questions use exact calendar bounds. Spending totals use withdrawals only and keep currencies separate. Chat history stays in memory, is capped at 20 user/assistant pairs, and is cleared when the process ends. Each prompt includes only the latest three pairs. LiteRT output tokens are bounded against the available context window, with repetition controls and a UI-side character guard. No prompt or response is sent to a hosted AI provider.
 
 Presentation and domain code depend on the `FinanceAssistant` interface. To replace LiteRT-LM later, add another implementation, bind it in `AiModule`, and leave the chat ViewModel and UI unchanged.
 
@@ -106,6 +108,7 @@ Server URL and bearer-token handling remain centralized in interceptors.
 - Phase 6.1 fixes parameterized management-destination restoration, adds multi-category and multi-tag report filters with cash-flow/category transaction drill-downs, and separates parser tags into bank-rule, category-rule, and universal tag scopes.
 - Phase 7 adds the optional MediaPipe/Qwen on-device assistant, cancellable model management, persisted context and generation controls, cached-finance prompt construction, bounded memory-only history, streaming responses, and local inference metrics.
 - Phase 7.1 migrates the assistant to Gemma 3 1B and LiteRT-LM, fixes authenticated and complete-file downloads, removes Qwen prompt markers, adds cache-aware suggestions, limits prompt history to three pairs, and supports copying and sharing responses.
+- Phase 7.2 bounds LiteRT responses to prevent runaway generation, adds repetition-resistant finance guidance and exact relative-date context, imports/exports verified local model copies, explains post-download token removal, and changes ordinary synchronization from a 90-day window to the complete Firefly transaction history.
 - Reports provide date-range, category, and tag filters with filtered income, spending, net-flow, monthly cash-flow, and top-category summaries from the offline transaction cache.
 - Firefly management includes confirmed deletion for transactions, accounts, budgets, categories, tags, bills, and piggy banks, plus local credential logout.
 

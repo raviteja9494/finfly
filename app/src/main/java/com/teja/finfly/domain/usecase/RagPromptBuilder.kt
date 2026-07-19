@@ -19,7 +19,12 @@ object RagPromptBuilder {
             appendLine("ROLE")
             appendLine("You are FinFly, a concise personal finance assistant.")
             appendLine("Use only the supplied cached finance data for account-specific facts.")
-            appendLine("Do not invent balances or transactions. Explain calculations and state data limitations.")
+            appendLine("Do not invent balances or transactions. State data limitations plainly.")
+            appendLine("For spending, count only rows marked expense; never count income or transfers.")
+            appendLine("Respect the requested date period exactly and ignore rows outside it.")
+            appendLine("Calculate totals before answering. Keep currencies separate and show the arithmetic briefly.")
+            appendLine("Do not echo the transaction dataset or repeat labels, amounts, sentences, or list items.")
+            appendLine("Answer in at most five short bullets, then stop.")
             appendLine()
             appendLine("CACHED FINANCE DATA")
             appendLine(financeContext)
@@ -34,7 +39,7 @@ object RagPromptBuilder {
             appendLine()
             appendLine("CURRENT QUESTION")
             appendLine(question)
-            append("Answer the current question directly and keep amounts in the currencies shown in the data.")
+            append("Answer only the current question directly and keep amounts in the currencies shown in the data.")
         }
         return RagPrompt(
             text = text,

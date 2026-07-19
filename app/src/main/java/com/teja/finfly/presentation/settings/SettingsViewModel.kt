@@ -168,6 +168,50 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun importAiModel(sourceUri: String) {
+        if (aiDownloadJob?.isActive == true) return
+        aiDownloadJob = viewModelScope.launch {
+            financeAssistant.reset()
+            form.value = form.value.copy(
+                aiModelState = com.teja.finfly.domain.model.AiModelState.Loading,
+                aiFileFeedback = null,
+            )
+            when (val result = aiRepository.importModel(sourceUri)) {
+                is Result.Success -> runCatching { financeAssistant.prepare() }.fold(
+                    onSuccess = {
+                        form.value = form.value.copy(
+                            aiModelState = com.teja.finfly.domain.model.AiModelState.Ready,
+                            aiFileFeedback = AiFileFeedback.IMPORTED,
+                        )
+                    },
+                    onFailure = {
+                        form.value = form.value.copy(
+                            aiModelState = com.teja.finfly.domain.model.AiModelState.Error("initialization"),
+                            aiFileFeedback = AiFileFeedback.FAILED,
+                        )
+                    },
+                )
+                is Result.Error -> form.value = form.value.copy(
+                    aiFileFeedback = if (result.message == "ai_model_import_invalid") {
+                        AiFileFeedback.INVALID_MODEL
+                    } else AiFileFeedback.FAILED,
+                )
+            }
+        }
+    }
+
+    fun exportAiModel(destinationUri: String) {
+        viewModelScope.launch {
+            form.value = form.value.copy(aiFileFeedback = null)
+            form.value = form.value.copy(
+                aiFileFeedback = when (aiRepository.exportModel(destinationUri)) {
+                    is Result.Success -> AiFileFeedback.EXPORTED
+                    is Result.Error -> AiFileFeedback.FAILED
+                }
+            )
+        }
+    }
+
     fun test() {
         if (form.value.isTesting) return
         viewModelScope.launch {

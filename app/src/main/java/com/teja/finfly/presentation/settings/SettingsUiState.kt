@@ -30,7 +30,10 @@ data class SettingsForm(
     val aiModelState: AiModelState = AiModelState.NotDownloaded(0),
     val huggingFaceToken: String = "",
     val showHuggingFaceToken: Boolean = false,
+    val aiFileFeedback: AiFileFeedback? = null,
 )
+
+enum class AiFileFeedback { IMPORTED, EXPORTED, INVALID_MODEL, FAILED }
 
 enum class SettingsFeedback { CONNECTION_SUCCESS, CONNECTION_FAILED, SAVED, LOGGED_OUT, INVALID_URL, TOKEN_REQUIRED }
 

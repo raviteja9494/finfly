@@ -10,11 +10,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.time.Clock
-import java.time.temporal.ChronoUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Synchronizes accounts then the latest 90 days and exposes one app-wide operation state. */
+/** Synchronizes accounts and the full transaction history unless an explicit report range is supplied. */
 @Singleton
 class SyncFinancesUseCase @Inject constructor(
     private val accountRepository: AccountRepository,
@@ -28,14 +27,11 @@ class SyncFinancesUseCase @Inject constructor(
     suspend operator fun invoke(from: java.time.Instant? = null, until: java.time.Instant? = null): Result<Unit> {
         if (mutableState.value is SyncState.Syncing) return Result.Success(Unit)
         mutableState.value = SyncState.Syncing
-        val now = clock.instant()
-        val syncFrom = from ?: now.minus(SYNC_DAYS, ChronoUnit.DAYS)
-        val syncUntil = until ?: now
         val result = when (val accounts = accountRepository.sync()) {
             is Result.Error -> accounts
             is Result.Success -> when (val transactions = transactionRepository.sync(
-                from = syncFrom,
-                until = syncUntil,
+                from = from,
+                until = until,
             )) {
                 is Result.Error -> transactions
                 is Result.Success -> tagRepository.refresh()
@@ -47,6 +43,4 @@ class SyncFinancesUseCase @Inject constructor(
         }
         return result
     }
-
-    private companion object { const val SYNC_DAYS = 90L }
 }

@@ -179,9 +179,10 @@ class TransactionRepositoryImpl @Inject constructor(
                     end = until?.toLocalDateString(),
                 )
                 transactions += response.data.flatMap { it.toEntities() }
-                totalPages = response.meta?.pagination?.totalPages ?: page
+                totalPages = response.meta?.pagination?.totalPages
+                    ?: if (response.data.size >= PAGE_SIZE) page + 1 else page
                 page++
-            } while (page <= totalPages && page <= MAX_PAGES)
+            } while (page <= totalPages && page <= MAX_TRANSACTION_PAGES)
 
             val categories = mutableListOf<com.teja.finfly.data.local.entity.CategoryEntity>()
             page = 1
@@ -229,6 +230,7 @@ class TransactionRepositoryImpl @Inject constructor(
     private companion object {
         const val PAGE_SIZE = 100
         const val MAX_PAGES = 100
+        const val MAX_TRANSACTION_PAGES = 1_000
         const val CACHE_ERROR = "cache_error"
         const val SYNC_ERROR = "sync_error"
         const val SAVE_ERROR = "save_error"

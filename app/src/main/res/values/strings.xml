@@ -501,7 +501,16 @@
     <string name="ai_temperature_value">Temperature: %1$.1f</string>
     <string name="ai_hugging_face_token">Hugging Face access token</string>
     <string name="ai_hugging_face_token_description">Gemma is license-gated. Accept its license, create a read token, and enter it here so FinFly can download the official model.</string>
+    <string name="ai_token_after_download_info">The token is needed only to download the model. After the model is ready, you can remove the token and use AI completely offline.</string>
     <string name="ai_accept_gemma_license">Accept Gemma license on Hugging Face</string>
+    <string name="ai_import_local_model">Import model from device</string>
+    <string name="ai_import_local_model_description">Select an official gemma3-1b-it-int4.litertlm file. FinFly verifies its exact size before using it.</string>
+    <string name="ai_save_model_copy">Save reusable model copy</string>
+    <string name="ai_save_model_copy_description">Keep a copy in Downloads or another folder, then import it after reinstalling FinFly instead of downloading again.</string>
+    <string name="ai_model_imported">Local model imported and initialized.</string>
+    <string name="ai_model_copy_saved">Reusable model copy saved.</string>
+    <string name="ai_model_import_invalid">That file is not the supported Gemma 3 1B model or is incomplete.</string>
+    <string name="ai_model_file_operation_failed">The model file could not be read or saved. Check storage access and try again.</string>
     <string name="ai_copied">Copied</string>
     <string name="ai_share_response">Share AI response</string>
 </resources>

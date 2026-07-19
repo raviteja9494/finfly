@@ -2,6 +2,7 @@
 package com.teja.finfly.data.ai
 
 import android.content.Context
+import android.net.Uri
 import android.os.StatFs
 import com.teja.finfly.di.ApplicationScope
 import com.teja.finfly.domain.common.Result
@@ -40,6 +41,7 @@ class AiRepositoryImpl @Inject constructor(
     private val modelDirectory = File(context.getExternalFilesDir(null) ?: context.filesDir, MODEL_DIRECTORY)
     private val modelFile = File(modelDirectory, GemmaModelSpec.FILE_NAME)
     private val partialFile = File(modelDirectory, "${GemmaModelSpec.FILE_NAME}.part")
+    private val importFile = File(modelDirectory, "${GemmaModelSpec.FILE_NAME}.import")
     private val legacyModelFile = File(modelDirectory, LEGACY_MODEL_FILE_NAME)
     private val downloadMutex = Mutex()
     private val state = MutableStateFlow(discoverState())
@@ -137,12 +139,61 @@ class AiRepositoryImpl @Inject constructor(
     override suspend fun deleteModel(): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
             partialFile.delete()
+            importFile.delete()
             if (modelFile.exists()) check(modelFile.delete())
             legacyModelFile.delete()
             settingsRepository.setModelDownloaded(false)
             state.value = discoverState()
             Result.Success(Unit)
         }.getOrElse { Result.Error(it.message ?: DELETE_ERROR, it) }
+    }
+
+    override suspend fun importModel(sourceUri: String): Result<Unit> = downloadMutex.withLock {
+        state.value = AiModelState.Loading
+        withContext(Dispatchers.IO) {
+            runCatching {
+                modelDirectory.mkdirs()
+                importFile.delete()
+                check(availableBytes() >= GemmaModelSpec.EXPECTED_SIZE_BYTES + STORAGE_HEADROOM_BYTES) {
+                    STORAGE_ERROR
+                }
+                val input = checkNotNull(context.contentResolver.openInputStream(Uri.parse(sourceUri))) {
+                    MODEL_IMPORT_ERROR
+                }
+                input.use { source ->
+                    importFile.outputStream().buffered().use { destination ->
+                        source.copyTo(destination, BUFFER_SIZE)
+                    }
+                }
+                check(GemmaModelSpec.isComplete(importFile)) { MODEL_IMPORT_INVALID_ERROR }
+                if (modelFile.exists()) check(modelFile.delete()) { DELETE_ERROR }
+                check(importFile.renameTo(modelFile)) { DOWNLOAD_MOVE_ERROR }
+                settingsRepository.setModelDownloaded(true)
+                state.value = downloadedState()
+                Result.Success(Unit)
+            }.getOrElse { error ->
+                importFile.delete()
+                state.value = discoverState().let { discovered ->
+                    if (discovered is AiModelState.NotDownloaded) {
+                        AiModelState.Error(error.message ?: MODEL_IMPORT_ERROR)
+                    } else discovered
+                }
+                Result.Error(error.message ?: MODEL_IMPORT_ERROR, error)
+            }
+        }
+    }
+
+    override suspend fun exportModel(destinationUri: String): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            check(isModelReady()) { MODEL_MISSING_ERROR }
+            val output = checkNotNull(context.contentResolver.openOutputStream(Uri.parse(destinationUri), "w")) {
+                MODEL_EXPORT_ERROR
+            }
+            modelFile.inputStream().buffered().use { source ->
+                output.buffered().use { destination -> source.copyTo(destination, BUFFER_SIZE) }
+            }
+            Result.Success(Unit)
+        }.getOrElse { error -> Result.Error(error.message ?: MODEL_EXPORT_ERROR, error) }
     }
 
     override fun isModelReady(): Boolean = GemmaModelSpec.isComplete(modelFile)
@@ -182,5 +233,9 @@ class AiRepositoryImpl @Inject constructor(
         const val DOWNLOAD_MOVE_ERROR = "ai_download_move_error"
         const val DOWNLOAD_ERROR = "ai_download_error"
         const val DELETE_ERROR = "ai_delete_error"
+        const val MODEL_MISSING_ERROR = "ai_model_missing"
+        const val MODEL_IMPORT_ERROR = "ai_model_import_error"
+        const val MODEL_IMPORT_INVALID_ERROR = "ai_model_import_invalid"
+        const val MODEL_EXPORT_ERROR = "ai_model_export_error"
     }
 }

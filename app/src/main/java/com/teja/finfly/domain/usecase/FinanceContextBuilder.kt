@@ -7,11 +7,14 @@ import com.teja.finfly.domain.model.AiConfig
 import com.teja.finfly.domain.model.FinanceContext
 import com.teja.finfly.domain.model.Transaction
 import com.teja.finfly.domain.model.TransactionFilter
+import com.teja.finfly.domain.model.TransactionType
 import com.teja.finfly.domain.repository.AccountRepository
 import com.teja.finfly.domain.repository.SmsRulesRepository
 import com.teja.finfly.domain.repository.TransactionRepository
 import java.time.Clock
 import java.time.ZoneId
+import java.time.Instant
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import javax.inject.Inject
@@ -24,11 +27,12 @@ class FinanceContextBuilder @Inject constructor(
     private val smsRulesRepository: SmsRulesRepository,
     private val clock: Clock,
 ) {
-    suspend fun buildContext(config: AiConfig): FinanceContext {
+    suspend fun buildContext(config: AiConfig, question: String = ""): FinanceContext {
         val now = clock.instant()
-        val from = now.minus(config.dateRangeDays.toLong(), ChronoUnit.DAYS)
+        val zone = clock.zone
+        val period = resolvePeriod(question, now, zone, config.dateRangeDays)
         val transactions = transactionRepository.observeTransactions(
-            filter = TransactionFilter(from = from, until = now),
+            filter = TransactionFilter(from = period.from, until = period.until),
             limit = config.maxTransactions,
             offset = 0,
         ).first().successOrEmpty()
@@ -39,13 +43,13 @@ class FinanceContextBuilder @Inject constructor(
 
         val prompt = buildString {
             appendLine("FINFLY PRIVATE FINANCE CONTEXT")
-            appendLine("Current date: ${now.atZone(ZoneId.systemDefault()).toLocalDate()}")
-            appendLine("Period: last ${config.dateRangeDays} days")
+            appendLine("Current date: ${now.atZone(zone).toLocalDate()}")
+            appendLine("Included period: ${period.from.atZone(zone).toLocalDate()} through ${period.displayUntil}")
             if (config.includeBalances) appendAccounts(accounts)
             if (config.includeCategories) appendCategoryTotals(transactions)
             appendTransactions(transactions)
             if (smsRuleSummary != null) appendSmsRules(smsRuleSummary)
-            appendLine("Use only this context for account-specific facts. Say when the cached data is insufficient.")
+            appendLine("Only transactions inside the included period are present. Say when cached data is insufficient.")
         }
         val wasTruncated = prompt.length > MAX_CONTEXT_CHARACTERS
         val boundedPrompt = if (wasTruncated) prompt.take(MAX_CONTEXT_CHARACTERS) + TRUNCATION_MARKER else prompt
@@ -53,7 +57,7 @@ class FinanceContextBuilder @Inject constructor(
             prompt = boundedPrompt,
             estimatedTokens = estimateTokens(boundedPrompt),
             transactionCount = transactions.size,
-            dateRangeDays = config.dateRangeDays,
+            dateRangeDays = period.dayCount,
             wasTruncated = wasTruncated,
         )
     }
@@ -66,12 +70,14 @@ class FinanceContextBuilder @Inject constructor(
 
     private fun StringBuilder.appendCategoryTotals(transactions: List<Transaction>) {
         appendLine("\nCATEGORY TOTALS")
-        val totals = transactions.filter { it.category.isNotBlank() }
-            .groupBy(Transaction::category)
+        val totals = transactions.filter {
+            it.type == TransactionType.WITHDRAWAL && it.category.isNotBlank()
+        }
+            .groupBy { it.category to it.currency }
             .mapValues { (_, values) -> values.fold(java.math.BigDecimal.ZERO) { sum, item -> sum + item.amount.abs() } }
             .entries.sortedByDescending { it.value }
         if (totals.isEmpty()) appendLine("No categorized transactions.")
-        totals.forEach { (category, total) -> appendLine("- $category: ${total.toPlainString()}") }
+        totals.forEach { (key, total) -> appendLine("- ${key.first}: ${total.toPlainString()} ${key.second}") }
     }
 
     private fun StringBuilder.appendTransactions(transactions: List<Transaction>) {
@@ -79,7 +85,12 @@ class FinanceContextBuilder @Inject constructor(
         if (transactions.isEmpty()) appendLine("No cached transactions in this period.")
         transactions.forEach { transaction ->
             val date = DATE_FORMAT.format(transaction.date.atZone(ZoneId.systemDefault()))
-            append("- $date | ${transaction.type.name.lowercase()} | ")
+            val kind = when (transaction.type) {
+                TransactionType.WITHDRAWAL -> "expense"
+                TransactionType.DEPOSIT -> "income"
+                TransactionType.TRANSFER -> "transfer"
+            }
+            append("- $date | $kind | ")
             append("${transaction.amount.abs().toPlainString()} ${transaction.currency} | ${transaction.description}")
             if (transaction.category.isNotBlank()) append(" | category=${transaction.category}")
             if (transaction.budget.isNotBlank()) append(" | budget=${transaction.budget}")
@@ -113,7 +124,42 @@ class FinanceContextBuilder @Inject constructor(
 
         /** Fast conservative estimate suitable for displaying prompt size without loading the model. */
         fun estimateTokens(text: String): Int = (text.length + 3) / 4
+
+        internal fun resolvePeriod(
+            question: String,
+            now: Instant,
+            zone: ZoneId,
+            defaultDays: Int,
+        ): ContextPeriod {
+            val normalized = question.lowercase()
+            val today = now.atZone(zone).toLocalDate()
+            val (fromDate, untilDate) = when {
+                "last month" in normalized -> today.withDayOfMonth(1).minusMonths(1) to today.withDayOfMonth(1)
+                "this month" in normalized || "current month" in normalized ->
+                    today.withDayOfMonth(1) to today.plusDays(1)
+                "today" in normalized -> today to today.plusDays(1)
+                else -> return ContextPeriod(
+                    from = now.minus(defaultDays.toLong(), ChronoUnit.DAYS),
+                    until = now,
+                    displayUntil = today,
+                    dayCount = defaultDays,
+                )
+            }
+            return ContextPeriod(
+                from = fromDate.atStartOfDay(zone).toInstant(),
+                until = untilDate.atStartOfDay(zone).toInstant().coerceAtMost(now),
+                displayUntil = untilDate.minusDays(1).coerceAtMost(today),
+                dayCount = ChronoUnit.DAYS.between(fromDate, untilDate).toInt().coerceAtLeast(1),
+            )
+        }
     }
+
+    internal data class ContextPeriod(
+        val from: Instant,
+        val until: Instant,
+        val displayUntil: LocalDate,
+        val dayCount: Int,
+    )
 
     private data class SmsRuleSummary(
         val bankNames: List<String>,
