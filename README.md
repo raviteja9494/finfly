@@ -1,10 +1,10 @@
-# FinFly
+# FinFly III
 
-FinFly is an offline-first Android companion for a self-hosted Firefly III server. Phase 7.2 provides a stable optional on-device Gemma assistant, reusable local model files, and full-history Firefly synchronization while keeping finance data local.
+FinFly III is an offline-first Android companion for a self-hosted Firefly III server. Phase 7.3 completes the development-time app identity migration while retaining the stable optional on-device Gemma assistant, reusable local model files, and full-history Firefly synchronization.
 
 ## Architecture
 
-FinFly uses Clean Architecture inside one Android module:
+FinFly III uses Clean Architecture inside one Android module:
 
 - `presentation`: Jetpack Compose screens, screen state, Hilt ViewModels, and type-safe navigation.
 - `domain/model`: Android-free finance, rule, parsing, and sync models.
@@ -27,21 +27,23 @@ Dependencies point inward. Domain has no Android dependency, presentation consum
 3. Open Settings, enter the Firefly III URL and personal access token, test, and save.
 4. Sync once so account and category choices are cached.
 
-Every push to `main`, pull request, or manual workflow run executes unit tests, lint, and debug/release APK builds. Successful runs upload `finfly-debug-apk`, `finfly-release-apk`, and verification reports. No local Android toolchain is required for CI verification.
+Every push to `main`, pull request, or manual workflow run executes unit tests, lint, and debug/release APK builds. Successful runs upload `finfly-iii-debug-apk`, `finfly-iii-release-apk`, and verification reports. No local Android toolchain is required for CI verification.
+
+FinFly III uses the Android application ID `com.teja.finflyiii`. It installs separately from development builds that used `com.teja.finfly`, so the old app's local settings, cache, and downloaded model are not migrated automatically. Firefly III server data is unaffected. Save a reusable model copy from the old build before removing it if you want to import that file into FinFly III.
 
 Cleartext HTTP is enabled for trusted local-network Firefly installations. Prefer HTTPS outside a private LAN.
 
 ## Private AI assistant
 
-The fourth tab hosts an optional on-device assistant. FinFly uses the official **Gemma 3 1B INT4 QAT** LiteRT-LM model (584,417,280 bytes, about 557 MB). It is not bundled in the APK and is downloaded only after explicit confirmation from [litert-community/Gemma3-1B-IT](https://huggingface.co/litert-community/Gemma3-1B-IT/blob/main/gemma3-1b-it-int4.litertlm). The file is stored in the app-specific external-files directory at `models/gemma3-1b-it-int4.litertlm`; deleting it in Settings does not change Firefly or cached finance data.
+The fourth tab hosts an optional on-device assistant. FinFly III uses the official **Gemma 3 1B INT4 QAT** LiteRT-LM model (584,417,280 bytes, about 557 MB). It is not bundled in the APK and is downloaded only after explicit confirmation from [litert-community/Gemma3-1B-IT](https://huggingface.co/litert-community/Gemma3-1B-IT/blob/main/gemma3-1b-it-int4.litertlm). The file is stored in the app-specific external-files directory at `models/gemma3-1b-it-int4.litertlm`; deleting it in Settings does not change Firefly or cached finance data.
 
-Gemma is license-gated. Accept the model license on Hugging Face and add a read access token under **Settings → AI assistant** before downloading. FinFly pins the official model commit and requires the completed file to match the published 584,417,280-byte size before marking it downloaded.
+Gemma is license-gated. Accept the model license on Hugging Face and add a read access token under **Settings → AI assistant** before downloading. FinFly III pins the official model commit and requires the completed file to match the published 584,417,280-byte size before marking it downloaded.
 
-The Hugging Face token is used only for the initial model download. It may be removed after the model is ready; inference remains fully offline. Use **Save reusable model copy** to keep the verified `.litertlm` file in Downloads or another user-selected folder, then use **Import model from device** after reinstalling FinFly. Imports are copied into app storage and must match the same exact published byte size before initialization.
+The Hugging Face token is used only for the initial model download. It may be removed after the model is ready; inference remains fully offline. Use **Save reusable model copy** to keep the verified `.litertlm` file in Downloads or another user-selected folder, then use **Import model from device** after reinstalling FinFly III. Imports are copied into app storage and must match the same exact published byte size before initialization.
 
 The runtime is `com.google.ai.edge.litertlm:litertlm-android:0.14.0` from Google Maven. LiteRT-LM is available as a stable Android package, so the MediaPipe `tasks-genai:0.10.27` fallback is not used. Engine initialization runs on a dedicated background dispatcher with the CPU backend for broad device compatibility.
 
-`FinanceContextBuilder` reads only the existing Room-backed repository streams and applies the saved transaction count, date range, balance, category, and parsing-rule limits. Today, this-month, and last-month questions use exact calendar bounds. Spending totals use withdrawals only and keep currencies separate. Chat history stays in memory, is capped at 20 user/assistant pairs, and is cleared when the process ends. Each prompt includes only the latest three pairs. FinFly bounds streamed output against the remaining LiteRT context window, cancels runaway generation at that boundary, and gives Gemma explicit anti-repetition guidance. No prompt or response is sent to a hosted AI provider.
+`FinanceContextBuilder` reads only the existing Room-backed repository streams and applies the saved transaction count, date range, balance, category, and parsing-rule limits. Today, this-month, and last-month questions use exact calendar bounds. Spending totals use withdrawals only and keep currencies separate. Chat history stays in memory, is capped at 20 user/assistant pairs, and is cleared when the process ends. Each prompt includes only the latest three pairs. FinFly III bounds streamed output against the remaining LiteRT context window, cancels runaway generation at that boundary, and gives Gemma explicit anti-repetition guidance. No prompt or response is sent to a hosted AI provider.
 
 Presentation and domain code depend on the `FinanceAssistant` interface. To replace LiteRT-LM later, add another implementation, bind it in `AiModule`, and leave the chat ViewModel and UI unchanged.
 
@@ -79,7 +81,7 @@ Category rules match merchant descriptions case-insensitively. Lower priority nu
 
 ## Export and import
 
-**Export Rules** writes schema-versioned, human-readable JSON to `Downloads/FinFly/rules_export_<timestamp>.json` on Android 10 and newer. **Import Rules** opens Android's JSON picker, validates schema version 1 and the required bank-rules array, then previews counts.
+**Export Rules** writes schema-versioned, human-readable JSON to `Downloads/FinFly III/rules_export_<timestamp>.json` on Android 10 and newer. **Import Rules** opens Android's JSON picker, validates schema version 1 and the required bank-rules array, then previews counts.
 
 - **Merge** adds imported rules and skips duplicates by case-insensitive rule name.
 - **Replace all** clears existing bank and category rules before importing.
@@ -109,7 +111,8 @@ Server URL and bearer-token handling remain centralized in interceptors.
 - Phase 7 adds the optional MediaPipe/Qwen on-device assistant, cancellable model management, persisted context and generation controls, cached-finance prompt construction, bounded memory-only history, streaming responses, and local inference metrics.
 - Phase 7.1 migrates the assistant to Gemma 3 1B and LiteRT-LM, fixes authenticated and complete-file downloads, removes Qwen prompt markers, adds cache-aware suggestions, limits prompt history to three pairs, and supports copying and sharing responses.
 - Phase 7.2 bounds LiteRT responses to prevent runaway generation, adds repetition-resistant finance guidance and exact relative-date context, imports/exports verified local model copies, explains post-download token removal, and changes ordinary synchronization from a 90-day window to the complete Firefly transaction history.
+- Phase 7.3 renames the complete Android identity to FinFly III: visible branding, Gradle project, namespace/application ID (`com.teja.finflyiii`), Kotlin package tree, app-owned storage names, export folder, and CI artifact names.
 - Reports provide date-range, category, and tag filters with filtered income, spending, net-flow, monthly cash-flow, and top-category summaries from the offline transaction cache.
 - Firefly management includes confirmed deletion for transactions, accounts, budgets, categories, tags, bills, and piggy banks, plus local credential logout.
 
-Deferred after Phase 7: notification-listener inputs, AI-assisted parsing-rule suggestions, alternate local model providers, and advanced report exports/comparisons.
+Deferred after Phase 7.3: notification-listener inputs, AI-assisted parsing-rule suggestions, alternate local model providers, and advanced report exports/comparisons.

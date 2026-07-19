@@ -1,4 +1,4 @@
-/* Root Gradle settings for the FinFly Android project. */
+/* Root Gradle settings for the FinFly III Android project. */
 pluginManagement {
     repositories {
         google()
@@ -15,5 +15,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "FinFly"
+rootProject.name = "FinFly III"
 include(":app")

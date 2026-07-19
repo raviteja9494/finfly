@@ -1,4 +1,4 @@
-<!-- Application manifest declaring the FinFly entry point and local-network access. -->
+<!-- Application manifest declaring the FinFly III entry point and local-network access. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
@@ -8,18 +8,18 @@
         android:required="false" />
 
     <application
-        android:name=".FinFlyApplication"
+        android:name=".FinFlyIIIApplication"
         android:allowBackup="true"
         android:icon="@drawable/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@drawable/ic_launcher"
         android:supportsRtl="true"
-        android:theme="@style/Theme.FinFly"
+        android:theme="@style/Theme.FinFlyIII"
         android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:theme="@style/Theme.FinFly">
+            android:theme="@style/Theme.FinFlyIII">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

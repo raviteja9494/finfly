@@ -1,0 +1,18 @@
+/* Presentation-layer state contract for the Dashboard screen. */
+package com.teja.finflyiii.presentation.dashboard
+
+import com.teja.finflyiii.domain.model.DashboardSummary
+import com.teja.finflyiii.domain.model.CategoryChartStyle
+
+sealed interface DashboardUiState {
+    data object Loading : DashboardUiState
+    data class Success(
+        val summary: DashboardSummary,
+        val isRefreshing: Boolean,
+        val showNetWorthSummary: Boolean,
+        val showSpendingInsight: Boolean,
+        val categoryChartStyle: CategoryChartStyle,
+    ) : DashboardUiState
+    data class Empty(val isRefreshing: Boolean, val refreshFailed: Boolean = false) : DashboardUiState
+    data class Error(val retryable: Boolean = true) : DashboardUiState
+}

@@ -1,6 +1,6 @@
-<!-- All user-visible copy for the FinFly Phase 3 experience. -->
+<!-- All user-visible copy for the FinFly III experience. -->
 <resources>
-    <string name="app_name">FinFly</string>
+    <string name="app_name">FinFly III</string>
     <string name="nav_dashboard">Dashboard</string>
     <string name="nav_transactions">Transactions</string>
     <string name="nav_reports">Reports</string>
@@ -103,7 +103,7 @@
     <string name="settings_title">Firefly connection</string>
     <string name="settings_subtitle">Your credentials stay on this device.</string>
     <string name="settings_page_title">Settings</string>
-    <string name="settings_page_subtitle">Customize FinFly and manage your Firefly connection.</string>
+    <string name="settings_page_subtitle">Customize FinFly III and manage your Firefly connection.</string>
     <string name="firefly_connection_section">Firefly connection</string>
     <string name="server_url_label">Server URL</string>
     <string name="server_url_placeholder">http://192.168.1.10</string>
@@ -439,7 +439,7 @@
     <string name="sms_status_failed">Push failed — review the error below</string>
     <string name="sms_push_failed">Some transactions could not be created. Successful items may already be in Firefly; check before retrying.</string>
     <string name="ai_setup_title">Private AI assistant</string>
-    <string name="ai_setup_description">Ask questions about cached FinFly data. Powered by Gemma 3 1B and LiteRT-LM.</string>
+    <string name="ai_setup_description">Ask questions about cached FinFly III data. Powered by Gemma 3 1B and LiteRT-LM.</string>
     <string name="ai_model_size_warning">Allow about 1.0 GB of free space. Use Wi-Fi and keep the app open during the download.</string>
     <string name="ai_storage_available">%1$d MB available</string>
     <string name="ai_download_model">Download AI model</string>
@@ -455,7 +455,7 @@
     <string name="ai_stop_response">Stop response</string>
     <string name="ai_send_message">Send message</string>
     <string name="ai_welcome_title">What would you like to understand?</string>
-    <string name="ai_welcome_description">FinFly can summarize cached spending, balances, categories, and trends.</string>
+    <string name="ai_welcome_description">FinFly III can summarize cached spending, balances, categories, and trends.</string>
     <string name="ai_suggestion_food_month">How much on food this month?</string>
     <string name="ai_suggestion_spend_today">What did I spend today?</string>
     <string name="ai_suggestion_big_expenses_today">Show today’s big expenses</string>
@@ -500,13 +500,13 @@
     <string name="ai_temperature">Response creativity</string>
     <string name="ai_temperature_value">Temperature: %1$.1f</string>
     <string name="ai_hugging_face_token">Hugging Face access token</string>
-    <string name="ai_hugging_face_token_description">Gemma is license-gated. Accept its license, create a read token, and enter it here so FinFly can download the official model.</string>
+    <string name="ai_hugging_face_token_description">Gemma is license-gated. Accept its license, create a read token, and enter it here so FinFly III can download the official model.</string>
     <string name="ai_token_after_download_info">The token is needed only to download the model. After the model is ready, you can remove the token and use AI completely offline.</string>
     <string name="ai_accept_gemma_license">Accept Gemma license on Hugging Face</string>
     <string name="ai_import_local_model">Import model from device</string>
-    <string name="ai_import_local_model_description">Select an official gemma3-1b-it-int4.litertlm file. FinFly verifies its exact size before using it.</string>
+    <string name="ai_import_local_model_description">Select an official gemma3-1b-it-int4.litertlm file. FinFly III verifies its exact size before using it.</string>
     <string name="ai_save_model_copy">Save reusable model copy</string>
-    <string name="ai_save_model_copy_description">Keep a copy in Downloads or another folder, then import it after reinstalling FinFly instead of downloading again.</string>
+    <string name="ai_save_model_copy_description">Keep a copy in Downloads or another folder, then import it after reinstalling FinFly III instead of downloading again.</string>
     <string name="ai_model_imported">Local model imported and initialized.</string>
     <string name="ai_model_copy_saved">Reusable model copy saved.</string>
     <string name="ai_model_import_invalid">That file is not the supported Gemma 3 1B model or is incomplete.</string>

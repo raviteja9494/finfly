@@ -1,6 +1,6 @@
 <!-- Platform theme used while Jetpack Compose owns the app's visual styling. -->
 <resources>
-    <style name="Theme.FinFly" parent="android:style/Theme.Material.Light.NoActionBar">
+    <style name="Theme.FinFlyIII" parent="android:style/Theme.Material.Light.NoActionBar">
         <item name="android:fontFamily">sans</item>
         <item name="android:windowActionModeOverlay">true</item>
         <item name="android:windowLightStatusBar">false</item>

@@ -1,4 +1,4 @@
-/* Application module build configuration for the FinFly Android client. */
+/* Application module build configuration for the FinFly III Android client. */
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -8,15 +8,15 @@ plugins {
 }
 
 android {
-    namespace = "com.teja.finfly"
+    namespace = "com.teja.finflyiii"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.teja.finfly"
+        applicationId = "com.teja.finflyiii"
         minSdk = 26
         targetSdk = 36
-        versionCode = 13
-        versionName = "0.8.2"
+        versionCode = 14
+        versionName = "0.8.3"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "DEFAULT_SERVER_URL", "\"http://127.0.0.1/\"")
     }

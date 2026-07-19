@@ -1,4 +1,4 @@
-# GitHub Actions workflow compiling, testing, linting, and packaging FinFly.
+# GitHub Actions workflow compiling, testing, linting, and packaging FinFly III.
 name: Android CI
 
 on:
@@ -44,7 +44,7 @@ jobs:
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: finfly-debug-apk
+          name: finfly-iii-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
@@ -52,7 +52,7 @@ jobs:
       - name: Upload unsigned release APK
         uses: actions/upload-artifact@v4
         with:
-          name: finfly-release-apk
+          name: finfly-iii-release-apk
           path: app/build/outputs/apk/release/app-release-unsigned.apk
           if-no-files-found: error
           retention-days: 7
@@ -61,7 +61,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: finfly-verification-reports
+          name: finfly-iii-verification-reports
           path: |
             app/build/reports/tests/
             app/build/reports/lint-results-debug.html
