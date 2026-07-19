@@ -50,6 +50,8 @@ class SettingsRepositoryImpl @Inject constructor(
                 categoryChartStyle = preferences[CATEGORY_CHART_STYLE].toEnumOrDefault(
                     CategoryChartStyle.BARS,
                 ),
+                smsParsingEnabled = preferences[SMS_PARSING_ENABLED] ?: false,
+                useDeviceTimezone = preferences[USE_DEVICE_TIMEZONE] ?: true,
             )
         }
         .stateIn(scope, SharingStarted.Eagerly, AppSettings())
@@ -64,6 +66,16 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun updateLastSyncTime(instant: Instant): Result<Unit> = runCatching {
         dataStore.edit { it[LAST_SYNC] = instant.toEpochMilli() }
+        Result.Success(Unit)
+    }.getOrElse { Result.Error(it.message ?: it.javaClass.simpleName, it) }
+
+    override suspend fun setSmsParsingEnabled(enabled: Boolean): Result<Unit> = runCatching {
+        dataStore.edit { it[SMS_PARSING_ENABLED] = enabled }
+        Result.Success(Unit)
+    }.getOrElse { Result.Error(it.message ?: it.javaClass.simpleName, it) }
+
+    override suspend fun setUseDeviceTimezone(enabled: Boolean): Result<Unit> = runCatching {
+        dataStore.edit { it[USE_DEVICE_TIMEZONE] = enabled }
         Result.Success(Unit)
     }.getOrElse { Result.Error(it.message ?: it.javaClass.simpleName, it) }
 
@@ -96,6 +108,8 @@ class SettingsRepositoryImpl @Inject constructor(
         val DASHBOARD_RANGE_MODE = stringPreferencesKey("dashboard_range_mode")
         val SHOW_SPENDING_INSIGHT = booleanPreferencesKey("show_spending_insight")
         val CATEGORY_CHART_STYLE = stringPreferencesKey("category_chart_style")
+        val SMS_PARSING_ENABLED = booleanPreferencesKey("sms_parsing_enabled")
+        val USE_DEVICE_TIMEZONE = booleanPreferencesKey("use_device_timezone")
         const val DEFAULT_RECENT_COUNT = 10
         val SUPPORTED_RECENT_COUNTS = setOf(5, 10, 20)
     }

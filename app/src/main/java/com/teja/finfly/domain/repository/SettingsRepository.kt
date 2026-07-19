@@ -25,4 +25,6 @@ interface SettingsRepository {
         categoryChartStyle: CategoryChartStyle,
     ): Result<Unit>
     suspend fun updateLastSyncTime(instant: Instant): Result<Unit>
+    suspend fun setSmsParsingEnabled(enabled: Boolean): Result<Unit>
+    suspend fun setUseDeviceTimezone(enabled: Boolean): Result<Unit>
 }

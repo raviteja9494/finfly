@@ -37,6 +37,7 @@ import com.teja.finfly.presentation.theme.creditAmount
 import com.teja.finfly.presentation.theme.debitAmount
 import java.text.NumberFormat
 import java.time.ZoneId
+import com.teja.finfly.presentation.theme.LocalFinFlyZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Currency
 
@@ -114,7 +115,7 @@ fun TransactionRow(transaction: Transaction, modifier: Modifier = Modifier) {
             }
             CategoryPill(transaction.category, showKind = true)
             Text(
-                text = transaction.date.atZone(ZoneId.systemDefault()).format(
+                text = transaction.date.atZone(LocalFinFlyZoneId.current).format(
                     DateTimeFormatter.ofPattern(
                         stringResource(R.string.transaction_card_date_pattern),
                         locale,

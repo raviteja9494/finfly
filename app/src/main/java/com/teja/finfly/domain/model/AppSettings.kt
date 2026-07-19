@@ -14,4 +14,6 @@ data class AppSettings(
     val dashboardRangeMode: DashboardRangeMode = DashboardRangeMode.CALENDAR,
     val showSpendingInsight: Boolean = true,
     val categoryChartStyle: CategoryChartStyle = CategoryChartStyle.BARS,
+    val smsParsingEnabled: Boolean = false,
+    val useDeviceTimezone: Boolean = true,
 )

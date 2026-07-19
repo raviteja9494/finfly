@@ -9,6 +9,14 @@ import com.teja.finfly.domain.repository.AccountRepository
 import com.teja.finfly.domain.repository.TransactionRepository
 import com.teja.finfly.domain.repository.FireflyFeatureRepository
 import com.teja.finfly.domain.repository.TagRepository
+import com.teja.finfly.data.repository.SmsRulesRepositoryImpl
+import com.teja.finfly.data.repository.SmsLogRepositoryImpl
+import com.teja.finfly.data.repository.RulesTransferRepositoryImpl
+import com.teja.finfly.data.sms.RuleBasedSmsParserFactory
+import com.teja.finfly.domain.repository.SmsRulesRepository
+import com.teja.finfly.domain.repository.SmsLogRepository
+import com.teja.finfly.domain.repository.RulesTransferRepository
+import com.teja.finfly.domain.sms.SmsParserFactory
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -35,4 +43,22 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindTagRepository(implementation: TagRepositoryImpl): TagRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindSmsRulesRepository(implementation: SmsRulesRepositoryImpl): SmsRulesRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindSmsLogRepository(implementation: SmsLogRepositoryImpl): SmsLogRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindRulesTransferRepository(
+        implementation: RulesTransferRepositoryImpl,
+    ): RulesTransferRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindSmsParserFactory(implementation: RuleBasedSmsParserFactory): SmsParserFactory
 }

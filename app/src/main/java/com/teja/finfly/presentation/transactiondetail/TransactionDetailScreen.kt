@@ -51,6 +51,7 @@ import com.teja.finfly.presentation.theme.creditAmount
 import com.teja.finfly.presentation.theme.debitAmount
 import java.text.NumberFormat
 import java.time.ZoneId
+import com.teja.finfly.presentation.theme.LocalFinFlyZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Currency
 
@@ -114,6 +115,7 @@ private fun DetailContent(
                 stringResource(R.string.transaction_detail_date_pattern),
                 stringResource(R.string.transaction_detail_time_pattern),
                 locale,
+                LocalFinFlyZoneId.current,
             )
             DetailLine(
                 R.string.date_and_time,
@@ -198,8 +200,9 @@ private fun formatFullDate(
     datePattern: String,
     timePattern: String,
     locale: java.util.Locale,
+    zoneId: ZoneId,
 ): Pair<String, String> {
-    val date = transaction.date.atZone(ZoneId.systemDefault())
+    val date = transaction.date.atZone(zoneId)
     return date.format(DateTimeFormatter.ofPattern(datePattern, locale)) to
         date.format(DateTimeFormatter.ofPattern(timePattern, locale))
 }

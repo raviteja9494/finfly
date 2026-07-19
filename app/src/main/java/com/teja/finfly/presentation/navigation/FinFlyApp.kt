@@ -26,6 +26,7 @@ import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Sms
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -77,10 +78,18 @@ import com.teja.finfly.presentation.settings.SettingsScreen
 import com.teja.finfly.presentation.transactiondetail.TransactionDetailScreen
 import com.teja.finfly.presentation.transactioneditor.TransactionEditorScreen
 import com.teja.finfly.presentation.transactions.TransactionsScreen
+import com.teja.finfly.presentation.smsrules.SmsRulesScreen
+import com.teja.finfly.presentation.smsrules.BankRuleEditorScreen
+import com.teja.finfly.presentation.smsrules.CategoryRuleEditorScreen
+import com.teja.finfly.presentation.smsrules.SmsLogsScreen
+import com.teja.finfly.presentation.smsrules.SmsLogDetailScreen
 import kotlinx.coroutines.launch
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
+import java.time.ZoneOffset
+import androidx.compose.runtime.CompositionLocalProvider
+import com.teja.finfly.presentation.theme.LocalFinFlyZoneId
 
 private enum class FinFlyTab(val label: Int, val icon: ImageVector) {
     DASHBOARD(R.string.nav_dashboard, Icons.Rounded.Dashboard),
@@ -138,11 +147,15 @@ fun FinFlyApp(viewModel: AppShellViewModel = hiltViewModel()) {
                 }
             },
         ) { innerPadding ->
-            NavHost(
-                navController = navController,
-                startDestination = AppRoute.Dashboard,
-                modifier = Modifier.padding(innerPadding),
+            val useDeviceZone = (shellState as? AppShellUiState.Ready)?.useDeviceTimezone ?: true
+            CompositionLocalProvider(
+                LocalFinFlyZoneId provides if (useDeviceZone) ZoneId.systemDefault() else ZoneOffset.UTC,
             ) {
+                NavHost(
+                    navController = navController,
+                    startDestination = AppRoute.Dashboard,
+                    modifier = Modifier.padding(innerPadding),
+                ) {
                 composable<AppRoute.Dashboard> {
                     DashboardScreen(
                         onViewAll = { navController.navigate(AppRoute.Transactions()) },
@@ -185,6 +198,31 @@ fun FinFlyApp(viewModel: AppShellViewModel = hiltViewModel()) {
                 composable<AppRoute.FeatureEditor> {
                     FeatureEditorScreen(onBack = navController::popBackStack)
                 }
+                composable<AppRoute.SmsParsing> {
+                    SmsRulesScreen(
+                        onAddBankRule = { navController.navigate(AppRoute.BankRuleEditor()) },
+                        onEditBankRule = { navController.navigate(AppRoute.BankRuleEditor(it)) },
+                        onAddCategoryRule = { navController.navigate(AppRoute.CategoryRuleEditor()) },
+                        onEditCategoryRule = { navController.navigate(AppRoute.CategoryRuleEditor(it)) },
+                        onOpenLogs = { navController.navigate(AppRoute.SmsLogs) },
+                    )
+                }
+                composable<AppRoute.BankRuleEditor> {
+                    BankRuleEditorScreen(onBack = navController::popBackStack)
+                }
+                composable<AppRoute.CategoryRuleEditor> {
+                    CategoryRuleEditorScreen(onBack = navController::popBackStack)
+                }
+                composable<AppRoute.SmsLogs> {
+                    SmsLogsScreen(onLogClick = { navController.navigate(AppRoute.SmsLogDetail(it)) })
+                }
+                composable<AppRoute.SmsLogDetail> {
+                    SmsLogDetailScreen(
+                        onBack = navController::popBackStack,
+                        onCreateRule = { navController.navigate(AppRoute.BankRuleEditor(prefillSender = it)) },
+                    )
+                }
+                }
             }
         }
     }
@@ -214,6 +252,7 @@ private fun drawerDestinations(): List<DrawerDestination> = listOf(
         AppRoute.FeatureList(FireflyFeature.PIGGY_BANKS),
     ),
     DrawerDestination(R.string.nav_settings, Icons.Rounded.Settings, AppRoute.Settings),
+    DrawerDestination(R.string.drawer_sms_parsing, Icons.Rounded.Sms, AppRoute.SmsParsing),
 )
 
 @Composable
@@ -335,6 +374,11 @@ private fun destinationTitle(entry: NavBackStackEntry?): String {
             entry?.toRoute<AppRoute.FeatureList>()?.feature?.titleResource() ?: R.string.app_name
         destination?.hasRoute<AppRoute.FeatureEditor>() == true ->
             entry?.toRoute<AppRoute.FeatureEditor>()?.feature?.createTitleResource() ?: R.string.app_name
+        destination?.hasRoute<AppRoute.SmsParsing>() == true -> R.string.drawer_sms_parsing
+        destination?.hasRoute<AppRoute.BankRuleEditor>() == true -> R.string.edit_bank_rule
+        destination?.hasRoute<AppRoute.CategoryRuleEditor>() == true -> R.string.edit_category_rule
+        destination?.hasRoute<AppRoute.SmsLogs>() == true -> R.string.sms_log
+        destination?.hasRoute<AppRoute.SmsLogDetail>() == true -> R.string.sms_log_details
         else -> R.string.app_name
     }
     return stringResource(resource)
@@ -360,6 +404,13 @@ private fun NavBackStackEntry?.isTopLevelDestination(): Boolean {
 private fun NavBackStackEntry?.matches(route: AppRoute): Boolean = when (route) {
     AppRoute.Accounts -> this?.destination?.hasRoute<AppRoute.Accounts>() == true
     AppRoute.Settings -> this?.destination?.hasRoute<AppRoute.Settings>() == true
+    AppRoute.SmsParsing -> this?.destination?.let { destination ->
+        destination.hasRoute<AppRoute.SmsParsing>() ||
+            destination.hasRoute<AppRoute.BankRuleEditor>() ||
+            destination.hasRoute<AppRoute.CategoryRuleEditor>() ||
+            destination.hasRoute<AppRoute.SmsLogs>() ||
+            destination.hasRoute<AppRoute.SmsLogDetail>()
+    } == true
     is AppRoute.FeatureList -> when {
         this?.destination?.hasRoute<AppRoute.FeatureList>() == true ->
             runCatching { this.toRoute<AppRoute.FeatureList>().feature == route.feature }.getOrDefault(false)
@@ -398,6 +449,7 @@ private fun NavHostController.navigateDrawerRoute(route: AppRoute) {
     when (route) {
         AppRoute.Accounts -> navigate(AppRoute.Accounts) { launchSingleTop = true }
         AppRoute.Settings -> navigate(AppRoute.Settings) { launchSingleTop = true }
+        AppRoute.SmsParsing -> navigate(AppRoute.SmsParsing) { launchSingleTop = true }
         is AppRoute.FeatureList -> navigate(route)
         else -> Unit
     }

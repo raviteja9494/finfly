@@ -11,10 +11,18 @@ import com.teja.finfly.data.local.entity.AccountEntity
 import com.teja.finfly.data.local.entity.CategoryEntity
 import com.teja.finfly.data.local.entity.TransactionEntity
 import com.teja.finfly.data.local.entity.TagEntity
+import com.teja.finfly.data.local.dao.SmsRulesDao
+import com.teja.finfly.data.local.dao.SmsLogDao
+import com.teja.finfly.data.local.entity.BankRuleEntity
+import com.teja.finfly.data.local.entity.CategoryRuleEntity
+import com.teja.finfly.data.local.entity.SmsLogEntity
 
 @Database(
-    entities = [TransactionEntity::class, AccountEntity::class, CategoryEntity::class, TagEntity::class],
-    version = 2,
+    entities = [
+        TransactionEntity::class, AccountEntity::class, CategoryEntity::class, TagEntity::class,
+        BankRuleEntity::class, CategoryRuleEntity::class, SmsLogEntity::class,
+    ],
+    version = 3,
     exportSchema = true,
 )
 abstract class FinFlyDatabase : RoomDatabase() {
@@ -22,4 +30,6 @@ abstract class FinFlyDatabase : RoomDatabase() {
     abstract fun accountDao(): AccountDao
     abstract fun categoryDao(): CategoryDao
     abstract fun tagDao(): TagDao
+    abstract fun smsRulesDao(): SmsRulesDao
+    abstract fun smsLogDao(): SmsLogDao
 }

@@ -1,112 +1,92 @@
-<!-- Project documentation for the FinFly Firefly III Android companion. -->
 # FinFly
 
-FinFly is an offline-first Android companion for a self-hosted Firefly III personal-finance server. The current Phase 3 follow-up adds scalable collapsible settings, configurable Dashboard insights and chart defaults, creation flows for Firefly organizational resources, and a reserved Assistant tab without enabling AI access.
-
-The presentation takes visual cues from PennyWise AI—generous rounded cards, soft Rose Pine accents, high-contrast dark surfaces, and compact bottom navigation—without copying its business logic.
+FinFly is an offline-first Android companion for a self-hosted Firefly III server. Phase 4 adds configurable Indian-bank SMS parsing, direct Firefly transaction creation, editable and shareable rules, and a private local processing log while keeping AI disabled.
 
 ## Architecture
 
-```text
-┌─────────────────────────────────────────────────────────────┐
-│ presentation/                                               │
-│ Compose screens → screen UiState → Hilt ViewModels          │
-└──────────────────────────────┬──────────────────────────────┘
-                               │ invokes
-┌──────────────────────────────▼──────────────────────────────┐
-│ domain/                                                     │
-│ pure models → use cases → repository/gateway interfaces     │
-│                    Result<T> boundary                        │
-└──────────────────────────────┬──────────────────────────────┘
-                               │ implemented by
-┌──────────────────────────────▼──────────────────────────────┐
-│ data/                                                       │
-│ Retrofit API + OkHttp interceptors                          │
-│ Room DAOs/cache + DataStore settings + repository impls     │
-└───────────────┬──────────────────────────────┬──────────────┘
-                │ remote                       │ local
-        ┌───────▼────────┐              ┌──────▼──────────┐
-        │ Firefly III API│              │ Room / DataStore│
-        └────────────────┘              └─────────────────┘
-```
+FinFly uses Clean Architecture inside one Android module:
 
-Dependencies point inward: presentation knows domain, data implements domain contracts, and domain has no Android dependency. Hilt owns construction. Coroutines and Flow carry asynchronous work. UI code receives `Result<T>`-derived states and never handles raw exceptions.
-
-## Module breakdown
-
-This foundation uses one Android Gradle module with strict source-layer packages, keeping future modularization mechanical:
-
-- `data/local`: Room entities, DAOs, and database.
-- `data/network`: the extensible Retrofit interface, DTOs, dynamic server routing, authentication, and connection tester.
-- `data/repository`: offline-first repository implementations.
-- `data/settings`: DataStore persistence.
-- `domain/model`: Android-free finance and sync models.
-- `domain/repository`: repository and gateway contracts.
-- `domain/usecase`: documented business rules.
-- `presentation`: theme, navigation, reusable composables, screen states, screens, and ViewModels.
+- `presentation`: Jetpack Compose screens, screen state, Hilt ViewModels, and type-safe navigation.
+- `domain/model`: Android-free finance, rule, parsing, and sync models.
+- `domain/usecase`: business rules, including the independently testable `SmsParserEngine`.
+- `domain/repository`: documented persistence, transfer, and network contracts.
+- `data/local`: Room entities and DAOs for cached finance data, JSON rule configs, and SMS logs.
+- `data/network`: Retrofit, OkHttp, Firefly DTOs, and dynamic server authentication.
+- `data/repository`: offline-first repository implementations and Android storage adapters.
+- `data/sms`: the friendly-pattern compiler, default rule configs, and the SMS receiver adapter.
+- `data/settings`: DataStore-backed connection and display preferences.
 - `di`: Hilt providers and bindings.
+
+Dependencies point inward. Domain has no Android dependency, presentation consumes domain contracts, and data implements those contracts. Exceptions are converted to `Result<T>` at repository boundaries.
 
 ## Build and run
 
-1. Install Android SDK 36 and JDK 17.
-2. Open the root directory in Android Studio or run `./gradlew assembleDebug` (`gradlew.bat assembleDebug` on Windows).
-3. Install the debug APK from `app/build/outputs/apk/debug/app-debug.apk`.
-4. Open Settings, enter the complete Firefly III URL and a personal access token, test the connection, and save.
-5. Open Dashboard or pull to refresh. The app caches fetched accounts, categories, and transactions for offline display.
+1. Open the project with Android Studio using JDK 17 and Android SDK 36.
+2. Build with `./gradlew assembleDebug`, or push to GitHub and download the CI artifact.
+3. Open Settings, enter the Firefly III URL and personal access token, test, and save.
+4. Sync once so account and category choices are cached.
 
-Every push to `main`, pull request, or manual workflow run executes unit tests, Android lint, and debug/release APK builds in GitHub Actions. Successful runs publish `finfly-debug-apk` and unsigned `finfly-release-apk` artifacts for seven days, so no local Android toolchain is required for CI verification.
+Every push to `main`, pull request, or manual workflow run executes unit tests, lint, and debug/release APK builds. Successful runs upload `finfly-debug-apk`, `finfly-release-apk`, and verification reports. No local Android toolchain is required for CI verification.
 
-Cleartext HTTP is enabled for trusted local-network Firefly installations. Prefer HTTPS whenever the server is reachable outside a private LAN.
+Cleartext HTTP is enabled for trusted local-network Firefly installations. Prefer HTTPS outside a private LAN.
 
-## Add a Firefly API endpoint
+## SMS parsing
 
-1. Add request/response DTOs in `data/network/dto`; keep Firefly field names there.
-2. Add one Retrofit method to `FireflyApiService`. Existing endpoints and interceptors require no edits.
-3. Map the DTO to a Room entity or domain model in `data/mapper`.
-4. Add the capability to the relevant domain repository interface and implementation.
-5. Wrap every return path in domain `Result<T>` and expose asynchronous values through Flow.
-6. Put orchestration or validation in a focused, documented use case; consume that use case from a ViewModel.
+SMS processing is off by default. Open **SMS Parsing** from the drawer, grant `RECEIVE_SMS`, map each bank rule to its exact cached Firefly account, and enable the master toggle. The receiver exits immediately while the toggle is off.
 
-The server URL and bearer token are applied centrally, so endpoint methods never manage connection configuration.
+For an enabled message:
 
-## Add a bank SMS parser (later phase)
+1. Sender IDs select exact bank-rule matches before partial matches.
+2. Friendly debit and credit keywords determine transaction type.
+3. `{amount}`, `{description}`, and `{ref}` placeholders extract transaction fields.
+4. Enabled category rules are checked by ascending priority.
+5. The existing `TransactionRepository` creates the Firefly withdrawal or deposit.
+6. Success, skipped, and unmatched outcomes enter the capped 100-row SMS log.
 
-SMS access and parsing remain intentionally absent through Phase 3. A later phase can introduce a separate parser feature with this contract:
+Message text is processed locally. AI and on-device models are not part of Phase 4.
 
-```text
-BankSmsParser (domain interface)
-    ├── HdfcSmsParser
-    ├── IciciSmsParser
-    └── NewBankSmsParser  ← one new file
+## Add a bank rule
 
-Hilt multibinding: @IntoSet BankSmsParser
-ParserRegistry: Set<@JvmSuppressWildcards BankSmsParser>
-```
+No code or raw regular expression is needed:
 
-Each parser declares whether it supports a sender/message and returns a domain parse result. Bind each implementation into a Hilt set from its own module. `ParserRegistry` receives the set, which means adding a bank requires one parser file plus its colocated binding and no registry edits. SMS permissions, receivers, parser code, and `rawSms` population remain deferred to that later SMS phase.
+1. Open **SMS Parsing** and tap **+** beside Bank Rules.
+2. Enter a name and select the exact Firefly account.
+3. Add sender IDs and debit/credit keywords using the chip fields.
+4. Add friendly patterns such as `Rs.{amount}`, `To {description} On`, and `Ref {ref}`.
+5. Paste a real message into **Test this rule** and verify the parsed result.
+6. Save and enable the rule.
 
-## Swap an AI provider (Phase 4)
+Text outside placeholders is treated literally. Built-in starting rules cover HDFC Savings, HDFC Credit Card, ICICI Savings, and Edge CSB/Jupiter. New banks require only a new rule.
 
-AI is intentionally absent from this foundation. Phase 4 should define an Android-free `FinanceAssistant` interface in domain and inject its selected implementation through Hilt:
+## Category rules
 
-```text
-UseCase → FinanceAssistant interface
-                  ▲
-                  ├── OllamaFinanceAssistant
-                  ├── OpenAiCompatibleFinanceAssistant
-                  └── OnDeviceFinanceAssistant
-```
+Category rules match merchant descriptions case-insensitively. Lower priority numbers run first. The Firefly category name must match the server exactly. Default rules cover food, groceries, transport, health, shopping, bills, finance, and gifts.
 
-Provider configuration belongs in data/settings; prompts, HTTP clients, and model SDKs stay in provider-specific data packages. Swapping the Hilt binding changes the provider without touching use cases, ViewModels, or screens.
+## Export and import
+
+**Export Rules** writes schema-versioned, human-readable JSON to `Downloads/FinFly/rules_export_<timestamp>.json` on Android 10 and newer. **Import Rules** opens Android's JSON picker, validates schema version 1 and the required bank-rules array, then previews counts.
+
+- **Merge** adds imported rules and skips duplicates by case-insensitive rule name.
+- **Replace all** clears existing bank and category rules before importing.
+
+The transfer format contains `version`, `exportedAt`, `bankRules`, and `categoryRules`, leaving a stable boundary for future AI-assisted rule suggestions.
+
+## Add a Firefly endpoint
+
+1. Add request/response DTOs under `data/network/dto`.
+2. Add the Retrofit method to `FireflyApiService`.
+3. Map remote data to a domain model or Room entity.
+4. Extend the appropriate documented domain repository contract.
+5. Implement it in data and wrap outcomes in `Result<T>`.
+6. Put orchestration in a focused use case and consume it from a ViewModel.
+
+Server URL and bearer-token handling remain centralized in interceptors.
 
 ## Phase boundaries
 
-Phase 1 implemented the foundation, theme, domain models, Firefly API, Room cache, repositories, DataStore settings, type-safe bottom navigation, initial Dashboard, and transaction list.
+- Phase 1 established the theme, Clean Architecture layers, Firefly API, Room cache, DataStore settings, navigation, Dashboard, and transaction list.
+- Phase 2 added filters, transaction detail/editing, drawer navigation, account and organizational-resource browsing, synchronization, charts, and CI artifacts.
+- Phase 3 fixed search and drawer state, added tags, configurable Dashboard periods and visuals, creation flows, compact transaction controls, and consistent loading/empty/error states.
+- Phase 4 implements JSON-backed BankRule and CategoryRule editing, default Indian-bank rules, placeholder compilation, permission-aware SMS reception, Firefly submission, the capped Room log, JSON merge/replace transfer, and device-versus-UTC display settings.
 
-Phase 2 implemented compact category/type transaction filters, scrollable transaction tag pills, full transaction detail and constrained Firefly editing, a persistent drawer and sync app bar, grouped account browsing with account-filtered transactions, budget/category/bill/piggy-bank lists, 90-day synchronization, weekly and category Dashboard charts, asset/liability totals, and debug/release CI artifacts.
-
-Phase 3 fixes debounced transaction search and drawer route state, adds a dedicated tag repository with edit/filter selection, removes Dashboard account cards, makes net-worth, recent-transaction, and calendar/rolling chart periods configurable, supports bar/pie category views, uses compact expandable transaction controls with labeled category/tag pills, separates reference/raw-SMS detail fields, and standardizes skeleton loading, illustrated empty states, and retryable error cards.
-
-The Phase 3 UX follow-up organizes Dashboard and Firefly connection preferences into collapsible sections, persists spending-insight and default category-chart choices, enables creation of budgets, categories, bills, and piggy banks from their drawer screens, and reserves the fourth bottom tab for a future private finance assistant.
-
-Deferred by design after Phase 3: SMS reading/parsing, AI assistance, the dedicated Reports experience, and notifications.
+Deferred after Phase 4: AI rule suggestions, on-device models, the dedicated Reports experience, and notifications.

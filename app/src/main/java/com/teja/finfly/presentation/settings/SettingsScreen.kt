@@ -21,6 +21,7 @@ import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
+import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -85,6 +86,21 @@ private fun SettingsFormContent(form: SettingsForm, viewModel: SettingsViewModel
                     stringResource(R.string.settings_page_subtitle),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        item {
+            CollapsibleSettingsSection(
+                title = R.string.timezone_settings,
+                description = R.string.timezone_settings_description,
+                icon = Icons.Rounded.Schedule,
+                initiallyExpanded = false,
+            ) {
+                SettingsSwitch(
+                    title = R.string.use_device_timezone,
+                    description = R.string.use_device_timezone_description,
+                    checked = form.useDeviceTimezone,
+                    onCheckedChange = viewModel::setUseDeviceTimezone,
                 )
             }
         }

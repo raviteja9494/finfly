@@ -49,6 +49,7 @@ class SettingsViewModel @Inject constructor(
                     dashboardRangeMode = saved.dashboardRangeMode,
                     showSpendingInsight = saved.showSpendingInsight,
                     categoryChartStyle = saved.categoryChartStyle,
+                    useDeviceTimezone = saved.useDeviceTimezone,
                 )
             }
         }
@@ -80,6 +81,10 @@ class SettingsViewModel @Inject constructor(
     fun setCategoryChartStyle(value: CategoryChartStyle) {
         form.value = form.value.copy(categoryChartStyle = value)
         persistDashboardPreferences()
+    }
+    fun setUseDeviceTimezone(value: Boolean) {
+        form.value = form.value.copy(useDeviceTimezone = value)
+        viewModelScope.launch { settingsRepository.setUseDeviceTimezone(value) }
     }
 
     fun test() {

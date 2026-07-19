@@ -11,5 +11,6 @@ sealed interface AppShellUiState {
         val serverUrl: String,
         val lastSyncTime: Instant?,
         val syncState: SyncState,
+        val useDeviceTimezone: Boolean,
     ) : AppShellUiState
 }

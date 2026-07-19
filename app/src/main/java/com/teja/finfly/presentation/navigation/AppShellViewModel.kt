@@ -19,7 +19,12 @@ class AppShellViewModel @Inject constructor(
     private val syncFinances: SyncFinancesUseCase,
 ) : ViewModel() {
     val uiState = combine(settingsRepository.settings, syncFinances.state) { settings, syncState ->
-        AppShellUiState.Ready(settings.serverUrl, settings.lastSyncTime, syncState) as AppShellUiState
+        AppShellUiState.Ready(
+            settings.serverUrl,
+            settings.lastSyncTime,
+            syncState,
+            settings.useDeviceTimezone,
+        ) as AppShellUiState
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppShellUiState.Loading)
 
     fun sync() {

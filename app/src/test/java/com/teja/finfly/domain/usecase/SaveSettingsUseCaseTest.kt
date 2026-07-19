@@ -43,6 +43,8 @@ class SaveSettingsUseCaseTest {
         }
 
         override suspend fun updateLastSyncTime(instant: Instant): Result<Unit> = Result.Success(Unit)
+        override suspend fun setSmsParsingEnabled(enabled: Boolean): Result<Unit> = Result.Success(Unit)
+        override suspend fun setUseDeviceTimezone(enabled: Boolean): Result<Unit> = Result.Success(Unit)
 
         override suspend fun saveDashboardPreferences(
             showNetWorthSummary: Boolean,

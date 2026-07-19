@@ -20,6 +20,7 @@ data class SettingsForm(
     val dashboardRangeMode: DashboardRangeMode = DashboardRangeMode.CALENDAR,
     val showSpendingInsight: Boolean = true,
     val categoryChartStyle: CategoryChartStyle = CategoryChartStyle.BARS,
+    val useDeviceTimezone: Boolean = true,
 )
 
 enum class SettingsFeedback { CONNECTION_SUCCESS, CONNECTION_FAILED, SAVED, INVALID_URL, TOKEN_REQUIRED }
