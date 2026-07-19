@@ -35,7 +35,7 @@ class ReportsViewModel @Inject constructor(
     clock: Clock,
 ) : ViewModel() {
     private val today = clock.instant().atZone(ZoneId.systemDefault()).toLocalDate()
-    private val defaultFilter = ReportsFilter(today.minusDays(DEFAULT_RANGE_DAYS - 1), today)
+    private val defaultFilter = ReportsFilter(today.withDayOfMonth(1), today)
     private val appliedFilter = MutableStateFlow(defaultFilter)
     private val filterForm = MutableStateFlow(defaultFilter.toForm())
     private val report = appliedFilter.flatMapLatest(observeReports::invoke)
@@ -113,7 +113,6 @@ class ReportsViewModel @Inject constructor(
     private fun <T> Result<List<T>>.valuesOrEmpty(): List<T> = (this as? Result.Success)?.value.orEmpty()
 
     private companion object {
-        const val DEFAULT_RANGE_DAYS = 90L
         const val MAX_REPORT_MONTHS = 12L
     }
 }

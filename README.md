@@ -1,6 +1,6 @@
 # FinFly
 
-FinFly is an offline-first Android companion for a self-hosted Firefly III server. Phase 4 adds configurable Indian-bank SMS parsing, direct Firefly transaction creation, editable and shareable rules, and a private local processing log while keeping AI disabled.
+FinFly is an offline-first Android companion for a self-hosted Firefly III server. Phase 5 adds comprehensive Firefly editing, rule management, richer budget and dashboard ranges, calendar filters, and reviewed on-demand SMS imports while keeping AI disabled.
 
 ## Architecture
 
@@ -88,7 +88,8 @@ Server URL and bearer-token handling remain centralized in interceptors.
 - Phase 2 added filters, transaction detail/editing, drawer navigation, account and organizational-resource browsing, synchronization, charts, and CI artifacts.
 - Phase 3 fixed search and drawer state, added tags, configurable Dashboard periods and visuals, creation flows, compact transaction controls, and consistent loading/empty/error states.
 - Phase 4 implements JSON-backed BankRule and CategoryRule editing, default Indian-bank rules, placeholder compilation, permission-aware SMS reception, Firefly submission, the capped Room log, JSON merge/replace transfer, and device-versus-UTC display settings.
+- Phase 5 adds edit flows for transactions, accounts, budgets, categories, tags, bills, and piggy banks; Firefly rule browsing/editing; transaction budgets; budget limit-versus-spend cards; independent category-chart periods; calendar date selection; one-month report defaults; and confirmed on-demand SMS previews.
 - Reports provide date-range, category, and tag filters with filtered income, spending, net-flow, monthly cash-flow, and top-category summaries from the offline transaction cache.
 - Firefly management includes confirmed deletion for transactions, accounts, budgets, categories, tags, bills, and piggy banks, plus local credential logout.
 
-Deferred after Phase 4: AI rule suggestions, on-device models, advanced report exports/comparisons, and notifications.
+Deferred after Phase 5: AI rule suggestions, on-device models, advanced report exports/comparisons, and notifications.

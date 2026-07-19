@@ -156,7 +156,15 @@ private fun DashboardList(
             )
         }
         if (summary.categorySpending.isNotEmpty()) {
-            item { CategorySpendingChart(summary.categorySpending, summary.currency, categoryChartStyle) }
+            item {
+                CategorySpendingChart(
+                    summary.categorySpending,
+                    summary.currency,
+                    categoryChartStyle,
+                    summary.categoryChartPeriod,
+                    summary.categoryRangeMode,
+                )
+            }
         }
         item {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -277,6 +285,8 @@ private fun CategorySpendingChart(
     spending: List<CategorySpend>,
     currency: String,
     initialStyle: CategoryChartStyle,
+    period: DashboardChartPeriod,
+    rangeMode: DashboardRangeMode,
 ) {
     val spacing = FinFlyThemeTokens.spacing
     var mode by rememberSaveable(initialStyle) { mutableStateOf(initialStyle) }
@@ -291,7 +301,10 @@ private fun CategorySpendingChart(
         ) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    stringResource(R.string.month_by_category),
+                    stringResource(
+                        R.string.category_chart_title,
+                        stringResource(chartTitleResource(period, rangeMode)),
+                    ),
                     style = MaterialTheme.typography.titleLarge,
                     modifier = Modifier.weight(1f),
                 )

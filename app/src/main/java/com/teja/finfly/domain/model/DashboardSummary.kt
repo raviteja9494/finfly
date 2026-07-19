@@ -15,5 +15,7 @@ data class DashboardSummary(
     val chartPeriod: DashboardChartPeriod,
     val rangeMode: DashboardRangeMode,
     val categorySpending: List<CategorySpend>,
+    val categoryChartPeriod: DashboardChartPeriod,
+    val categoryRangeMode: DashboardRangeMode,
     val recentTransactions: List<Transaction>,
 )

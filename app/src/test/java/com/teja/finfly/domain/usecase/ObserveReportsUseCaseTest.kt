@@ -80,6 +80,7 @@ class ObserveReportsUseCaseTest {
         amount = BigDecimal(amount),
         description = id,
         category = category,
+        budget = "",
         account = "Account",
         sourceAccountId = null,
         sourceAccount = "Source",

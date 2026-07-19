@@ -30,6 +30,7 @@ fun TransactionResource.toEntities(): List<TransactionEntity> = attributes.trans
         amount = split.amount,
         description = split.description,
         category = split.categoryName.orEmpty(),
+        budget = split.budgetName.orEmpty(),
         account = account,
         sourceAccountId = split.sourceId,
         sourceAccount = split.sourceName.orEmpty(),

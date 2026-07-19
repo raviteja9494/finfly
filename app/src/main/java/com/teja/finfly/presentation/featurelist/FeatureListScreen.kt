@@ -23,9 +23,11 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -33,6 +35,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.teja.finfly.R
 import com.teja.finfly.domain.model.FireflyFeature
 import com.teja.finfly.domain.model.FireflyFeatureItem
@@ -41,16 +46,27 @@ import com.teja.finfly.presentation.components.ErrorState
 import com.teja.finfly.presentation.components.LoadingState
 import com.teja.finfly.presentation.components.ConfirmationDialog
 import com.teja.finfly.presentation.theme.FinFlyThemeTokens
+import java.math.BigDecimal
+import java.text.NumberFormat
+import java.util.Currency
 
 @Composable
 fun FeatureListScreen(
     onAdd: (FireflyFeature) -> Unit,
+    onEdit: (FireflyFeature, String) -> Unit,
     viewModel: FeatureListViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val deletionState by viewModel.deletionState.collectAsStateWithLifecycle()
     var pendingDelete by remember { mutableStateOf<FireflyFeatureItem?>(null) }
-    LaunchedEffect(Unit) { viewModel.load() }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) viewModel.load()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     pendingDelete?.let { item ->
         ConfirmationDialog(
             title = R.string.delete_item,
@@ -92,8 +108,10 @@ fun FeatureListScreen(
                     message = viewModel.feature.emptyMessage(),
                 )
                 is FeatureListUiState.Success -> FeatureItems(
+                    viewModel.feature,
                     value.items,
                     deletionState.deletingId,
+                    onEdit = { onEdit(viewModel.feature, it.id) },
                     onDelete = { pendingDelete = it },
                 )
             }
@@ -103,8 +121,10 @@ fun FeatureListScreen(
 
 @Composable
 private fun FeatureItems(
+    feature: FireflyFeature,
     items: List<FireflyFeatureItem>,
     deletingId: String?,
+    onEdit: (FireflyFeatureItem) -> Unit,
     onDelete: (FireflyFeatureItem) -> Unit,
 ) {
     LazyColumn(
@@ -120,6 +140,9 @@ private fun FeatureItems(
                 ) {
                     Row(modifier = Modifier.fillMaxWidth()) {
                         Text(item.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                        IconButton(onClick = { onEdit(item) }, enabled = deletingId == null) {
+                            Icon(Icons.Rounded.Edit, contentDescription = stringResource(R.string.edit_item_named, item.title))
+                        }
                         IconButton(onClick = { onDelete(item) }, enabled = deletingId == null) {
                             Icon(
                                 Icons.Rounded.DeleteOutline,
@@ -134,6 +157,15 @@ private fun FeatureItems(
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                    }
+                    if (feature == FireflyFeature.BUDGETS) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(stringResource(R.string.budget_set_value, formatFeatureAmount(item.setAmount, item.currencyCode)))
+                            Text(
+                                stringResource(R.string.budget_spent_value, formatFeatureAmount(item.spentAmount, item.currencyCode)),
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
                     }
                     item.progressPercent?.let { percentage ->
                         LinearProgressIndicator(
@@ -157,6 +189,7 @@ private fun FireflyFeature.emptyMessage(): Int = when (this) {
     FireflyFeature.TAGS -> R.string.no_tags_message
     FireflyFeature.BILLS -> R.string.no_bills_message
     FireflyFeature.PIGGY_BANKS -> R.string.no_piggy_banks_message
+    FireflyFeature.RULES -> R.string.no_firefly_rules_message
 }
 
 private fun FireflyFeature.addLabel(): Int = when (this) {
@@ -165,4 +198,14 @@ private fun FireflyFeature.addLabel(): Int = when (this) {
     FireflyFeature.TAGS -> R.string.add_tag
     FireflyFeature.BILLS -> R.string.add_bill
     FireflyFeature.PIGGY_BANKS -> R.string.add_piggy_bank
+    FireflyFeature.RULES -> R.string.add_firefly_rule
+}
+
+@Composable
+private fun formatFeatureAmount(amount: BigDecimal?, currency: String): String {
+    if (amount == null) return stringResource(R.string.amount_not_set)
+    return NumberFormat.getCurrencyInstance().run {
+        runCatching { this.currency = Currency.getInstance(currency) }
+        format(amount)
+    }
 }

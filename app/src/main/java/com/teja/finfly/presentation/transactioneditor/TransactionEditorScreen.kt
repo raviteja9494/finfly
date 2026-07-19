@@ -45,6 +45,7 @@ import com.teja.finfly.domain.model.Account
 import com.teja.finfly.domain.model.Category
 import com.teja.finfly.domain.model.TransactionType
 import com.teja.finfly.presentation.components.LoadingState
+import com.teja.finfly.presentation.components.DateTimePickerField
 import com.teja.finfly.presentation.theme.FinFlyThemeTokens
 
 @Composable
@@ -99,21 +100,15 @@ private fun EditorForm(
                 )
             }
         }
-        if (state.isEditing) {
-            item {
-                ReadOnlyTransactionFields(state)
-            }
-        } else {
-            item { SectionLabel(R.string.transaction_type) }
-            item {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
-                    items(TransactionType.entries) { type ->
-                        FilterChip(
-                            selected = state.type == type,
-                            onClick = { viewModel.setType(type) },
-                            label = { Text(type.label()) },
-                        )
-                    }
+        item { SectionLabel(R.string.transaction_type) }
+        item {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
+                items(TransactionType.entries) { type ->
+                    FilterChip(
+                        selected = state.type == type,
+                        onClick = { viewModel.setType(type) },
+                        label = { Text(type.label()) },
+                    )
                 }
             }
         }
@@ -126,46 +121,39 @@ private fun EditorForm(
                 singleLine = true,
             )
         }
-        if (!state.isEditing) {
-            item {
-                Row(horizontalArrangement = Arrangement.spacedBy(spacing.small), modifier = Modifier.fillMaxWidth()) {
-                    OutlinedTextField(
-                        value = state.amount,
-                        onValueChange = viewModel::setAmount,
-                        modifier = Modifier.weight(2f),
-                        label = { Text(stringResource(R.string.amount)) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        singleLine = true,
-                    )
-                    OutlinedTextField(
-                        value = state.currency,
-                        onValueChange = viewModel::setCurrency,
-                        modifier = Modifier.weight(1f),
-                        label = { Text(stringResource(R.string.currency)) },
-                        singleLine = true,
-                    )
-                }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(spacing.small), modifier = Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    value = state.amount,
+                    onValueChange = viewModel::setAmount,
+                    modifier = Modifier.weight(2f),
+                    label = { Text(stringResource(R.string.amount)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true,
+                )
+                OutlinedTextField(
+                    value = state.currency,
+                    onValueChange = viewModel::setCurrency,
+                    modifier = Modifier.weight(1f),
+                    label = { Text(stringResource(R.string.currency)) },
+                    singleLine = true,
+                )
             }
         }
         item {
-            OutlinedTextField(
+            DateTimePickerField(
                 value = state.dateText,
                 onValueChange = viewModel::setDateText,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text(stringResource(R.string.date_and_time)) },
-                supportingText = { Text(stringResource(R.string.date_time_hint)) },
-                singleLine = true,
+                label = R.string.date_and_time,
             )
         }
-        if (!state.isEditing) {
-            item { AccountEntry(R.string.source_account, state.sourceAccount, viewModel::setSourceName) }
-            if (state.accounts.isNotEmpty()) item {
-                AccountChoices(state.accounts, state.sourceAccountId, viewModel::selectSource)
-            }
-            item { AccountEntry(R.string.destination_account, state.destinationAccount, viewModel::setDestinationName) }
-            if (state.accounts.isNotEmpty()) item {
-                AccountChoices(state.accounts, state.destinationAccountId, viewModel::selectDestination)
-            }
+        item { AccountEntry(R.string.source_account, state.sourceAccount, viewModel::setSourceName) }
+        if (state.accounts.isNotEmpty()) item {
+            AccountChoices(state.accounts, state.sourceAccountId, viewModel::selectSource)
+        }
+        item { AccountEntry(R.string.destination_account, state.destinationAccount, viewModel::setDestinationName) }
+        if (state.accounts.isNotEmpty()) item {
+            AccountChoices(state.accounts, state.destinationAccountId, viewModel::selectDestination)
         }
         item {
             CategoryDropdown(
@@ -173,6 +161,17 @@ private fun EditorForm(
                 selected = state.category,
                 onSelected = viewModel::setCategory,
             )
+        }
+        if (state.type == TransactionType.WITHDRAWAL) {
+            item {
+                SimpleDropdown(
+                    label = R.string.budget,
+                    choices = state.budgets.map { it.title },
+                    selected = state.budget,
+                    emptyLabel = R.string.no_budget,
+                    onSelected = viewModel::setBudget,
+                )
+            }
         }
         item { SectionLabel(R.string.tags) }
         if (state.tags.isNotEmpty() || state.selectedTags.isNotEmpty()) item {
@@ -195,8 +194,7 @@ private fun EditorForm(
                 )
             }
         }
-        if (!state.isEditing) {
-            item {
+        item {
                 Row(horizontalArrangement = Arrangement.spacedBy(spacing.small), modifier = Modifier.fillMaxWidth()) {
                     OutlinedTextField(
                         value = newTag,
@@ -209,7 +207,6 @@ private fun EditorForm(
                         Icon(Icons.Rounded.Add, contentDescription = stringResource(R.string.add_tag))
                     }
                 }
-            }
         }
         item {
             OutlinedTextField(
@@ -245,32 +242,6 @@ private fun EditorForm(
 }
 
 @Composable
-private fun ReadOnlyTransactionFields(state: TransactionEditorUiState) {
-    val spacing = FinFlyThemeTokens.spacing
-    val accountPath = stringResource(
-        R.string.account_path_format,
-        state.sourceAccount,
-        state.destinationAccount,
-    )
-    Column(verticalArrangement = Arrangement.spacedBy(spacing.small)) {
-        OutlinedTextField(
-            value = state.type.label(), onValueChange = {}, enabled = false,
-            modifier = Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.transaction_type)) },
-        )
-        OutlinedTextField(
-            value = listOf(state.amount, state.currency).filter(String::isNotBlank).joinToString(" "),
-            onValueChange = {}, enabled = false, modifier = Modifier.fillMaxWidth(),
-            label = { Text(stringResource(R.string.amount)) },
-        )
-        OutlinedTextField(
-            value = accountPath,
-            onValueChange = {}, enabled = false, modifier = Modifier.fillMaxWidth(),
-            label = { Text(stringResource(R.string.account)) },
-        )
-    }
-}
-
-@Composable
 private fun AccountEntry(label: Int, value: String, onValueChange: (String) -> Unit) {
     OutlinedTextField(
         value = value,
@@ -297,24 +268,56 @@ private fun AccountChoices(accounts: List<Account>, selectedId: String?, onSelec
 @Composable
 private fun CategoryDropdown(categories: List<Category>, selected: String, onSelected: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
-    Box {
-        OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) {
-            Text(
-                selected.ifBlank { stringResource(R.string.category_uncategorized) },
-                modifier = Modifier.weight(1f),
-            )
-            Icon(Icons.Rounded.ArrowDropDown, contentDescription = null)
-        }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.category_uncategorized)) },
-                onClick = { expanded = false; onSelected("") },
-            )
-            categories.forEach { category ->
-                DropdownMenuItem(
-                    text = { Text(category.name) },
-                    onClick = { expanded = false; onSelected(category.name) },
+    Column(verticalArrangement = Arrangement.spacedBy(FinFlyThemeTokens.spacing.xSmall)) {
+        Text(stringResource(R.string.category), style = MaterialTheme.typography.titleMedium)
+        Box {
+            OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    selected.ifBlank { stringResource(R.string.category_uncategorized) },
+                    modifier = Modifier.weight(1f),
                 )
+                Icon(Icons.Rounded.ArrowDropDown, contentDescription = null)
+            }
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.category_uncategorized)) },
+                    onClick = { expanded = false; onSelected("") },
+                )
+                categories.forEach { category ->
+                    DropdownMenuItem(
+                        text = { Text(category.name) },
+                        onClick = { expanded = false; onSelected(category.name) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SimpleDropdown(
+    label: Int,
+    choices: List<String>,
+    selected: String,
+    emptyLabel: Int,
+    onSelected: (String) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Column(verticalArrangement = Arrangement.spacedBy(FinFlyThemeTokens.spacing.xSmall)) {
+        Text(stringResource(label), style = MaterialTheme.typography.titleMedium)
+        Box {
+            OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) {
+                Text(selected.ifBlank { stringResource(emptyLabel) }, modifier = Modifier.weight(1f))
+                Icon(Icons.Rounded.ArrowDropDown, contentDescription = null)
+            }
+            DropdownMenu(expanded, { expanded = false }) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(emptyLabel)) },
+                    onClick = { onSelected(""); expanded = false },
+                )
+                choices.forEach { choice ->
+                    DropdownMenuItem(text = { Text(choice) }, onClick = { onSelected(choice); expanded = false })
+                }
             }
         }
     }

@@ -143,6 +143,7 @@ private fun DetailContent(
                 }
             }
         }
+        if (transaction.budget.isNotBlank()) item { DetailLine(R.string.budget, transaction.budget) }
         item {
             Text(
                 formatAmount(transaction),

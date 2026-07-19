@@ -7,6 +7,7 @@ import com.teja.finfly.data.mapper.toDomain
 import com.teja.finfly.data.mapper.toEntity
 import com.teja.finfly.data.network.FireflyApiService
 import com.teja.finfly.data.network.dto.StoreAccountRequest
+import com.teja.finfly.data.network.dto.UpdateAccountRequest
 import com.teja.finfly.domain.common.Result
 import com.teja.finfly.domain.model.Account
 import com.teja.finfly.domain.model.AccountDraft
@@ -28,10 +29,14 @@ class AccountRepositoryImpl @Inject constructor(
         .map { rows -> Result.Success(rows.map { it.toDomain() }) as Result<List<Account>> }
         .catch { emit(Result.Error(it.message ?: CACHE_ERROR, it)) }
 
-    override suspend fun createAccount(draft: AccountDraft): Result<Account> {
+    override fun observeAccount(id: String): Flow<Result<Account?>> = database.accountDao().observeById(id)
+        .map { Result.Success(it?.toDomain()) as Result<Account?> }
+        .catch { emit(Result.Error(it.message ?: CACHE_ERROR, it)) }
+
+    override suspend fun saveAccount(draft: AccountDraft): Result<Account> {
         if (!isConfigured()) return Result.Error(NOT_CONFIGURED)
         return runCatching {
-            val response = api.createAccount(
+            val response = if (draft.id == null) api.createAccount(
                 StoreAccountRequest(
                     name = draft.name.trim(),
                     type = draft.type,
@@ -39,6 +44,15 @@ class AccountRepositoryImpl @Inject constructor(
                     openingBalance = draft.openingBalance?.toPlainString(),
                     openingBalanceDate = draft.openingBalanceDate?.toString(),
                 )
+            ) else api.updateAccount(
+                draft.id,
+                UpdateAccountRequest(
+                    name = draft.name.trim(),
+                    type = draft.type,
+                    currencyCode = draft.currency.takeIf(String::isNotBlank),
+                    openingBalance = draft.openingBalance?.toPlainString(),
+                    openingBalanceDate = draft.openingBalanceDate?.toString(),
+                ),
             )
             val entity = response.data.toEntity()
             database.accountDao().upsertAll(listOf(entity))

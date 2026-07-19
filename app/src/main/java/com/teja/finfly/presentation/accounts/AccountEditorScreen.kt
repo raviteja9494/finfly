@@ -27,6 +27,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.teja.finfly.R
 import com.teja.finfly.presentation.theme.FinFlyThemeTokens
+import com.teja.finfly.presentation.components.LoadingState
 
 @Composable
 fun AccountEditorScreen(
@@ -35,6 +36,10 @@ fun AccountEditorScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(state.saved) { if (state.saved) onBack() }
+    if (state.isLoading) {
+        LoadingState()
+        return
+    }
     Column(
         modifier = Modifier.fillMaxSize().padding(FinFlyThemeTokens.spacing.medium),
         verticalArrangement = Arrangement.spacedBy(FinFlyThemeTokens.spacing.medium),
@@ -52,11 +57,11 @@ fun AccountEditorScreen(
         )
         Text(stringResource(R.string.account_type), style = MaterialTheme.typography.titleMedium)
         Row(horizontalArrangement = Arrangement.spacedBy(FinFlyThemeTokens.spacing.small)) {
-            ACCOUNT_TYPES.forEach { type ->
+            (ACCOUNT_TYPES + state.type).distinct().forEach { type ->
                 FilterChip(
                     selected = state.type == type,
                     onClick = { viewModel.setType(type) },
-                    label = { Text(stringResource(if (type == "asset") R.string.account_asset else R.string.account_cash)) },
+                    label = { Text(accountTypeLabel(type)) },
                 )
             }
         }
@@ -67,21 +72,27 @@ fun AccountEditorScreen(
             label = { Text(stringResource(R.string.currency_optional)) },
             singleLine = true,
         )
-        OutlinedTextField(
-            value = state.openingBalance,
-            onValueChange = viewModel::setOpeningBalance,
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text(stringResource(R.string.opening_balance_optional)) },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            singleLine = true,
-        )
+        if (state.accountId == null) {
+            OutlinedTextField(
+                value = state.openingBalance,
+                onValueChange = viewModel::setOpeningBalance,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text(stringResource(R.string.opening_balance_optional)) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true,
+            )
+        }
         state.error?.let { Text(stringResource(it.messageResource()), color = MaterialTheme.colorScheme.error) }
         Button(
             onClick = viewModel::save,
             enabled = !state.isSaving,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text(stringResource(if (state.isSaving) R.string.saving else R.string.create_bank_account))
+            Text(stringResource(when {
+                state.isSaving -> R.string.saving
+                state.accountId != null -> R.string.save_changes
+                else -> R.string.create_bank_account
+            }))
         }
     }
 }
@@ -93,3 +104,10 @@ private fun AccountEditorError.messageResource(): Int = when (this) {
 }
 
 private val ACCOUNT_TYPES = listOf("asset", "cash")
+
+@Composable
+private fun accountTypeLabel(type: String): String = when (type) {
+    "asset" -> stringResource(R.string.account_asset)
+    "cash" -> stringResource(R.string.account_cash)
+    else -> type.replace('_', ' ').replaceFirstChar { it.uppercase() }
+}

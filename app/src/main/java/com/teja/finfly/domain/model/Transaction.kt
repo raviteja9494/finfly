@@ -12,6 +12,7 @@ data class Transaction(
     val amount: BigDecimal,
     val description: String,
     val category: String,
+    val budget: String,
     val account: String,
     val sourceAccountId: String?,
     val sourceAccount: String,

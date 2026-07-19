@@ -19,6 +19,8 @@ class SaveDashboardPreferencesUseCase @Inject constructor(
         rangeMode: DashboardRangeMode,
         showSpendingInsight: Boolean,
         categoryChartStyle: CategoryChartStyle,
+        categoryChartPeriod: DashboardChartPeriod,
+        categoryRangeMode: DashboardRangeMode,
     ): Result<Unit> =
         repository.saveDashboardPreferences(
             showNetWorthSummary = showNetWorthSummary,
@@ -27,6 +29,8 @@ class SaveDashboardPreferencesUseCase @Inject constructor(
             rangeMode = rangeMode,
             showSpendingInsight = showSpendingInsight,
             categoryChartStyle = categoryChartStyle,
+            categoryChartPeriod = categoryChartPeriod,
+            categoryRangeMode = categoryRangeMode,
         )
 
     private companion object {

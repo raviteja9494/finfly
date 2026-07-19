@@ -20,6 +20,7 @@ fun TransactionEntity.toDomain(): Transaction = Transaction(
     amount = amount.toBigDecimalOrNull() ?: BigDecimal.ZERO,
     description = description,
     category = category,
+    budget = budget,
     account = account,
     sourceAccountId = sourceAccountId,
     sourceAccount = sourceAccount,

@@ -13,6 +13,9 @@ interface AccountDao {
     @Query("SELECT * FROM accounts ORDER BY name COLLATE NOCASE")
     fun observeAll(): Flow<List<AccountEntity>>
 
+    @Query("SELECT * FROM accounts WHERE id = :id LIMIT 1")
+    fun observeById(id: String): Flow<AccountEntity?>
+
     @Upsert
     suspend fun upsertAll(accounts: List<AccountEntity>)
 

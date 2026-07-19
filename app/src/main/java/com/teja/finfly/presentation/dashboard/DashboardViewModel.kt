@@ -32,6 +32,8 @@ class DashboardViewModel @Inject constructor(
             settings.recentTransactionsCount,
             settings.dashboardChartPeriod,
             settings.dashboardRangeMode,
+            settings.categoryChartPeriod,
+            settings.categoryRangeMode,
         ).map { result -> result to settings }
     }
 

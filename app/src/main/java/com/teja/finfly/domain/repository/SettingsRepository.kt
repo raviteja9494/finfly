@@ -24,6 +24,8 @@ interface SettingsRepository {
         rangeMode: DashboardRangeMode,
         showSpendingInsight: Boolean,
         categoryChartStyle: CategoryChartStyle,
+        categoryChartPeriod: DashboardChartPeriod,
+        categoryRangeMode: DashboardRangeMode,
     ): Result<Unit>
     suspend fun updateLastSyncTime(instant: Instant): Result<Unit>
     suspend fun setSmsParsingEnabled(enabled: Boolean): Result<Unit>

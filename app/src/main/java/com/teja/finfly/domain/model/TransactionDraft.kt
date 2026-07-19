@@ -18,6 +18,7 @@ data class TransactionDraft(
     val destinationAccountId: String? = null,
     val destinationAccount: String = "",
     val category: String = "",
+    val budget: String = "",
     val tags: List<String> = emptyList(),
     val notes: String? = null,
     val currency: String = "",

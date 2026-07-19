@@ -11,6 +11,8 @@ import com.teja.finfly.domain.model.TransactionType
 import com.teja.finfly.domain.repository.AccountRepository
 import com.teja.finfly.domain.repository.TransactionRepository
 import com.teja.finfly.domain.repository.TagRepository
+import com.teja.finfly.domain.repository.FireflyFeatureRepository
+import com.teja.finfly.domain.model.FireflyFeature
 import com.teja.finfly.presentation.navigation.AppRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,6 +34,7 @@ class TransactionEditorViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val transactionRepository: TransactionRepository,
     private val tagRepository: TagRepository,
+    private val featureRepository: FireflyFeatureRepository,
     accountRepository: AccountRepository,
     clock: Clock,
 ) : ViewModel() {
@@ -55,8 +58,9 @@ class TransactionEditorViewModel @Inject constructor(
                 transactionRepository.observeCategories(),
                 tagRepository.observeTags(),
                 accountRepository.observeAccounts(),
-            ) { transactionResult, categoryResult, tagResult, accountResult ->
-                EditorData(transactionResult, categoryResult, tagResult, accountResult)
+                kotlinx.coroutines.flow.flow { emit(featureRepository.load(FireflyFeature.BUDGETS)) },
+            ) { transactionResult, categoryResult, tagResult, accountResult, budgetResult ->
+                EditorData(transactionResult, categoryResult, tagResult, accountResult, budgetResult)
             }.collect(::applyEditorData)
         }
         viewModelScope.launch { tagRepository.refresh() }
@@ -79,6 +83,7 @@ class TransactionEditorViewModel @Inject constructor(
         copy(destinationAccountId = id, destinationAccount = name, error = null)
     }
     fun setCategory(value: String) = update { copy(category = value, error = null) }
+    fun setBudget(value: String) = update { copy(budget = value, error = null) }
     fun setNotes(value: String) = update { copy(notes = value, error = null) }
     fun setCurrency(value: String) = update { copy(currency = value.uppercase(), error = null) }
     fun toggleTag(value: String) = update {
@@ -126,6 +131,7 @@ class TransactionEditorViewModel @Inject constructor(
                     destinationAccountId = state.destinationAccountId,
                     destinationAccount = state.destinationAccount,
                     category = state.category,
+                    budget = state.budget,
                     tags = state.selectedTags.sorted(),
                     notes = state.notes,
                     currency = state.currency,
@@ -149,6 +155,7 @@ class TransactionEditorViewModel @Inject constructor(
         val categories = data.categories.valuesOrEmpty()
         val tags = data.tags.valuesOrEmpty()
         val accounts = data.accounts.valuesOrEmpty()
+        val budgets = data.budgets.valuesOrEmpty()
         val transaction = when (val result = data.transaction) {
             is Result.Success -> result.value
             is Result.Error -> null
@@ -170,15 +177,17 @@ class TransactionEditorViewModel @Inject constructor(
                 destinationAccountId = transaction?.destinationAccountId,
                 destinationAccount = transaction?.destinationAccount.orEmpty(),
                 category = transaction?.category.orEmpty(),
+                budget = transaction?.budget.orEmpty(),
                 selectedTags = transaction?.tags?.toSet().orEmpty(),
                 notes = transaction?.notes.orEmpty(),
                 currency = transaction?.currency?.takeUnless { it == "XXX" }.orEmpty(),
                 categories = categories,
                 tags = tags,
                 accounts = accounts,
+                budgets = budgets,
             )
         } else {
-            update { copy(categories = categories, tags = tags, accounts = accounts) }
+            update { copy(categories = categories, tags = tags, accounts = accounts, budgets = budgets) }
         }
     }
 
@@ -199,6 +208,7 @@ class TransactionEditorViewModel @Inject constructor(
         val categories: Result<List<com.teja.finfly.domain.model.Category>>,
         val tags: Result<List<com.teja.finfly.domain.model.Tag>>,
         val accounts: Result<List<com.teja.finfly.domain.model.Account>>,
+        val budgets: Result<List<com.teja.finfly.domain.model.FireflyFeatureItem>>,
     )
 
     private companion object {

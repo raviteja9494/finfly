@@ -14,6 +14,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -25,6 +27,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.Switch
+import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -38,6 +42,9 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.teja.finfly.R
 import com.teja.finfly.domain.model.FireflyFeature
+import com.teja.finfly.domain.model.FireflyRuleClause
+import com.teja.finfly.presentation.components.DatePickerField
+import com.teja.finfly.presentation.components.LoadingState
 import com.teja.finfly.presentation.theme.FinFlyThemeTokens
 
 @Composable
@@ -47,6 +54,10 @@ fun FeatureEditorScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(state.saved) { if (state.saved) onBack() }
+    if (state.isLoading) {
+        LoadingState()
+        return
+    }
     val spacing = FinFlyThemeTokens.spacing
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -145,6 +156,32 @@ fun FeatureEditorScreen(
                 item { DateField(state.startDate, viewModel::setStartDate, R.string.start_date) }
                 item { DateField(state.targetDate, viewModel::setTargetDate, R.string.target_date_optional) }
             }
+            FireflyFeature.RULES -> {
+                item { RuleGroupSelector(state, viewModel::setRuleGroupId) }
+                item { ToggleRow(R.string.rule_enabled, state.active, viewModel::setActive) }
+                item { ToggleRow(R.string.rule_match_all, state.strict, viewModel::setStrict) }
+                item { ToggleRow(R.string.rule_stop_processing, state.stopProcessing, viewModel::setStopProcessing) }
+                item { RuleSectionHeader(R.string.rule_triggers, viewModel::addRuleTrigger) }
+                items(state.ruleTriggers.size) { index ->
+                    RuleClauseEditor(
+                        clause = state.ruleTriggers[index],
+                        types = RULE_TRIGGER_TYPES,
+                        onType = { viewModel.updateRuleTrigger(index, type = it) },
+                        onValue = { viewModel.updateRuleTrigger(index, value = it) },
+                        onRemove = { viewModel.removeRuleTrigger(index) },
+                    )
+                }
+                item { RuleSectionHeader(R.string.rule_actions, viewModel::addRuleAction) }
+                items(state.ruleActions.size) { index ->
+                    RuleClauseEditor(
+                        clause = state.ruleActions[index],
+                        types = RULE_ACTION_TYPES,
+                        onType = { viewModel.updateRuleAction(index, type = it) },
+                        onValue = { viewModel.updateRuleAction(index, value = it) },
+                        onRemove = { viewModel.removeRuleAction(index) },
+                    )
+                }
+            }
         }
         item {
             OutlinedTextField(
@@ -168,7 +205,11 @@ fun FeatureEditorScreen(
             ) {
                 Text(
                     stringResource(
-                        if (state.isSaving) R.string.saving else state.feature.createLabel()
+                        when {
+                            state.isSaving -> R.string.saving
+                            state.itemId != null -> R.string.save_changes
+                            else -> state.feature.createLabel()
+                        }
                     )
                 )
             }
@@ -206,15 +247,88 @@ private fun CurrencyField(value: String, onValueChange: (String) -> Unit) {
 
 @Composable
 private fun DateField(value: String, onValueChange: (String) -> Unit, label: Int) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        modifier = Modifier.fillMaxWidth(),
-        label = { Text(stringResource(label)) },
-        supportingText = { Text(stringResource(R.string.date_format_hint)) },
-        singleLine = true,
-    )
+    DatePickerField(value, onValueChange, label)
 }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RuleGroupSelector(state: FeatureEditorUiState, onSelect: (String) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    val selected = state.ruleGroups.firstOrNull { it.id == state.ruleGroupId }
+    ExposedDropdownMenuBox(expanded, { expanded = it }) {
+        OutlinedTextField(
+            value = selected?.title.orEmpty(), onValueChange = {}, readOnly = true,
+            modifier = Modifier.fillMaxWidth().menuAnchor(),
+            label = { Text(stringResource(R.string.rule_group)) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+        )
+        ExposedDropdownMenu(expanded, { expanded = false }) {
+            state.ruleGroups.forEach { group ->
+                DropdownMenuItem(
+                    text = { Text(group.title) },
+                    onClick = { onSelect(group.id); expanded = false },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ToggleRow(label: Int, checked: Boolean, onChecked: (Boolean) -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(stringResource(label), style = MaterialTheme.typography.titleMedium)
+        Switch(checked, onChecked)
+    }
+}
+
+@Composable
+private fun RuleSectionHeader(label: Int, onAdd: () -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(stringResource(label), style = MaterialTheme.typography.titleMedium)
+        IconButton(onClick = onAdd) { Icon(Icons.Rounded.Add, contentDescription = stringResource(R.string.add)) }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RuleClauseEditor(
+    clause: FireflyRuleClause,
+    types: List<String>,
+    onType: (String) -> Unit,
+    onValue: (String) -> Unit,
+    onRemove: () -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Column(verticalArrangement = Arrangement.spacedBy(FinFlyThemeTokens.spacing.small)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(FinFlyThemeTokens.spacing.small)) {
+            ExposedDropdownMenuBox(expanded, { expanded = it }, modifier = Modifier.weight(1f)) {
+                OutlinedTextField(
+                    value = clause.type.toFriendlyRuleLabel(), onValueChange = {}, readOnly = true,
+                    modifier = Modifier.fillMaxWidth().menuAnchor(),
+                    label = { Text(stringResource(R.string.rule_type)) },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+                )
+                ExposedDropdownMenu(expanded, { expanded = false }) {
+                    (types + clause.type).distinct().forEach { type ->
+                        DropdownMenuItem(
+                            text = { Text(type.toFriendlyRuleLabel()) },
+                            onClick = { onType(type); expanded = false },
+                        )
+                    }
+                }
+            }
+            IconButton(onClick = onRemove) {
+                Icon(Icons.Rounded.DeleteOutline, contentDescription = stringResource(R.string.remove_item))
+            }
+        }
+        OutlinedTextField(
+            value = clause.value, onValueChange = onValue, modifier = Modifier.fillMaxWidth(),
+            label = { Text(stringResource(R.string.rule_value)) }, singleLine = true,
+        )
+    }
+}
+
+private fun String.toFriendlyRuleLabel(): String = replace('_', ' ').replaceFirstChar { it.uppercase() }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -259,6 +373,7 @@ private fun FireflyFeature.nameLabel(): Int = when (this) {
     FireflyFeature.TAGS -> R.string.tag_name
     FireflyFeature.BILLS -> R.string.bill_name
     FireflyFeature.PIGGY_BANKS -> R.string.piggy_bank_name
+    FireflyFeature.RULES -> R.string.rule_name
 }
 
 private fun FireflyFeature.createLabel(): Int = when (this) {
@@ -267,6 +382,7 @@ private fun FireflyFeature.createLabel(): Int = when (this) {
     FireflyFeature.TAGS -> R.string.create_tag
     FireflyFeature.BILLS -> R.string.create_bill
     FireflyFeature.PIGGY_BANKS -> R.string.create_piggy_bank
+    FireflyFeature.RULES -> R.string.create_firefly_rule
 }
 
 private fun FeatureEditorError.messageResource(): Int = when (this) {
@@ -278,6 +394,9 @@ private fun FeatureEditorError.messageResource(): Int = when (this) {
     FeatureEditorError.TARGET_DATE_BEFORE_START -> R.string.target_date_before_start
     FeatureEditorError.ACCOUNT_REQUIRED -> R.string.asset_account_required
     FeatureEditorError.SAVE_FAILED -> R.string.feature_save_failed
+    FeatureEditorError.LOAD_FAILED -> R.string.feature_load_failed
+    FeatureEditorError.RULE_GROUP_REQUIRED -> R.string.rule_group_required
+    FeatureEditorError.RULE_CLAUSE_REQUIRED -> R.string.rule_clause_required
 }
 
 private fun String.labelResource(): Int = when (this) {
@@ -289,3 +408,11 @@ private fun String.labelResource(): Int = when (this) {
 }
 
 private val REPEAT_FREQUENCIES = listOf("weekly", "monthly", "quarterly", "half-year", "yearly")
+private val RULE_TRIGGER_TYPES = listOf(
+    "description_contains", "from_account_is", "to_account_is", "amount_more", "amount_less",
+    "category_is", "budget_is", "tag_is", "transaction_type", "notes_contains",
+)
+private val RULE_ACTION_TYPES = listOf(
+    "set_category", "set_budget", "add_tag", "set_description", "set_notes",
+    "set_source_account", "set_destination_account", "clear_category", "clear_budget", "remove_all_tags",
+)

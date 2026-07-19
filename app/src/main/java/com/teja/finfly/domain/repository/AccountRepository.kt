@@ -12,7 +12,8 @@ import kotlinx.coroutines.flow.Flow
  */
 interface AccountRepository {
     fun observeAccounts(): Flow<Result<List<Account>>>
-    suspend fun createAccount(draft: AccountDraft): Result<Account>
+    fun observeAccount(id: String): Flow<Result<Account?>>
+    suspend fun saveAccount(draft: AccountDraft): Result<Account>
     suspend fun deleteAccount(id: String): Result<Unit>
     suspend fun sync(): Result<Unit>
 }

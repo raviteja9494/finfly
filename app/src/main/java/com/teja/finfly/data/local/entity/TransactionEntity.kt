@@ -17,6 +17,7 @@ data class TransactionEntity(
     val amount: String,
     val description: String,
     val category: String,
+    @ColumnInfo(defaultValue = "''") val budget: String,
     val account: String,
     val sourceAccountId: String?,
     @ColumnInfo(defaultValue = "''") val sourceAccount: String,

@@ -114,6 +114,13 @@ fun TransactionRow(transaction: Transaction, modifier: Modifier = Modifier) {
                 }
             }
             CategoryPill(transaction.category, showKind = true)
+            if (transaction.budget.isNotBlank()) {
+                Text(
+                    stringResource(R.string.transaction_budget_value, transaction.budget),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             Text(
                 text = transaction.date.atZone(LocalFinFlyZoneId.current).format(
                     DateTimeFormatter.ofPattern(

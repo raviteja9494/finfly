@@ -21,6 +21,8 @@ data class SettingsForm(
     val dashboardRangeMode: DashboardRangeMode = DashboardRangeMode.CALENDAR,
     val showSpendingInsight: Boolean = true,
     val categoryChartStyle: CategoryChartStyle = CategoryChartStyle.BARS,
+    val categoryChartPeriod: DashboardChartPeriod = DashboardChartPeriod.MONTH,
+    val categoryRangeMode: DashboardRangeMode = DashboardRangeMode.CALENDAR,
     val useDeviceTimezone: Boolean = true,
 )
 

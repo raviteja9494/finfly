@@ -55,6 +55,8 @@ class SaveSettingsUseCaseTest {
             rangeMode: DashboardRangeMode,
             showSpendingInsight: Boolean,
             categoryChartStyle: CategoryChartStyle,
+            categoryChartPeriod: DashboardChartPeriod,
+            categoryRangeMode: DashboardRangeMode,
         ): Result<Unit> = Result.Success(Unit)
     }
 }

@@ -9,6 +9,8 @@ import com.teja.finfly.domain.repository.AccountRepository
 import com.teja.finfly.domain.repository.TransactionRepository
 import com.teja.finfly.domain.repository.FireflyFeatureRepository
 import com.teja.finfly.domain.repository.TagRepository
+import com.teja.finfly.domain.repository.SmsInboxRepository
+import com.teja.finfly.data.sms.AndroidSmsInboxRepository
 import com.teja.finfly.data.repository.SmsRulesRepositoryImpl
 import com.teja.finfly.data.repository.SmsLogRepositoryImpl
 import com.teja.finfly.data.repository.RulesTransferRepositoryImpl
@@ -26,6 +28,9 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class RepositoryModule {
+    @Binds
+    @Singleton
+    abstract fun bindSmsInboxRepository(implementation: AndroidSmsInboxRepository): SmsInboxRepository
     @Binds
     @Singleton
     abstract fun bindTransactionRepository(implementation: TransactionRepositoryImpl): TransactionRepository

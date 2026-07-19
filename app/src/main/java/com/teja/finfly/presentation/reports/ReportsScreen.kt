@@ -58,6 +58,7 @@ import com.teja.finfly.domain.model.ReportsSummary
 import com.teja.finfly.presentation.components.EmptyState
 import com.teja.finfly.presentation.components.ErrorState
 import com.teja.finfly.presentation.components.LoadingState
+import com.teja.finfly.presentation.components.DatePickerField
 import com.teja.finfly.presentation.theme.FinFlyThemeTokens
 import com.teja.finfly.presentation.theme.creditAmount
 import com.teja.finfly.presentation.theme.debitAmount
@@ -282,21 +283,17 @@ private fun ReportFilters(
                     verticalArrangement = Arrangement.spacedBy(spacing.medium),
                 ) {
                     Row(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
-                        OutlinedTextField(
+                        DatePickerField(
                             value = form.fromDate,
                             onValueChange = onFromDateChange,
                             modifier = Modifier.weight(1f),
-                            label = { Text(stringResource(R.string.report_from_date)) },
-                            supportingText = { Text(stringResource(R.string.date_format_hint)) },
-                            singleLine = true,
+                            label = R.string.report_from_date,
                         )
-                        OutlinedTextField(
+                        DatePickerField(
                             value = form.untilDate,
                             onValueChange = onUntilDateChange,
                             modifier = Modifier.weight(1f),
-                            label = { Text(stringResource(R.string.report_until_date)) },
-                            supportingText = { Text(stringResource(R.string.date_format_hint)) },
-                            singleLine = true,
+                            label = R.string.report_until_date,
                         )
                     }
                     ReportDropdown(

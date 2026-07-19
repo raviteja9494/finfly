@@ -28,6 +28,7 @@ import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Sms
 import androidx.compose.material.icons.rounded.Label
+import androidx.compose.material.icons.rounded.Rule
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -184,8 +185,9 @@ fun FinFlyApp(viewModel: AppShellViewModel = hiltViewModel()) {
                 }
                 composable<AppRoute.Accounts> {
                     AccountsScreen(
-                        onAdd = { navController.navigate(AppRoute.AccountEditor) },
-                        onAccountClick = { navController.navigate(AppRoute.Transactions(accountId = it)) },
+                        onAdd = { navController.navigate(AppRoute.AccountEditor()) },
+                        onAccountClick = { navController.navigate(AppRoute.AccountEditor(it)) },
+                        onViewTransactions = { navController.navigate(AppRoute.Transactions(accountId = it)) },
                     )
                 }
                 composable<AppRoute.AccountEditor> {
@@ -194,6 +196,7 @@ fun FinFlyApp(viewModel: AppShellViewModel = hiltViewModel()) {
                 composable<AppRoute.FeatureList> {
                     FeatureListScreen(
                         onAdd = { navController.navigate(AppRoute.FeatureEditor(it)) },
+                        onEdit = { feature, id -> navController.navigate(AppRoute.FeatureEditor(feature, id)) },
                     )
                 }
                 composable<AppRoute.FeatureEditor> {
@@ -256,6 +259,11 @@ private fun drawerDestinations(): List<DrawerDestination> = listOf(
         R.string.drawer_piggy_banks,
         Icons.Rounded.Savings,
         AppRoute.FeatureList(FireflyFeature.PIGGY_BANKS),
+    ),
+    DrawerDestination(
+        R.string.drawer_firefly_rules,
+        Icons.Rounded.Rule,
+        AppRoute.FeatureList(FireflyFeature.RULES),
     ),
     DrawerDestination(R.string.drawer_sms_parsing, Icons.Rounded.Sms, AppRoute.SmsParsing),
     DrawerDestination(R.string.nav_settings, Icons.Rounded.Settings, AppRoute.Settings),
@@ -375,11 +383,14 @@ private fun destinationTitle(entry: NavBackStackEntry?): String {
         destination?.hasRoute<AppRoute.TransactionDetail>() == true -> R.string.transaction_details
         destination?.hasRoute<AppRoute.TransactionEditor>() == true -> R.string.edit_transaction
         destination?.hasRoute<AppRoute.Accounts>() == true -> R.string.drawer_accounts
-        destination?.hasRoute<AppRoute.AccountEditor>() == true -> R.string.new_bank_account
+        destination?.hasRoute<AppRoute.AccountEditor>() == true ->
+            if (entry?.toRoute<AppRoute.AccountEditor>()?.accountId == null) R.string.new_bank_account
+            else R.string.edit_bank_account
         destination?.hasRoute<AppRoute.FeatureList>() == true ->
             entry?.toRoute<AppRoute.FeatureList>()?.feature?.titleResource() ?: R.string.app_name
-        destination?.hasRoute<AppRoute.FeatureEditor>() == true ->
-            entry?.toRoute<AppRoute.FeatureEditor>()?.feature?.createTitleResource() ?: R.string.app_name
+        destination?.hasRoute<AppRoute.FeatureEditor>() == true -> entry?.toRoute<AppRoute.FeatureEditor>()?.let { route ->
+            if (route.itemId == null) route.feature.createTitleResource() else route.feature.titleResource()
+        } ?: R.string.app_name
         destination?.hasRoute<AppRoute.SmsParsing>() == true -> R.string.drawer_sms_parsing
         destination?.hasRoute<AppRoute.BankRuleEditor>() == true -> R.string.edit_bank_rule
         destination?.hasRoute<AppRoute.CategoryRuleEditor>() == true -> R.string.edit_category_rule
@@ -396,6 +407,7 @@ private fun FireflyFeature.titleResource(): Int = when (this) {
     FireflyFeature.TAGS -> R.string.drawer_tags
     FireflyFeature.BILLS -> R.string.drawer_bills
     FireflyFeature.PIGGY_BANKS -> R.string.drawer_piggy_banks
+    FireflyFeature.RULES -> R.string.drawer_firefly_rules
 }
 
 private fun NavBackStackEntry?.isTopLevelDestination(): Boolean {
@@ -495,6 +507,7 @@ private fun FireflyFeature.createTitleResource(): Int = when (this) {
     FireflyFeature.TAGS -> R.string.new_tag
     FireflyFeature.BILLS -> R.string.new_bill
     FireflyFeature.PIGGY_BANKS -> R.string.new_piggy_bank
+    FireflyFeature.RULES -> R.string.new_firefly_rule
 }
 
 private fun DailySpend.toTransactionRoute(): AppRoute.Transactions {

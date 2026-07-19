@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.ReceiptLong
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -56,6 +57,7 @@ import java.util.Currency
 fun AccountsScreen(
     onAdd: () -> Unit,
     onAccountClick: (String) -> Unit,
+    onViewTransactions: (String) -> Unit,
     viewModel: AccountsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -108,6 +110,7 @@ fun AccountsScreen(
                 is AccountsUiState.Success -> GroupedAccountList(
                     value.accounts,
                     onAccountClick,
+                    onViewTransactions,
                     deletionState.deletingId,
                     onDelete = { pendingDelete = it },
                 )
@@ -120,6 +123,7 @@ fun AccountsScreen(
 private fun GroupedAccountList(
     accounts: List<Account>,
     onAccountClick: (String) -> Unit,
+    onViewTransactions: (String) -> Unit,
     deletingId: String?,
     onDelete: (Account) -> Unit,
 ) {
@@ -144,6 +148,7 @@ private fun GroupedAccountList(
                 AccountCard(
                     account = account,
                     modifier = Modifier.clickable { onAccountClick(account.id) },
+                    onViewTransactions = { onViewTransactions(account.id) },
                     deleting = deletingId == account.id,
                     onDelete = { onDelete(account) },
                 )
@@ -158,6 +163,7 @@ fun AccountCard(
     modifier: Modifier = Modifier,
     deleting: Boolean = false,
     onDelete: (() -> Unit)? = null,
+    onViewTransactions: (() -> Unit)? = null,
 ) {
     Card(modifier = modifier.fillMaxWidth()) {
         Row(
@@ -184,6 +190,14 @@ fun AccountCard(
                 color = if (account.balance < BigDecimal.ZERO) MaterialTheme.colorScheme.debitAmount
                 else MaterialTheme.colorScheme.creditAmount,
             )
+            if (onViewTransactions != null) {
+                IconButton(onClick = onViewTransactions) {
+                    Icon(
+                        Icons.Rounded.ReceiptLong,
+                        contentDescription = stringResource(R.string.view_account_transactions),
+                    )
+                }
+            }
             if (onDelete != null) {
                 IconButton(onClick = onDelete, enabled = !deleting) {
                     Icon(

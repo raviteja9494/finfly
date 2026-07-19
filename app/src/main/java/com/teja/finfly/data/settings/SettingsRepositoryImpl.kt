@@ -50,6 +50,8 @@ class SettingsRepositoryImpl @Inject constructor(
                 categoryChartStyle = preferences[CATEGORY_CHART_STYLE].toEnumOrDefault(
                     CategoryChartStyle.BARS,
                 ),
+                categoryChartPeriod = preferences[CATEGORY_CHART_PERIOD].toEnumOrDefault(DashboardChartPeriod.MONTH),
+                categoryRangeMode = preferences[CATEGORY_RANGE_MODE].toEnumOrDefault(DashboardRangeMode.CALENDAR),
                 smsParsingEnabled = preferences[SMS_PARSING_ENABLED] ?: false,
                 useDeviceTimezone = preferences[USE_DEVICE_TIMEZONE] ?: true,
             )
@@ -95,6 +97,8 @@ class SettingsRepositoryImpl @Inject constructor(
         rangeMode: DashboardRangeMode,
         showSpendingInsight: Boolean,
         categoryChartStyle: CategoryChartStyle,
+        categoryChartPeriod: DashboardChartPeriod,
+        categoryRangeMode: DashboardRangeMode,
     ): Result<Unit> = runCatching {
         dataStore.edit { preferences ->
             preferences[SHOW_NET_WORTH] = showNetWorthSummary
@@ -103,6 +107,8 @@ class SettingsRepositoryImpl @Inject constructor(
             preferences[DASHBOARD_RANGE_MODE] = rangeMode.name
             preferences[SHOW_SPENDING_INSIGHT] = showSpendingInsight
             preferences[CATEGORY_CHART_STYLE] = categoryChartStyle.name
+            preferences[CATEGORY_CHART_PERIOD] = categoryChartPeriod.name
+            preferences[CATEGORY_RANGE_MODE] = categoryRangeMode.name
         }
         Result.Success(Unit)
     }.getOrElse { Result.Error(it.message ?: it.javaClass.simpleName, it) }
@@ -117,6 +123,8 @@ class SettingsRepositoryImpl @Inject constructor(
         val DASHBOARD_RANGE_MODE = stringPreferencesKey("dashboard_range_mode")
         val SHOW_SPENDING_INSIGHT = booleanPreferencesKey("show_spending_insight")
         val CATEGORY_CHART_STYLE = stringPreferencesKey("category_chart_style")
+        val CATEGORY_CHART_PERIOD = stringPreferencesKey("category_chart_period")
+        val CATEGORY_RANGE_MODE = stringPreferencesKey("category_range_mode")
         val SMS_PARSING_ENABLED = booleanPreferencesKey("sms_parsing_enabled")
         val USE_DEVICE_TIMEZONE = booleanPreferencesKey("use_device_timezone")
         const val DEFAULT_RECENT_COUNT = 10

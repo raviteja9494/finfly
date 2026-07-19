@@ -7,7 +7,7 @@ import java.time.LocalDate
 
 /** Secondary Firefly sections exposed from the application drawer. */
 @Serializable
-enum class FireflyFeature { BUDGETS, CATEGORIES, TAGS, BILLS, PIGGY_BANKS }
+enum class FireflyFeature { BUDGETS, CATEGORIES, TAGS, BILLS, PIGGY_BANKS, RULES }
 
 /** Display-ready summary of one secondary Firefly resource. */
 data class FireflyFeatureItem(
@@ -15,7 +15,23 @@ data class FireflyFeatureItem(
     val title: String,
     val details: List<String> = emptyList(),
     val progressPercent: Int? = null,
+    val setAmount: BigDecimal? = null,
+    val spentAmount: BigDecimal? = null,
+    val currencyCode: String = "",
 )
+
+/** One editable trigger or action belonging to a Firefly rule. */
+data class FireflyRuleClause(
+    val id: String? = null,
+    val type: String,
+    val value: String = "",
+    val active: Boolean = true,
+    val prohibited: Boolean = false,
+    val stopProcessing: Boolean = false,
+)
+
+/** A Firefly rule group offered by the rule editor. */
+data class FireflyRuleGroup(val id: String, val title: String)
 
 /** Validated domain inputs accepted by Firefly feature creation. */
 sealed interface FireflyFeatureDraft {
@@ -57,5 +73,16 @@ sealed interface FireflyFeatureDraft {
         val currentAmount: BigDecimal? = null,
         val startDate: LocalDate,
         val targetDate: LocalDate? = null,
+    ) : FireflyFeatureDraft
+
+    data class Rule(
+        override val name: String,
+        override val notes: String,
+        val groupId: String,
+        val active: Boolean = true,
+        val strict: Boolean = true,
+        val stopProcessing: Boolean = false,
+        val triggers: List<FireflyRuleClause>,
+        val actions: List<FireflyRuleClause>,
     ) : FireflyFeatureDraft
 }

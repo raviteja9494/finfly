@@ -234,6 +234,26 @@ private fun DashboardSettings(form: SettingsForm, viewModel: SettingsViewModel) 
             )
         }
     }
+    ChoiceLabel(R.string.category_chart_period)
+    Row(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
+        DashboardChartPeriod.entries.forEach { period ->
+            FilterChip(
+                selected = form.categoryChartPeriod == period,
+                onClick = { viewModel.setCategoryChartPeriod(period) },
+                label = { Text(stringResource(period.labelResource())) },
+            )
+        }
+    }
+    ChoiceLabel(R.string.category_chart_range_mode)
+    Row(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
+        DashboardRangeMode.entries.forEach { mode ->
+            FilterChip(
+                selected = form.categoryRangeMode == mode,
+                onClick = { viewModel.setCategoryRangeMode(mode) },
+                label = { Text(stringResource(mode.labelResource())) },
+            )
+        }
+    }
 }
 
 @Composable

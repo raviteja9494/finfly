@@ -49,6 +49,8 @@ class SettingsViewModel @Inject constructor(
                     dashboardRangeMode = saved.dashboardRangeMode,
                     showSpendingInsight = saved.showSpendingInsight,
                     categoryChartStyle = saved.categoryChartStyle,
+                    categoryChartPeriod = saved.categoryChartPeriod,
+                    categoryRangeMode = saved.categoryRangeMode,
                     useDeviceTimezone = saved.useDeviceTimezone,
                 )
             }
@@ -80,6 +82,14 @@ class SettingsViewModel @Inject constructor(
     }
     fun setCategoryChartStyle(value: CategoryChartStyle) {
         form.value = form.value.copy(categoryChartStyle = value)
+        persistDashboardPreferences()
+    }
+    fun setCategoryChartPeriod(value: DashboardChartPeriod) {
+        form.value = form.value.copy(categoryChartPeriod = value)
+        persistDashboardPreferences()
+    }
+    fun setCategoryRangeMode(value: DashboardRangeMode) {
+        form.value = form.value.copy(categoryRangeMode = value)
         persistDashboardPreferences()
     }
     fun setUseDeviceTimezone(value: Boolean) {
@@ -140,6 +150,8 @@ class SettingsViewModel @Inject constructor(
                 preferences.dashboardRangeMode,
                 preferences.showSpendingInsight,
                 preferences.categoryChartStyle,
+                preferences.categoryChartPeriod,
+                preferences.categoryRangeMode,
             )
         }
     }

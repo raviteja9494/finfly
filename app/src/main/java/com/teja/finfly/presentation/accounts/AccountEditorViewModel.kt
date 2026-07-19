@@ -2,6 +2,9 @@
 package com.teja.finfly.presentation.accounts
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.SavedStateHandle
+import androidx.navigation.toRoute
+import com.teja.finfly.presentation.navigation.AppRoute
 import androidx.lifecycle.viewModelScope
 import com.teja.finfly.domain.common.Result
 import com.teja.finfly.domain.model.AccountDraft
@@ -16,6 +19,8 @@ import javax.inject.Inject
 enum class AccountEditorError { NAME_REQUIRED, INVALID_BALANCE, SAVE_FAILED }
 
 data class AccountEditorUiState(
+    val accountId: String? = null,
+    val isLoading: Boolean = false,
     val name: String = "",
     val type: String = "asset",
     val currency: String = "",
@@ -28,11 +33,35 @@ data class AccountEditorUiState(
 /** Validates and submits one account, then lets the UI return to the account list. */
 @HiltViewModel
 class AccountEditorViewModel @Inject constructor(
+    savedStateHandle: SavedStateHandle,
     private val repository: AccountRepository,
     private val clock: Clock,
 ) : ViewModel() {
-    private val _uiState = MutableStateFlow(AccountEditorUiState())
+    private val accountId = savedStateHandle.toRoute<AppRoute.AccountEditor>().accountId
+    private val _uiState = MutableStateFlow(AccountEditorUiState(accountId = accountId, isLoading = accountId != null))
     val uiState = _uiState.asStateFlow()
+
+    init {
+        accountId?.let { id ->
+            viewModelScope.launch {
+                repository.observeAccount(id).collect { result ->
+                    update {
+                        when (result) {
+                            is Result.Success -> result.value?.let { account ->
+                                copy(
+                                    isLoading = false,
+                                    name = account.name,
+                                    type = account.type.lowercase(),
+                                    currency = account.currency.takeUnless { it == "XXX" }.orEmpty(),
+                                )
+                            } ?: copy(isLoading = false, error = AccountEditorError.SAVE_FAILED)
+                            is Result.Error -> copy(isLoading = false, error = AccountEditorError.SAVE_FAILED)
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     fun setName(value: String) = update { copy(name = value, error = null) }
     fun setType(value: String) = update { copy(type = value, error = null) }
@@ -53,13 +82,14 @@ class AccountEditorViewModel @Inject constructor(
         }
         viewModelScope.launch {
             update { copy(isSaving = true, error = null) }
-            val result = repository.createAccount(
+            val result = repository.saveAccount(
                 AccountDraft(
+                    id = accountId,
                     name = state.name,
                     type = state.type,
                     currency = state.currency,
                     openingBalance = balance,
-                    openingBalanceDate = balance?.let { clock.instant() },
+                    openingBalanceDate = if (accountId == null) balance?.let { clock.instant() } else null,
                 )
             )
             update {

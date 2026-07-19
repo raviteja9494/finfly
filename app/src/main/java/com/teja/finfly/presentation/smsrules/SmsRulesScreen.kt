@@ -25,6 +25,8 @@ import androidx.compose.material.icons.rounded.Error
 import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -62,6 +64,8 @@ import com.teja.finfly.domain.model.CategoryRule
 import com.teja.finfly.domain.model.RulesImportMode
 import com.teja.finfly.presentation.components.ErrorState
 import com.teja.finfly.presentation.components.LoadingState
+import com.teja.finfly.presentation.components.DatePickerField
+import com.teja.finfly.presentation.components.ConfirmationDialog
 import com.teja.finfly.presentation.theme.FinFlyThemeTokens
 
 @Composable
@@ -77,16 +81,25 @@ fun SmsRulesScreen(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var permissionGranted by remember { mutableStateOf(context.hasSmsPermission()) }
+    var readPermissionGranted by remember { mutableStateOf(context.hasReadSmsPermission()) }
+    var confirmPush by remember { mutableStateOf(false) }
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         permissionGranted = it
         viewModel.setEnabled(it)
+    }
+    val readPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        readPermissionGranted = it
+        if (it) viewModel.scanInbox()
     }
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let { viewModel.previewImport(it.toString()) }
     }
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) permissionGranted = context.hasSmsPermission()
+            if (event == Lifecycle.Event.ON_RESUME) {
+                permissionGranted = context.hasSmsPermission()
+                readPermissionGranted = context.hasReadSmsPermission()
+            }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
@@ -96,12 +109,16 @@ fun SmsRulesScreen(
     val importedMessage = stringResource(R.string.rules_imported)
     val exportFailed = stringResource(R.string.rules_export_failed)
     val importFailed = stringResource(R.string.rules_import_failed)
+    val scanComplete = stringResource(R.string.sms_scan_complete)
+    val transactionsPushed = stringResource(R.string.sms_transactions_pushed)
     LaunchedEffect(state.feedback) {
         val message = when (val feedback = state.feedback) {
             is SmsRulesFeedback.Exported -> "$exportedMessage ${feedback.path}"
             is SmsRulesFeedback.Imported -> String.format(importedMessage, feedback.banks, feedback.categories)
             SmsRulesFeedback.ExportFailed -> exportFailed
             SmsRulesFeedback.ImportFailed -> importFailed
+            is SmsRulesFeedback.ScanComplete -> String.format(scanComplete, feedback.count)
+            is SmsRulesFeedback.TransactionsPushed -> String.format(transactionsPushed, feedback.count)
             null -> null
         }
         if (message != null) {
@@ -135,9 +152,28 @@ fun SmsRulesScreen(
                 onExport = viewModel::exportRules,
                 onImport = { importLauncher.launch(arrayOf(JSON_MIME, TEXT_MIME)) },
                 onOpenLogs = onOpenLogs,
+                onScanFromDate = viewModel::setScanFromDate,
+                onScanUntilDate = viewModel::setScanUntilDate,
+                onScan = {
+                    if (readPermissionGranted) viewModel.scanInbox()
+                    else readPermissionLauncher.launch(Manifest.permission.READ_SMS)
+                },
+                onTogglePreview = viewModel::toggleScanPreview,
+                onClearPreview = viewModel::clearScanPreview,
+                onRequestPush = { confirmPush = true },
                 modifier = Modifier.padding(padding),
             )
         }
+    }
+    if (confirmPush) {
+        val count = state.scanPreview.count(OnDemandSmsPreview::selected)
+        ConfirmationDialog(
+            title = R.string.push_sms_transactions,
+            message = stringResource(R.string.push_sms_transactions_message, count),
+            confirmLabel = R.string.push_to_firefly,
+            onConfirm = { confirmPush = false; viewModel.pushSelectedPreview() },
+            onDismiss = { confirmPush = false },
+        )
     }
     state.importPreview?.let { config ->
         AlertDialog(
@@ -184,6 +220,12 @@ private fun SmsRulesContent(
     onExport: () -> Unit,
     onImport: () -> Unit,
     onOpenLogs: () -> Unit,
+    onScanFromDate: (String) -> Unit,
+    onScanUntilDate: (String) -> Unit,
+    onScan: () -> Unit,
+    onTogglePreview: (String) -> Unit,
+    onClearPreview: () -> Unit,
+    onRequestPush: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val spacing = FinFlyThemeTokens.spacing
@@ -226,6 +268,19 @@ private fun SmsRulesContent(
                     }
                 }
             }
+        }
+        item {
+            OnDemandScanCard(
+                state = state,
+                onFromDate = onScanFromDate,
+                onUntilDate = onScanUntilDate,
+                onScan = onScan,
+                onClear = onClearPreview,
+                onPush = onRequestPush,
+            )
+        }
+        items(state.scanPreview, key = OnDemandSmsPreview::id) { preview ->
+            SmsPreviewCard(preview, { onTogglePreview(preview.id) })
         }
         item { RulesHeader(R.string.bank_rules, onAddBankRule) }
         items(state.bankRules, key = BankRule::id) { rule ->
@@ -299,8 +354,92 @@ private fun CategoryRuleCard(rule: CategoryRule, onClick: () -> Unit, onToggle: 
     }
 }
 
+@Composable
+private fun OnDemandScanCard(
+    state: SmsRulesUiState,
+    onFromDate: (String) -> Unit,
+    onUntilDate: (String) -> Unit,
+    onScan: () -> Unit,
+    onClear: () -> Unit,
+    onPush: () -> Unit,
+) {
+    val spacing = FinFlyThemeTokens.spacing
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(spacing.medium), verticalArrangement = Arrangement.spacedBy(spacing.medium)) {
+            Text(stringResource(R.string.on_demand_sms_scan), style = MaterialTheme.typography.titleLarge)
+            Text(
+                stringResource(R.string.on_demand_sms_scan_description),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
+                DatePickerField(state.scanFromDate, onFromDate, R.string.report_from_date, Modifier.weight(1f))
+                DatePickerField(state.scanUntilDate, onUntilDate, R.string.report_until_date, Modifier.weight(1f))
+            }
+            state.scanError?.let {
+                Text(stringResource(it.messageResource()), color = MaterialTheme.colorScheme.error)
+            }
+            Button(onClick = onScan, enabled = !state.isScanning, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Rounded.Search, contentDescription = null)
+                Text(
+                    stringResource(if (state.isScanning) R.string.scanning_sms else R.string.scan_sms),
+                    Modifier.padding(start = spacing.small),
+                )
+            }
+            if (state.scanPreview.isNotEmpty()) {
+                Text(
+                    stringResource(R.string.sms_preview_count, state.scanPreview.size),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
+                    OutlinedButton(onClick = onClear, modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.clear_preview))
+                    }
+                    Button(
+                        onClick = onPush,
+                        enabled = !state.isPushingPreview && state.scanPreview.any(OnDemandSmsPreview::selected),
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text(stringResource(if (state.isPushingPreview) R.string.saving else R.string.review_and_push))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SmsPreviewCard(preview: OnDemandSmsPreview, onToggle: () -> Unit) {
+    val transaction = preview.transaction
+    Card(Modifier.fillMaxWidth().clickable(onClick = onToggle)) {
+        Row(
+            Modifier.padding(FinFlyThemeTokens.spacing.medium),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Checkbox(preview.selected, onCheckedChange = { onToggle() })
+            Column(Modifier.weight(1f)) {
+                Text(transaction.description, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    stringResource(R.string.sms_preview_amount, transaction.amount, transaction.category),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(transaction.accountName, style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+}
+
+private fun OnDemandScanError.messageResource(): Int = when (this) {
+    OnDemandScanError.INVALID_DATE -> R.string.report_invalid_date
+    OnDemandScanError.INVALID_RANGE -> R.string.report_invalid_range
+    OnDemandScanError.READ_FAILED -> R.string.sms_scan_failed
+    OnDemandScanError.PUSH_FAILED -> R.string.sms_push_failed
+}
+
 private fun android.content.Context.hasSmsPermission(): Boolean =
     ContextCompat.checkSelfPermission(this, Manifest.permission.RECEIVE_SMS) == PackageManager.PERMISSION_GRANTED
+
+private fun android.content.Context.hasReadSmsPermission(): Boolean =
+    ContextCompat.checkSelfPermission(this, Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED
 
 private const val JSON_MIME = "application/json"
 private const val TEXT_MIME = "text/json"

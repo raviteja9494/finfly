@@ -34,6 +34,8 @@ class ObserveDashboardUseCase @Inject constructor(
         recentTransactionCount: Int,
         chartPeriod: DashboardChartPeriod,
         rangeMode: DashboardRangeMode,
+        categoryChartPeriod: DashboardChartPeriod,
+        categoryRangeMode: DashboardRangeMode,
     ): Flow<Result<DashboardSummary>> {
         val zone = ZoneId.systemDefault()
         val today = clock.instant().atZone(zone).toLocalDate()
@@ -43,6 +45,9 @@ class ObserveDashboardUseCase @Inject constructor(
         val chartWindow = chartWindow(today, chartPeriod, rangeMode)
         val chartStart = chartWindow.start.atStartOfDay(zone).toInstant()
         val chartEnd = chartWindow.endExclusive.atStartOfDay(zone).toInstant()
+        val categoryWindow = chartWindow(today, categoryChartPeriod, categoryRangeMode)
+        val categoryStart = categoryWindow.start.atStartOfDay(zone).toInstant()
+        val categoryEnd = categoryWindow.endExclusive.atStartOfDay(zone).toInstant()
 
         val totalsAndRecent = combine(
             transactionRepository.observeSpending(todayStart, tomorrowStart),
@@ -54,7 +59,7 @@ class ObserveDashboardUseCase @Inject constructor(
         val analyticsAndAccounts = combine(
             transactionRepository.observeDailySpending(chartStart, chartEnd),
             transactionRepository.observeTransactions(
-                TransactionFilter(from = monthStart, until = tomorrowStart),
+                TransactionFilter(from = categoryStart, until = categoryEnd),
                 MONTH_TRANSACTION_LIMIT,
                 0,
             ),
@@ -63,7 +68,10 @@ class ObserveDashboardUseCase @Inject constructor(
             Triple(weeklyResult, transactionsResult, accountsResult)
         }
         return combine(totalsAndRecent, analyticsAndAccounts) { totals, analytics ->
-            buildSummary(totals, analytics, today, chartWindow, chartPeriod, rangeMode)
+            buildSummary(
+                totals, analytics, today, chartWindow, chartPeriod, rangeMode,
+                categoryChartPeriod, categoryRangeMode,
+            )
         }
     }
 
@@ -74,6 +82,8 @@ class ObserveDashboardUseCase @Inject constructor(
         chartWindow: ChartWindow,
         chartPeriod: DashboardChartPeriod,
         rangeMode: DashboardRangeMode,
+        categoryChartPeriod: DashboardChartPeriod,
+        categoryRangeMode: DashboardRangeMode,
     ): Result<DashboardSummary> {
         val todaySpend = totals.first.valueOrReturnError() ?: return totals.first.asError()
         val monthSpend = totals.second.valueOrReturnError() ?: return totals.second.asError()
@@ -114,6 +124,8 @@ class ObserveDashboardUseCase @Inject constructor(
                     }
                     .sortedByDescending(CategorySpend::amount)
                     .take(CATEGORY_COUNT),
+                categoryChartPeriod = categoryChartPeriod,
+                categoryRangeMode = categoryRangeMode,
                 recentTransactions = recent,
             )
         )

@@ -6,6 +6,7 @@ import java.time.Instant
 
 /** User-editable values accepted by the basic Firefly account creation flow. */
 data class AccountDraft(
+    val id: String? = null,
     val name: String,
     val type: String,
     val currency: String,

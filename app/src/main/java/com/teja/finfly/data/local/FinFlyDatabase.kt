@@ -22,7 +22,7 @@ import com.teja.finfly.data.local.entity.SmsLogEntity
         TransactionEntity::class, AccountEntity::class, CategoryEntity::class, TagEntity::class,
         BankRuleEntity::class, CategoryRuleEntity::class, SmsLogEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 abstract class FinFlyDatabase : RoomDatabase() {

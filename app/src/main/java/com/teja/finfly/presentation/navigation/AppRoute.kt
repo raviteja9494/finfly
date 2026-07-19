@@ -16,9 +16,12 @@ sealed interface AppRoute {
     @Serializable data class TransactionEditor(val transactionId: String? = null) : AppRoute
     @Serializable data class TransactionDetail(val transactionId: String) : AppRoute
     @Serializable data object Accounts : AppRoute
-    @Serializable data object AccountEditor : AppRoute
+    @Serializable data class AccountEditor(val accountId: String? = null) : AppRoute
     @Serializable data class FeatureList(val feature: com.teja.finfly.domain.model.FireflyFeature) : AppRoute
-    @Serializable data class FeatureEditor(val feature: com.teja.finfly.domain.model.FireflyFeature) : AppRoute
+    @Serializable data class FeatureEditor(
+        val feature: com.teja.finfly.domain.model.FireflyFeature,
+        val itemId: String? = null,
+    ) : AppRoute
     @Serializable data object SmsParsing : AppRoute
     @Serializable data class BankRuleEditor(val ruleId: String? = null, val prefillSender: String = "") : AppRoute
     @Serializable data class CategoryRuleEditor(val ruleId: String? = null) : AppRoute

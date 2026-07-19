@@ -112,6 +112,7 @@ class TransactionRepositoryImpl @Inject constructor(
                 destinationId = draft.destinationAccountId,
                 destinationName = draft.destinationAccount.takeIf { draft.destinationAccountId == null && it.isNotBlank() },
                 categoryName = draft.category.takeIf(String::isNotBlank),
+                budgetName = draft.budget.takeIf(String::isNotBlank),
                 tags = draft.tags,
                 notes = draft.notes?.takeIf(String::isNotBlank),
             )
@@ -132,6 +133,7 @@ class TransactionRepositoryImpl @Inject constructor(
                                 destinationId = split.destinationId,
                                 destinationName = split.destinationName,
                                 categoryName = split.categoryName,
+                                budgetName = split.budgetName,
                                 tags = split.tags,
                                 notes = split.notes,
                             )
