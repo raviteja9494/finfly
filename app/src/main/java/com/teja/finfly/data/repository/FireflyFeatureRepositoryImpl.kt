@@ -2,6 +2,7 @@
 package com.teja.finfly.data.repository
 
 import com.teja.finfly.data.network.FireflyApiService
+import com.teja.finfly.data.network.fireflyMessage
 import com.teja.finfly.domain.common.Result
 import com.teja.finfly.domain.model.FireflyFeature
 import com.teja.finfly.domain.model.FireflyFeatureItem
@@ -16,6 +17,8 @@ import com.teja.finfly.data.network.dto.StorePiggyBankRequest
 import com.teja.finfly.data.network.dto.StoreTagRequest
 import com.teja.finfly.data.network.dto.UpdateCategoryRequest
 import com.teja.finfly.data.network.dto.UpdateTagRequest
+import com.teja.finfly.data.network.dto.UpdatePiggyBankRequest
+import com.teja.finfly.data.network.dto.UpdatePiggyBankAccountRequest
 import com.teja.finfly.data.network.dto.StoreRuleRequest
 import com.teja.finfly.data.network.dto.RuleClauseDto
 import com.teja.finfly.domain.model.FireflyRuleClause
@@ -172,7 +175,7 @@ class FireflyFeatureRepositoryImpl @Inject constructor(
             }
         }.fold(
             onSuccess = { Result.Success(it) },
-            onFailure = { Result.Error(it.message ?: SAVE_ERROR, it) },
+            onFailure = { Result.Error(it.fireflyMessage(SAVE_ERROR), it) },
         )
     }
 
@@ -181,7 +184,12 @@ class FireflyFeatureRepositoryImpl @Inject constructor(
         return runCatching {
             when (feature) {
                 FireflyFeature.BUDGETS -> api.getBudget(id).data.attributes.run {
-                    FireflyFeatureDraft.Budget(name, notes.orEmpty(), autoBudgetAmount?.toBigDecimalOrNull(), currencyCode.orEmpty())
+                    FireflyFeatureDraft.Budget(
+                        name,
+                        notes.orEmpty(),
+                        autoBudgetAmount?.toBigDecimalOrNull(),
+                        autoBudgetCurrencyCode ?: currencyCode.orEmpty(),
+                    )
                 }
                 FireflyFeature.CATEGORIES -> api.getCategory(id).data.attributes.run {
                     FireflyFeatureDraft.Category(name, notes.orEmpty())
@@ -254,14 +262,14 @@ class FireflyFeatureRepositoryImpl @Inject constructor(
                 is FireflyFeatureDraft.Bill -> api.updateBill(id, draft.toBillRequest()).data.run {
                     FireflyFeatureItem(id, attributes.name)
                 }
-                is FireflyFeatureDraft.PiggyBank -> api.updatePiggyBank(id, draft.toPiggyBankRequest()).data.run {
+                is FireflyFeatureDraft.PiggyBank -> api.updatePiggyBank(id, draft.toPiggyBankUpdateRequest()).data.run {
                     FireflyFeatureItem(id, attributes.name, progressPercent = attributes.percentage)
                 }
                 is FireflyFeatureDraft.Rule -> api.updateRule(id, draft.toRequest()).data.toItem()
             }
         }.fold(
             onSuccess = { Result.Success(it) },
-            onFailure = { Result.Error(it.message ?: SAVE_ERROR, it) },
+            onFailure = { Result.Error(it.fireflyMessage(SAVE_ERROR), it) },
         )
     }
 
@@ -347,6 +355,15 @@ class FireflyFeatureRepositoryImpl @Inject constructor(
         accounts = listOf(StorePiggyBankAccountRequest(accountId, currentAmount?.toPlainString())),
         targetAmount = targetAmount.toPlainString(),
         currentAmount = currentAmount?.toPlainString(),
+        startDate = startDate.format(DateTimeFormatter.ISO_LOCAL_DATE),
+        targetDate = targetDate?.format(DateTimeFormatter.ISO_LOCAL_DATE),
+        notes = notes.trim().takeIf(String::isNotBlank),
+    )
+
+    private fun FireflyFeatureDraft.PiggyBank.toPiggyBankUpdateRequest() = UpdatePiggyBankRequest(
+        name = name.trim(),
+        accounts = listOf(UpdatePiggyBankAccountRequest(accountId, currentAmount?.toPlainString())),
+        targetAmount = targetAmount.toPlainString(),
         startDate = startDate.format(DateTimeFormatter.ISO_LOCAL_DATE),
         targetDate = targetDate?.format(DateTimeFormatter.ISO_LOCAL_DATE),
         notes = notes.trim().takeIf(String::isNotBlank),

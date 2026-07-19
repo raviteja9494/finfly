@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import com.teja.finfly.domain.common.Result
+import com.teja.finfly.domain.common.isBlankOrIsoCurrencyCode
 import com.teja.finfly.domain.model.TransactionDraft
 import com.teja.finfly.domain.model.TransactionType
 import com.teja.finfly.domain.repository.AccountRepository
@@ -93,7 +94,7 @@ class TransactionEditorViewModel @Inject constructor(
         val trimmed = value.trim()
         if (trimmed.isNotEmpty()) update { copy(selectedTags = selectedTags + trimmed) }
     }
-    fun clearError() = update { copy(error = null) }
+    fun clearError() = update { copy(error = null, errorDetails = null) }
 
     fun save() {
         val state = _uiState.value
@@ -109,6 +110,7 @@ class TransactionEditorViewModel @Inject constructor(
                 TransactionEditorError.REQUIRED_FIELDS
             amount == null || amount <= BigDecimal.ZERO -> TransactionEditorError.INVALID_AMOUNT
             parsedDate == null -> TransactionEditorError.INVALID_DATE
+            !state.currency.isBlankOrIsoCurrencyCode() -> TransactionEditorError.INVALID_CURRENCY
             else -> null
         }
         if (error != null) {
@@ -142,6 +144,7 @@ class TransactionEditorViewModel @Inject constructor(
                     isSaving = false,
                     saved = result is Result.Success,
                     error = if (result is Result.Error) TransactionEditorError.SAVE_FAILED else null,
+                    errorDetails = (result as? Result.Error)?.message,
                 )
             }
         }

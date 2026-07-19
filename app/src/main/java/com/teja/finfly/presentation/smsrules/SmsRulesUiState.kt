@@ -27,7 +27,11 @@ data class OnDemandSmsPreview(
     val id: String,
     val transaction: ParsedTransaction,
     val selected: Boolean = true,
+    val status: SmsPreviewStatus = SmsPreviewStatus.READY,
+    val errorMessage: String? = null,
 )
+
+enum class SmsPreviewStatus { READY, DUPLICATE, PUSHED, FAILED }
 
 enum class OnDemandScanError { INVALID_DATE, INVALID_RANGE, READ_FAILED, PUSH_FAILED }
 

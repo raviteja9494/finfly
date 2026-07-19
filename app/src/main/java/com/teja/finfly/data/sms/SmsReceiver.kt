@@ -11,18 +11,14 @@ import com.teja.finfly.domain.model.ParsedTransaction
 import com.teja.finfly.domain.model.SmsLog
 import com.teja.finfly.domain.model.SmsLogResult
 import com.teja.finfly.domain.model.SmsParseResult
-import com.teja.finfly.domain.model.TransactionDraft
-import com.teja.finfly.domain.model.TransactionType
 import com.teja.finfly.domain.repository.SettingsRepository
 import com.teja.finfly.domain.repository.SmsLogRepository
-import com.teja.finfly.domain.repository.TransactionRepository
 import com.teja.finfly.domain.usecase.SmsParserEngine
+import com.teja.finfly.domain.usecase.SubmitParsedTransactionUseCase
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import java.math.BigDecimal
 import java.time.Clock
-import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
 
@@ -30,7 +26,7 @@ import javax.inject.Inject
 class SmsReceiver : BroadcastReceiver() {
     @Inject lateinit var settingsRepository: SettingsRepository
     @Inject lateinit var parserEngine: SmsParserEngine
-    @Inject lateinit var transactionRepository: TransactionRepository
+    @Inject lateinit var submitParsedTransaction: SubmitParsedTransactionUseCase
     @Inject lateinit var logRepository: SmsLogRepository
     @Inject lateinit var clock: Clock
     @Inject @ApplicationScope lateinit var applicationScope: CoroutineScope
@@ -73,21 +69,7 @@ class SmsReceiver : BroadcastReceiver() {
             )
             return
         }
-        val withdrawal = parsed.type == TransactionType.WITHDRAWAL
-        val result = transactionRepository.saveTransaction(
-            TransactionDraft(
-                type = parsed.type,
-                amount = BigDecimal.valueOf(parsed.amount),
-                description = parsed.description,
-                date = Instant.ofEpochMilli(parsed.timestamp),
-                sourceAccountId = if (withdrawal) parsed.fireflyAccountId.takeIf(String::isNotBlank) else null,
-                sourceAccount = if (withdrawal) parsed.accountName else parsed.description,
-                destinationAccountId = if (!withdrawal) parsed.fireflyAccountId.takeIf(String::isNotBlank) else null,
-                destinationAccount = if (withdrawal) parsed.description else parsed.accountName,
-                category = parsed.category,
-                notes = buildNotes(parsed),
-            )
-        )
+        val result = submitParsedTransaction(parsed)
         log(
             parsed.sender,
             parsed.rawSms,
@@ -97,11 +79,6 @@ class SmsReceiver : BroadcastReceiver() {
             parsed.matchedRule,
         )
     }
-
-    private fun buildNotes(parsed: ParsedTransaction): String = buildList {
-        if (parsed.reference.isNotBlank()) add("Ref: ${parsed.reference}")
-        add("Raw SMS: ${parsed.rawSms}")
-    }.joinToString("\n")
 
     private suspend fun log(
         sender: String,

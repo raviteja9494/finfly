@@ -11,6 +11,9 @@ import com.teja.finfly.domain.repository.RulesTransferRepository
 import com.teja.finfly.domain.repository.SettingsRepository
 import com.teja.finfly.domain.repository.SmsRulesRepository
 import com.teja.finfly.domain.repository.SmsInboxRepository
+import com.teja.finfly.domain.repository.TransactionRepository
+import com.teja.finfly.domain.model.Transaction
+import com.teja.finfly.domain.model.TransactionFilter
 import com.teja.finfly.domain.model.SmsParseResult
 import com.teja.finfly.domain.usecase.SmsParserEngine
 import com.teja.finfly.domain.usecase.SubmitParsedTransactionUseCase
@@ -18,6 +21,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.time.Clock
 import java.time.LocalDate
@@ -34,6 +38,7 @@ class SmsRulesViewModel @Inject constructor(
     private val inboxRepository: SmsInboxRepository,
     private val parserEngine: SmsParserEngine,
     private val submitParsedTransaction: SubmitParsedTransactionUseCase,
+    private val transactionRepository: TransactionRepository,
 ) : ViewModel() {
     private val today = clock.instant().atZone(ZoneId.systemDefault()).toLocalDate()
     private val mutableState = MutableStateFlow(
@@ -135,7 +140,11 @@ class SmsRulesViewModel @Inject constructor(
     fun setScanUntilDate(value: String) = update { copy(scanUntilDate = value, scanError = null) }
     fun clearScanPreview() = update { copy(scanPreview = emptyList(), scanError = null) }
     fun toggleScanPreview(id: String) = update {
-        copy(scanPreview = scanPreview.map { if (it.id == id) it.copy(selected = !it.selected) else it })
+        copy(scanPreview = scanPreview.map {
+            if (it.id == id && it.status != SmsPreviewStatus.PUSHED) {
+                it.copy(selected = !it.selected)
+            } else it
+        })
     }
 
     fun scanInbox() {
@@ -161,9 +170,29 @@ class SmsRulesViewModel @Inject constructor(
             )) {
                 is Result.Error -> update { copy(isScanning = false, scanError = OnDemandScanError.READ_FAILED) }
                 is Result.Success -> {
+                    val existing = transactionRepository.observeTransactions(
+                        TransactionFilter(
+                            from = from.atStartOfDay(zone).toInstant(),
+                            until = until.plusDays(1).atStartOfDay(zone).toInstant(),
+                        ),
+                        limit = MAX_DUPLICATE_CANDIDATES,
+                        offset = 0,
+                    ).first().let { (it as? Result.Success)?.value.orEmpty() }
+                    val seen = mutableSetOf<String>()
                     val previews = result.value.mapNotNull { sms ->
                         when (val parsed = parserEngine.process(sms.sender, sms.message, sms.timestamp)) {
-                            is SmsParseResult.Success -> OnDemandSmsPreview(sms.id, parsed.transaction)
+                            is SmsParseResult.Success -> {
+                                val signature = parsed.transaction.duplicateSignature()
+                                val duplicate = !seen.add(signature) || existing.any {
+                                    it.matchesParsedTransaction(parsed.transaction)
+                                }
+                                OnDemandSmsPreview(
+                                    id = sms.id,
+                                    transaction = parsed.transaction,
+                                    selected = !duplicate,
+                                    status = if (duplicate) SmsPreviewStatus.DUPLICATE else SmsPreviewStatus.READY,
+                                )
+                            }
                             else -> null
                         }
                     }
@@ -180,22 +209,30 @@ class SmsRulesViewModel @Inject constructor(
     }
 
     fun pushSelectedPreview() {
-        val selected = mutableState.value.scanPreview.filter(OnDemandSmsPreview::selected)
+        val selected = mutableState.value.scanPreview.filter {
+            it.selected && it.status != SmsPreviewStatus.PUSHED
+        }
         if (selected.isEmpty() || mutableState.value.isPushingPreview) return
         viewModelScope.launch {
             update { copy(isPushingPreview = true, scanError = null) }
             var pushed = 0
-            var failed = false
             selected.forEach { preview ->
-                when (submitParsedTransaction(preview.transaction)) {
-                    is Result.Success -> pushed++
-                    is Result.Error -> failed = true
+                when (val result = submitParsedTransaction(preview.transaction)) {
+                    is Result.Success -> {
+                        pushed++
+                        updatePreview(preview.id) {
+                            copy(selected = false, status = SmsPreviewStatus.PUSHED, errorMessage = null)
+                        }
+                    }
+                    is Result.Error -> updatePreview(preview.id) {
+                        copy(status = SmsPreviewStatus.FAILED, errorMessage = result.message)
+                    }
                 }
             }
             update {
+                val failed = scanPreview.any { it.status == SmsPreviewStatus.FAILED }
                 copy(
                     isPushingPreview = false,
-                    scanPreview = if (failed) scanPreview else emptyList(),
                     scanError = if (failed) OnDemandScanError.PUSH_FAILED else null,
                     feedback = if (pushed > 0) SmsRulesFeedback.TransactionsPushed(pushed) else feedback,
                 )
@@ -205,5 +242,28 @@ class SmsRulesViewModel @Inject constructor(
 
     private fun update(transform: SmsRulesUiState.() -> SmsRulesUiState) {
         mutableState.value = mutableState.value.transform()
+    }
+
+    private fun updatePreview(id: String, transform: OnDemandSmsPreview.() -> OnDemandSmsPreview) = update {
+        copy(scanPreview = scanPreview.map { if (it.id == id) it.transform() else it })
+    }
+
+    private fun com.teja.finfly.domain.model.ParsedTransaction.duplicateSignature(): String =
+        listOf(sender, rawSms, amount.toString(), timestamp.toString()).joinToString("|").lowercase()
+
+    private fun Transaction.matchesParsedTransaction(
+        parsed: com.teja.finfly.domain.model.ParsedTransaction,
+    ): Boolean {
+        val sameRawSms = notes?.contains(parsed.rawSms, ignoreCase = true) == true
+        val sameReference = parsed.reference.isNotBlank() && notes?.contains(parsed.reference, ignoreCase = true) == true
+        val sameLedgerFields = amount.compareTo(java.math.BigDecimal.valueOf(parsed.amount)) == 0 &&
+            description.equals(parsed.description, ignoreCase = true) &&
+            kotlin.math.abs(date.toEpochMilli() - parsed.timestamp) <= DUPLICATE_TIME_WINDOW_MILLIS
+        return sameRawSms || (sameReference && sameLedgerFields) || sameLedgerFields
+    }
+
+    private companion object {
+        const val MAX_DUPLICATE_CANDIDATES = 5_000
+        const val DUPLICATE_TIME_WINDOW_MILLIS = 120_000L
     }
 }

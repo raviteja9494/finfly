@@ -30,6 +30,7 @@ data class FeatureEditorUiState(
     val isSaving: Boolean = false,
     val saved: Boolean = false,
     val error: FeatureEditorError? = null,
+    val errorDetails: String? = null,
 )
 
 enum class FeatureEditorError {
@@ -37,6 +38,7 @@ enum class FeatureEditorError {
     INVALID_AMOUNT,
     MAXIMUM_BELOW_MINIMUM,
     CURRENCY_REQUIRED,
+    INVALID_CURRENCY,
     INVALID_DATE,
     TARGET_DATE_BEFORE_START,
     ACCOUNT_REQUIRED,

@@ -24,6 +24,8 @@ data class CategoryRule(
     val fireflyCategory: String,
     val priority: Int,
     val enabled: Boolean,
+    val fireflyTags: List<String> = emptyList(),
+    val applyTagsToAll: Boolean = false,
 )
 
 sealed interface SmsParseResult {
@@ -40,6 +42,7 @@ data class ParsedTransaction(
     val accountName: String,
     val fireflyAccountId: String,
     val category: String,
+    val tags: List<String> = emptyList(),
     val rawSms: String,
     val sender: String,
     val timestamp: Long,

@@ -55,7 +55,7 @@ fun TransactionEditorScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
-    val saveFailure = stringResource(R.string.transaction_save_failed)
+    val saveFailure = state.errorDetails ?: stringResource(R.string.transaction_save_failed)
     LaunchedEffect(state.saved) { if (state.saved) onBack() }
     LaunchedEffect(state.error) {
         if (state.error == TransactionEditorError.SAVE_FAILED) {
@@ -136,6 +136,7 @@ private fun EditorForm(
                     onValueChange = viewModel::setCurrency,
                     modifier = Modifier.weight(1f),
                     label = { Text(stringResource(R.string.currency)) },
+                    supportingText = { Text(stringResource(R.string.iso_currency_example)) },
                     singleLine = true,
                 )
             }
@@ -341,6 +342,7 @@ private fun TransactionEditorError.messageResource(): Int = when (this) {
     TransactionEditorError.REQUIRED_FIELDS -> R.string.transaction_required_fields
     TransactionEditorError.INVALID_AMOUNT -> R.string.transaction_invalid_amount
     TransactionEditorError.INVALID_DATE -> R.string.transaction_invalid_date
+    TransactionEditorError.INVALID_CURRENCY -> R.string.invalid_currency_code
     TransactionEditorError.SAVE_FAILED -> R.string.transaction_save_failed
     TransactionEditorError.LOAD_FAILED -> R.string.transaction_load_failed
 }

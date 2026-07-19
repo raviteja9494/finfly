@@ -24,12 +24,14 @@ data class CategoryRuleEditorUiState(
     val priority: String = "100",
     val enabled: Boolean = true,
     val keywords: List<String> = emptyList(),
+    val fireflyTags: List<String> = emptyList(),
+    val applyTagsToAll: Boolean = false,
     val isSaving: Boolean = false,
     val finished: Boolean = false,
     val error: CategoryRuleEditorError? = null,
 )
 
-enum class CategoryRuleEditorError { NAME, CATEGORY, PRIORITY, KEYWORDS, SAVE }
+enum class CategoryRuleEditorError { NAME, TARGET, PRIORITY, KEYWORDS, SAVE }
 
 /** Loads, validates, saves, and deletes one priority-ordered merchant category rule. */
 @HiltViewModel
@@ -68,15 +70,25 @@ class CategoryRuleEditorViewModel @Inject constructor(
         }
     }
     fun removeKeyword(value: String) = update { copy(keywords = keywords - value) }
+    fun addTag(value: String) {
+        value.split(',').map(String::trim).filter(String::isNotBlank).forEach { tag ->
+            update {
+                if (fireflyTags.any { it.equals(tag, true) }) this
+                else copy(fireflyTags = fireflyTags + tag, error = null)
+            }
+        }
+    }
+    fun removeTag(value: String) = update { copy(fireflyTags = fireflyTags - value) }
+    fun setApplyTagsToAll(value: Boolean) = update { copy(applyTagsToAll = value, error = null) }
 
     fun save() {
         val state = mutableState.value
         val priority = state.priority.toIntOrNull()
         val validation = when {
             state.name.isBlank() -> CategoryRuleEditorError.NAME
-            state.fireflyCategory.isBlank() -> CategoryRuleEditorError.CATEGORY
+            state.fireflyCategory.isBlank() && state.fireflyTags.isEmpty() -> CategoryRuleEditorError.TARGET
             priority == null || priority < 0 -> CategoryRuleEditorError.PRIORITY
-            state.keywords.isEmpty() -> CategoryRuleEditorError.KEYWORDS
+            state.keywords.isEmpty() && !state.applyTagsToAll -> CategoryRuleEditorError.KEYWORDS
             else -> null
         }
         if (validation != null) {
@@ -89,6 +101,7 @@ class CategoryRuleEditorViewModel @Inject constructor(
                 CategoryRule(
                     state.id, state.name.trim(), state.keywords,
                     state.fireflyCategory.trim(), priority!!, state.enabled,
+                    state.fireflyTags, state.applyTagsToAll,
                 )
             )
             update {
@@ -116,6 +129,8 @@ class CategoryRuleEditorViewModel @Inject constructor(
             priority = rule.priority.toString(),
             enabled = rule.enabled,
             keywords = rule.keywords,
+            fireflyTags = rule.fireflyTags.orEmpty(),
+            applyTagsToAll = rule.applyTagsToAll,
         )
     }
 

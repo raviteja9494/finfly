@@ -86,6 +86,24 @@ class SmsParserEngineTest {
         assertEquals("SALARY99", result.reference)
     }
 
+    @Test
+    fun `applies matching and global tags`() = runBlocking {
+        val taggedRules = categories + listOf(
+            CategoryRule("merchant-tag", "Delivery", listOf("SWIGGY"), "", 1, true, listOf("delivery")),
+            CategoryRule("global-tag", "Imported", emptyList(), "", 1, true, listOf("parsed"), true),
+        )
+        val taggedEngine = SmsParserEngine(
+            FakeRulesRepository(banks, taggedRules),
+            RuleBasedSmsParserFactory(),
+        )
+        val result = taggedEngine.process(
+            "AD-HDFCBK-S",
+            "A/c debited Rs.100 To SWIGGY On 19-07 Ref ABCDEF123",
+            60L,
+        ).success()
+        assertEquals(listOf("delivery", "parsed"), result.tags)
+    }
+
     private fun SmsParseResult.success() = (this as SmsParseResult.Success).transaction
 
     private class FakeRulesRepository(

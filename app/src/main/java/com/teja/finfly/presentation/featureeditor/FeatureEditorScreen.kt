@@ -195,6 +195,9 @@ fun FeatureEditorScreen(
         state.error?.let { error ->
             item {
                 Text(stringResource(error.messageResource()), color = MaterialTheme.colorScheme.error)
+                state.errorDetails?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                }
             }
         }
         item {
@@ -241,6 +244,7 @@ private fun CurrencyField(value: String, onValueChange: (String) -> Unit) {
         onValueChange = onValueChange,
         modifier = Modifier.fillMaxWidth(),
         label = { Text(stringResource(R.string.currency_code)) },
+        supportingText = { Text(stringResource(R.string.iso_currency_help)) },
         singleLine = true,
     )
 }
@@ -390,6 +394,7 @@ private fun FeatureEditorError.messageResource(): Int = when (this) {
     FeatureEditorError.INVALID_AMOUNT -> R.string.feature_invalid_amount
     FeatureEditorError.MAXIMUM_BELOW_MINIMUM -> R.string.bill_maximum_below_minimum
     FeatureEditorError.CURRENCY_REQUIRED -> R.string.currency_required
+    FeatureEditorError.INVALID_CURRENCY -> R.string.invalid_currency_code
     FeatureEditorError.INVALID_DATE -> R.string.feature_invalid_date
     FeatureEditorError.TARGET_DATE_BEFORE_START -> R.string.target_date_before_start
     FeatureEditorError.ACCOUNT_REQUIRED -> R.string.asset_account_required

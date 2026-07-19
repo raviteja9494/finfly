@@ -204,8 +204,7 @@ private fun FireflyFeature.addLabel(): Int = when (this) {
 @Composable
 private fun formatFeatureAmount(amount: BigDecimal?, currency: String): String {
     if (amount == null) return stringResource(R.string.amount_not_set)
-    return NumberFormat.getCurrencyInstance().run {
-        runCatching { this.currency = Currency.getInstance(currency) }
-        format(amount)
-    }
+    val isoCurrency = runCatching { Currency.getInstance(currency) }.getOrNull()
+    return if (isoCurrency == null) NumberFormat.getNumberInstance().format(amount)
+    else NumberFormat.getCurrencyInstance().run { this.currency = isoCurrency; format(amount) }
 }

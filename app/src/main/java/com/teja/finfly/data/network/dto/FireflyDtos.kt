@@ -83,6 +83,7 @@ data class BudgetAttributes(
     val active: Boolean = true,
     @SerializedName("currency_code") val currencyCode: String? = null,
     @SerializedName("auto_budget_amount") val autoBudgetAmount: String? = null,
+    @SerializedName("auto_budget_currency_code") val autoBudgetCurrencyCode: String? = null,
     @SerializedName("auto_budget_period") val autoBudgetPeriod: String? = null,
     val notes: String? = null,
     val spent: List<CurrencyAmountDto> = emptyList(),
@@ -255,7 +256,6 @@ data class StoreRuleRequest(
 typealias UpdateRuleRequest = StoreRuleRequest
 typealias UpdateBudgetRequest = StoreBudgetRequest
 typealias UpdateBillRequest = StoreBillRequest
-typealias UpdatePiggyBankRequest = StorePiggyBankRequest
 
 data class StoreBillRequest(
     val name: String,
@@ -280,5 +280,19 @@ data class StorePiggyBankRequest(
 
 data class StorePiggyBankAccountRequest(
     val id: String,
+    @SerializedName("current_amount") val currentAmount: String? = null,
+)
+
+data class UpdatePiggyBankRequest(
+    val name: String,
+    val accounts: List<UpdatePiggyBankAccountRequest>,
+    @SerializedName("target_amount") val targetAmount: String,
+    @SerializedName("start_date") val startDate: String,
+    @SerializedName("target_date") val targetDate: String? = null,
+    val notes: String? = null,
+)
+
+data class UpdatePiggyBankAccountRequest(
+    @SerializedName("account_id") val accountId: String,
     @SerializedName("current_amount") val currentAmount: String? = null,
 )

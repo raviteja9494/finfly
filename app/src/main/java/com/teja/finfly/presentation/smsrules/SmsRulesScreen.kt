@@ -166,7 +166,9 @@ fun SmsRulesScreen(
         }
     }
     if (confirmPush) {
-        val count = state.scanPreview.count(OnDemandSmsPreview::selected)
+        val count = state.scanPreview.count {
+            it.selected && it.status != SmsPreviewStatus.PUSHED
+        }
         ConfirmationDialog(
             title = R.string.push_sms_transactions,
             message = stringResource(R.string.push_sms_transactions_message, count),
@@ -348,6 +350,19 @@ private fun CategoryRuleCard(rule: CategoryRule, onClick: () -> Unit, onToggle: 
                     stringResource(R.string.keyword_count, rule.keywords.size),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                if (rule.fireflyCategory.isNotBlank()) Text(
+                    stringResource(R.string.parsed_category_value, rule.fireflyCategory),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                if (rule.fireflyTags.isNotEmpty()) Text(
+                    stringResource(R.string.parsed_tags_value, rule.fireflyTags.joinToString()),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                if (rule.applyTagsToAll) Text(
+                    stringResource(R.string.applies_to_every_transaction),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
             }
             Switch(rule.enabled, onToggle)
         }
@@ -396,7 +411,9 @@ private fun OnDemandScanCard(
                     }
                     Button(
                         onClick = onPush,
-                        enabled = !state.isPushingPreview && state.scanPreview.any(OnDemandSmsPreview::selected),
+                        enabled = !state.isPushingPreview && state.scanPreview.any {
+                            it.selected && it.status != SmsPreviewStatus.PUSHED
+                        },
                         modifier = Modifier.weight(1f),
                     ) {
                         Text(stringResource(if (state.isPushingPreview) R.string.saving else R.string.review_and_push))
@@ -410,22 +427,66 @@ private fun OnDemandScanCard(
 @Composable
 private fun SmsPreviewCard(preview: OnDemandSmsPreview, onToggle: () -> Unit) {
     val transaction = preview.transaction
-    Card(Modifier.fillMaxWidth().clickable(onClick = onToggle)) {
+    val selectable = preview.status != SmsPreviewStatus.PUSHED
+    val category = transaction.category.ifBlank { stringResource(R.string.no_category) }
+    val tags = transaction.tags.joinToString().ifBlank { stringResource(R.string.no_tags) }
+    Card(Modifier.fillMaxWidth().then(if (selectable) Modifier.clickable(onClick = onToggle) else Modifier)) {
         Row(
             Modifier.padding(FinFlyThemeTokens.spacing.medium),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Checkbox(preview.selected, onCheckedChange = { onToggle() })
+            Checkbox(
+                preview.selected,
+                onCheckedChange = if (selectable) { { _: Boolean -> onToggle() } } else null,
+            )
             Column(Modifier.weight(1f)) {
                 Text(transaction.description, style = MaterialTheme.typography.titleMedium)
                 Text(
-                    stringResource(R.string.sms_preview_amount, transaction.amount, transaction.category),
+                    stringResource(R.string.sms_preview_amount_and_type, transaction.amount, transaction.type.name),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Text(transaction.accountName, style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(R.string.parsed_account_value, transaction.accountName), style = MaterialTheme.typography.bodySmall)
+                Text(
+                    stringResource(
+                        R.string.parsed_category_value,
+                        category,
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Text(
+                    stringResource(
+                        R.string.parsed_tags_value,
+                        tags,
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                if (transaction.reference.isNotBlank()) Text(
+                    stringResource(R.string.parsed_reference_value, transaction.reference),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Text(
+                    stringResource(preview.status.labelResource()),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = when (preview.status) {
+                        SmsPreviewStatus.FAILED -> MaterialTheme.colorScheme.error
+                        SmsPreviewStatus.DUPLICATE -> MaterialTheme.colorScheme.tertiary
+                        SmsPreviewStatus.PUSHED -> MaterialTheme.colorScheme.primary
+                        SmsPreviewStatus.READY -> MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+                preview.errorMessage?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                }
             }
         }
     }
+}
+
+private fun SmsPreviewStatus.labelResource(): Int = when (this) {
+    SmsPreviewStatus.READY -> R.string.sms_status_ready
+    SmsPreviewStatus.DUPLICATE -> R.string.sms_status_duplicate
+    SmsPreviewStatus.PUSHED -> R.string.sms_status_pushed
+    SmsPreviewStatus.FAILED -> R.string.sms_status_failed
 }
 
 private fun OnDemandScanError.messageResource(): Int = when (this) {

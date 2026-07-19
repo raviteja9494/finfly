@@ -106,7 +106,10 @@ class SmsRulesRepositoryImpl @Inject constructor(
     private fun BankRule.toEntity() = BankRuleEntity(id, name, enabled, gson.toJson(this), updatedAt)
     private fun BankRuleEntity.toDomain(): BankRule = gson.fromJson(configJson, BankRule::class.java)
     private fun CategoryRule.toEntity() = CategoryRuleEntity(id, name, enabled, priority, gson.toJson(this))
-    private fun CategoryRuleEntity.toDomain(): CategoryRule = gson.fromJson(configJson, CategoryRule::class.java)
+    private fun CategoryRuleEntity.toDomain(): CategoryRule =
+        gson.fromJson(configJson, CategoryRule::class.java).let { rule ->
+            rule.copy(fireflyTags = rule.fireflyTags.orEmpty())
+        }
 
     private fun <T> kotlin.Result<T>.toResult(message: String): Result<T> = fold(
         onSuccess = { Result.Success(it) },

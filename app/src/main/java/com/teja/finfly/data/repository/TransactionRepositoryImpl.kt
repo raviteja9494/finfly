@@ -8,6 +8,7 @@ import com.teja.finfly.data.mapper.toEntities
 import com.teja.finfly.data.mapper.toEntity
 import com.teja.finfly.data.local.entity.TagEntity
 import com.teja.finfly.data.network.FireflyApiService
+import com.teja.finfly.data.network.fireflyMessage
 import com.teja.finfly.data.network.dto.StoreTransactionRequest
 import com.teja.finfly.data.network.dto.StoreTransactionSplit
 import com.teja.finfly.data.network.dto.UpdateTransactionRequest
@@ -151,7 +152,7 @@ class TransactionRepositoryImpl @Inject constructor(
             entities.first().toDomain()
         }.fold(
             onSuccess = { Result.Success(it) },
-            onFailure = { Result.Error(it.message ?: SAVE_ERROR, it) },
+            onFailure = { Result.Error(it.fireflyMessage(SAVE_ERROR), it) },
         )
     }
 

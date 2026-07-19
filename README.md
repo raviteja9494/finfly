@@ -1,6 +1,6 @@
 # FinFly
 
-FinFly is an offline-first Android companion for a self-hosted Firefly III server. Phase 5 adds comprehensive Firefly editing, rule management, richer budget and dashboard ranges, calendar filters, and reviewed on-demand SMS imports while keeping AI disabled.
+FinFly is an offline-first Android companion for a self-hosted Firefly III server. Phase 6 hardens Firefly editing, adds category-and-tag parsing, rich reviewed imports, duplicate protection, and native top-level drawer navigation while keeping AI disabled.
 
 ## Architecture
 
@@ -30,9 +30,9 @@ Every push to `main`, pull request, or manual workflow run executes unit tests, 
 
 Cleartext HTTP is enabled for trusted local-network Firefly installations. Prefer HTTPS outside a private LAN.
 
-## SMS parsing
+## Parsing
 
-SMS processing is off by default. Open **SMS Parsing** from the drawer, grant `RECEIVE_SMS`, map each bank rule to its exact cached Firefly account, and enable the master toggle. The receiver exits immediately while the toggle is off.
+Automatic processing is off by default. Open **Parsing** from the drawer, grant `RECEIVE_SMS`, map each bank rule to its exact cached Firefly account, and enable the master toggle. The receiver exits immediately while the toggle is off.
 
 For an enabled message:
 
@@ -49,7 +49,7 @@ Message text is processed locally. AI and on-device models are not part of Phase
 
 No code or raw regular expression is needed:
 
-1. Open **SMS Parsing** and tap **+** beside Bank Rules.
+1. Open **Parsing** and tap **+** beside Bank Rules.
 2. Enter a name and select the exact Firefly account.
 3. Add sender IDs and debit/credit keywords using the chip fields.
 4. Add friendly patterns such as `Rs.{amount}`, `To {description} On`, and `Ref {ref}`.
@@ -89,7 +89,8 @@ Server URL and bearer-token handling remain centralized in interceptors.
 - Phase 3 fixed search and drawer state, added tags, configurable Dashboard periods and visuals, creation flows, compact transaction controls, and consistent loading/empty/error states.
 - Phase 4 implements JSON-backed BankRule and CategoryRule editing, default Indian-bank rules, placeholder compilation, permission-aware SMS reception, Firefly submission, the capped Room log, JSON merge/replace transfer, and device-versus-UTC display settings.
 - Phase 5 adds edit flows for transactions, accounts, budgets, categories, tags, bills, and piggy banks; Firefly rule browsing/editing; transaction budgets; budget limit-versus-spend cards; independent category-chart periods; calendar date selection; one-month report defaults; and confirmed on-demand SMS previews.
+- Phase 6 validates ISO currencies across editors, uses Firefly's auto-budget currency on edit, corrects piggy-bank update payloads, surfaces server validation details, adds keyword/global tag rules, carries tags into parsed transactions, shows complete preview metadata and per-row push results, detects likely duplicates, and treats drawer destinations as replaceable top-level screens.
 - Reports provide date-range, category, and tag filters with filtered income, spending, net-flow, monthly cash-flow, and top-category summaries from the offline transaction cache.
 - Firefly management includes confirmed deletion for transactions, accounts, budgets, categories, tags, bills, and piggy banks, plus local credential logout.
 
-Deferred after Phase 5: AI rule suggestions, on-device models, advanced report exports/comparisons, and notifications.
+Deferred after Phase 6: notification-listener inputs, AI rule suggestions, on-device models, and advanced report exports/comparisons.

@@ -466,10 +466,14 @@ private fun androidx.navigation.NavOptionsBuilder.configureTabNavigation(startId
 
 private fun NavHostController.navigateDrawerRoute(route: AppRoute) {
     when (route) {
-        AppRoute.Accounts -> navigate(AppRoute.Accounts) { launchSingleTop = true }
-        AppRoute.Settings -> navigate(AppRoute.Settings) { launchSingleTop = true }
-        AppRoute.SmsParsing -> navigate(AppRoute.SmsParsing) { launchSingleTop = true }
-        is AppRoute.FeatureList -> navigate(route)
+        AppRoute.Accounts,
+        AppRoute.Settings,
+        AppRoute.SmsParsing,
+        is AppRoute.FeatureList -> navigate(route) {
+            popUpTo(graph.findStartDestination().id) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
+        }
         else -> Unit
     }
 }

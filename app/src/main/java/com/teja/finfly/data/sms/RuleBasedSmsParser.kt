@@ -37,12 +37,21 @@ class RuleBasedSmsParser(
             ?: return SmsParseResult.Skipped(REASON_DESCRIPTION_NOT_FOUND, message)
         val reference = extract(message, selected.referencePatterns, REFERENCE_TOKEN, REFERENCE_CAPTURE)
             ?.trim().orEmpty()
-        val category = categoryRules.asSequence()
+        val enabledCategoryRules = categoryRules.asSequence()
             .filter(CategoryRule::enabled)
             .sortedBy(CategoryRule::priority)
+            .toList()
+        val category = enabledCategoryRules.asSequence()
             .firstOrNull { rule ->
-                rule.keywords.any { description.contains(it, ignoreCase = true) }
+                rule.fireflyCategory.isNotBlank() && rule.matches(description)
             }?.fireflyCategory.orEmpty()
+        val tags = enabledCategoryRules.asSequence()
+            .filter { it.applyTagsToAll || it.matches(description) }
+            .flatMap { it.fireflyTags.asSequence() }
+            .map(String::trim)
+            .filter(String::isNotBlank)
+            .distinctBy(String::lowercase)
+            .toList()
         return SmsParseResult.Success(
             ParsedTransaction(
                 amount = amount,
@@ -52,6 +61,7 @@ class RuleBasedSmsParser(
                 accountName = selected.accountName,
                 fireflyAccountId = selected.fireflyAccountId,
                 category = category,
+                tags = tags,
                 rawSms = message,
                 sender = sender,
                 timestamp = timestamp,
@@ -82,6 +92,9 @@ class RuleBasedSmsParser(
             else -> TransactionType.DEPOSIT
         }
     }
+
+    private fun CategoryRule.matches(description: String): Boolean =
+        keywords.any { description.contains(it, ignoreCase = true) }
 
     private fun Int.positiveOrMax(): Int = if (this >= 0) this else Int.MAX_VALUE
 

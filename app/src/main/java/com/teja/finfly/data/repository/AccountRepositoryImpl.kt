@@ -6,6 +6,7 @@ import com.teja.finfly.data.local.FinFlyDatabase
 import com.teja.finfly.data.mapper.toDomain
 import com.teja.finfly.data.mapper.toEntity
 import com.teja.finfly.data.network.FireflyApiService
+import com.teja.finfly.data.network.fireflyMessage
 import com.teja.finfly.data.network.dto.StoreAccountRequest
 import com.teja.finfly.data.network.dto.UpdateAccountRequest
 import com.teja.finfly.domain.common.Result
@@ -59,7 +60,7 @@ class AccountRepositoryImpl @Inject constructor(
             entity.toDomain()
         }.fold(
             onSuccess = { Result.Success(it) },
-            onFailure = { Result.Error(it.message ?: SAVE_ERROR, it) },
+            onFailure = { Result.Error(it.fireflyMessage(SAVE_ERROR), it) },
         )
     }
 

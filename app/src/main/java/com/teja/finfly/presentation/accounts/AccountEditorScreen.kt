@@ -70,6 +70,7 @@ fun AccountEditorScreen(
             onValueChange = viewModel::setCurrency,
             modifier = Modifier.fillMaxWidth(),
             label = { Text(stringResource(R.string.currency_optional)) },
+            supportingText = { Text(stringResource(R.string.iso_currency_help)) },
             singleLine = true,
         )
         if (state.accountId == null) {
@@ -82,7 +83,12 @@ fun AccountEditorScreen(
                 singleLine = true,
             )
         }
-        state.error?.let { Text(stringResource(it.messageResource()), color = MaterialTheme.colorScheme.error) }
+        state.error?.let {
+            Text(stringResource(it.messageResource()), color = MaterialTheme.colorScheme.error)
+            state.errorDetails?.let { details ->
+                Text(details, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+            }
+        }
         Button(
             onClick = viewModel::save,
             enabled = !state.isSaving,
@@ -100,6 +106,7 @@ fun AccountEditorScreen(
 private fun AccountEditorError.messageResource(): Int = when (this) {
     AccountEditorError.NAME_REQUIRED -> R.string.account_name_required
     AccountEditorError.INVALID_BALANCE -> R.string.account_invalid_balance
+    AccountEditorError.INVALID_CURRENCY -> R.string.invalid_currency_code
     AccountEditorError.SAVE_FAILED -> R.string.account_save_failed
 }
 

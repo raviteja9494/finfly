@@ -7,6 +7,7 @@ import androidx.navigation.toRoute
 import com.teja.finfly.presentation.navigation.AppRoute
 import androidx.lifecycle.viewModelScope
 import com.teja.finfly.domain.common.Result
+import com.teja.finfly.domain.common.isBlankOrIsoCurrencyCode
 import com.teja.finfly.domain.model.AccountDraft
 import com.teja.finfly.domain.repository.AccountRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -16,7 +17,7 @@ import kotlinx.coroutines.launch
 import java.time.Clock
 import javax.inject.Inject
 
-enum class AccountEditorError { NAME_REQUIRED, INVALID_BALANCE, SAVE_FAILED }
+enum class AccountEditorError { NAME_REQUIRED, INVALID_BALANCE, INVALID_CURRENCY, SAVE_FAILED }
 
 data class AccountEditorUiState(
     val accountId: String? = null,
@@ -28,6 +29,7 @@ data class AccountEditorUiState(
     val isSaving: Boolean = false,
     val saved: Boolean = false,
     val error: AccountEditorError? = null,
+    val errorDetails: String? = null,
 )
 
 /** Validates and submits one account, then lets the UI return to the account list. */
@@ -73,6 +75,7 @@ class AccountEditorViewModel @Inject constructor(
         val balance = state.openingBalance.takeIf(String::isNotBlank)?.toBigDecimalOrNull()
         val error = when {
             state.name.isBlank() -> AccountEditorError.NAME_REQUIRED
+            !state.currency.isBlankOrIsoCurrencyCode() -> AccountEditorError.INVALID_CURRENCY
             state.openingBalance.isNotBlank() && balance == null -> AccountEditorError.INVALID_BALANCE
             else -> null
         }
@@ -97,6 +100,7 @@ class AccountEditorViewModel @Inject constructor(
                     isSaving = false,
                     saved = result is Result.Success,
                     error = if (result is Result.Error) AccountEditorError.SAVE_FAILED else null,
+                    errorDetails = (result as? Result.Error)?.message,
                 )
             }
         }

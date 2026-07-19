@@ -28,6 +28,7 @@ class SubmitParsedTransactionUseCase @Inject constructor(
                 destinationAccountId = if (!withdrawal) parsed.fireflyAccountId.takeIf(String::isNotBlank) else null,
                 destinationAccount = if (withdrawal) parsed.description else parsed.accountName,
                 category = parsed.category,
+                tags = parsed.tags,
                 notes = buildList {
                     if (parsed.reference.isNotBlank()) add("Ref: ${parsed.reference}")
                     add("Raw SMS: ${parsed.rawSms}")

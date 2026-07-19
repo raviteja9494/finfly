@@ -133,7 +133,7 @@ fun CategoryRuleEditorScreen(
         item {
             OutlinedTextField(
                 state.fireflyCategory, viewModel::setCategory, Modifier.fillMaxWidth(),
-                label = { Text(stringResource(R.string.firefly_category_name)) }, singleLine = true,
+                label = { Text(stringResource(R.string.firefly_category_name_optional)) }, singleLine = true,
             )
         }
         item {
@@ -146,6 +146,8 @@ fun CategoryRuleEditorScreen(
         }
         item { ToggleRow(R.string.rule_enabled, state.enabled, viewModel::setEnabled) }
         item { ChipInput(R.string.category_keywords, R.string.category_keywords_hint, state.keywords, viewModel::addKeyword, viewModel::removeKeyword) }
+        item { ChipInput(R.string.firefly_tags, R.string.firefly_tags_hint, state.fireflyTags, viewModel::addTag, viewModel::removeTag) }
+        item { ToggleRow(R.string.apply_tags_to_all, state.applyTagsToAll, viewModel::setApplyTagsToAll) }
         state.error?.let { error -> item { ErrorText(error.messageResource()) } }
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
@@ -280,7 +282,7 @@ private fun BankRuleEditorError.messageResource(): Int = when (this) {
 
 private fun CategoryRuleEditorError.messageResource(): Int = when (this) {
     CategoryRuleEditorError.NAME -> R.string.rule_name_required
-    CategoryRuleEditorError.CATEGORY -> R.string.rule_category_required
+    CategoryRuleEditorError.TARGET -> R.string.rule_category_or_tag_required
     CategoryRuleEditorError.PRIORITY -> R.string.rule_priority_invalid
     CategoryRuleEditorError.KEYWORDS -> R.string.rule_keywords_required
     CategoryRuleEditorError.SAVE -> R.string.rule_save_failed

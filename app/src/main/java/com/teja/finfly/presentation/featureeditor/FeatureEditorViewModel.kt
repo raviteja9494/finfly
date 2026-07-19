@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import com.teja.finfly.domain.common.Result
+import com.teja.finfly.domain.common.isBlankOrIsoCurrencyCode
 import com.teja.finfly.domain.model.AccountGroup
 import com.teja.finfly.domain.model.FireflyFeature
 import com.teja.finfly.domain.model.FireflyFeatureDraft
@@ -122,6 +123,7 @@ class FeatureEditorViewModel @Inject constructor(
                     isSaving = false,
                     saved = result is Result.Success,
                     error = if (result is Result.Error) FeatureEditorError.SAVE_FAILED else null,
+                    errorDetails = (result as? Result.Error)?.message,
                 )
             }
         }
@@ -137,7 +139,9 @@ class FeatureEditorViewModel @Inject constructor(
         }
         return when (feature) {
             FireflyFeature.BUDGETS -> {
-                if (minimumAmount.isNotBlank() && (minimum == null || minimum.signum() <= 0)) {
+                if (!currencyCode.isBlankOrIsoCurrencyCode()) {
+                    invalid(FeatureEditorError.INVALID_CURRENCY)
+                } else if (minimumAmount.isNotBlank() && (minimum == null || minimum.signum() <= 0)) {
                     invalid(FeatureEditorError.INVALID_AMOUNT)
                 } else FireflyFeatureDraft.Budget(name, notes, minimum, currencyCode)
             }
@@ -148,6 +152,7 @@ class FeatureEditorViewModel @Inject constructor(
                     invalid(FeatureEditorError.INVALID_AMOUNT)
                 maximum < minimum -> invalid(FeatureEditorError.MAXIMUM_BELOW_MINIMUM)
                 currencyCode.isBlank() -> invalid(FeatureEditorError.CURRENCY_REQUIRED)
+                !currencyCode.isBlankOrIsoCurrencyCode() -> invalid(FeatureEditorError.INVALID_CURRENCY)
                 start == null -> invalid(FeatureEditorError.INVALID_DATE)
                 else -> FireflyFeatureDraft.Bill(
                     name, notes, minimum, maximum, currencyCode, start, repeatFrequency,
