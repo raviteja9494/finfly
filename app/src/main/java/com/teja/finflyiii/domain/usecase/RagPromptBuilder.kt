@@ -22,9 +22,11 @@ object RagPromptBuilder {
             appendLine("Do not invent balances or transactions. State data limitations plainly.")
             appendLine("For spending, count only rows marked expense; never count income or transfers.")
             appendLine("Respect the requested date period exactly and ignore rows outside it.")
-            appendLine("Calculate totals before answering. Keep currencies separate and show the arithmetic briefly.")
+            appendLine("Keep currencies separate and state the relevant total directly.")
+            appendLine("For general spending totals, use the supplied EXPENSE TOTALS instead of re-summing raw rows.")
             appendLine("Do not echo the transaction dataset or repeat labels, amounts, sentences, or list items.")
-            appendLine("Answer in at most five short bullets, then stop.")
+            appendLine("If the request is casual, answer in one short sentence without finance data.")
+            appendLine("Otherwise answer in at most three short bullets, then stop.")
             appendLine()
             appendLine("CACHED FINANCE DATA")
             appendLine(financeContext)
@@ -39,7 +41,7 @@ object RagPromptBuilder {
             appendLine()
             appendLine("CURRENT QUESTION")
             appendLine(question)
-            append("Answer only the current question directly and keep amounts in the currencies shown in the data.")
+            append("Answer only the current question directly. Never print internal headings or raw cached rows. Keep amounts in the currencies shown in the data.")
         }
         return RagPrompt(
             text = text,
@@ -50,6 +52,6 @@ object RagPromptBuilder {
     }
 
     private const val MAX_HISTORY_MESSAGES = 6
-    private const val MAX_MESSAGE_CHARACTERS = 250
-    private const val MAX_PROMPT_CHARACTERS = 6_000
+    private const val MAX_MESSAGE_CHARACTERS = 80
+    private const val MAX_PROMPT_CHARACTERS = 3_800
 }

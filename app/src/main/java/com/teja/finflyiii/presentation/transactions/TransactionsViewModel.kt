@@ -152,7 +152,7 @@ class TransactionsViewModel @Inject constructor(
     )
 
     private companion object {
-        const val PAGE_SIZE = 25
+        const val PAGE_SIZE = 100
         const val SEARCH_DEBOUNCE_MILLIS = 300L
         const val REPORT_FILTER_SEPARATOR = "\u001F"
     }

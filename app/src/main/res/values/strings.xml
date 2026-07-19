@@ -29,6 +29,8 @@
         <item quantity="one">%1$d transaction found</item>
         <item quantity="other">%1$d transactions found</item>
     </plurals>
+    <string name="transactions_loaded_count">%1$d shown · %2$d found</string>
+    <string name="load_more_transactions">Load more transactions</string>
     <string name="filters">Filters</string>
     <string name="filters_count">Filters (%1$d)</string>
     <string name="filters_active">Filters active</string>

@@ -2,6 +2,8 @@
 package com.teja.finflyiii.domain.usecase
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant
 import java.time.ZoneOffset
@@ -35,5 +37,12 @@ class FinanceContextBuilderTest {
         assertEquals(Instant.parse("2026-06-01T00:00:00Z"), period.from)
         assertEquals(Instant.parse("2026-07-01T00:00:00Z"), period.until)
         assertEquals(30, period.dayCount)
+    }
+
+    @Test
+    fun casualGreetingDoesNotRequireLedgerContext() {
+        assertTrue(FinanceContextBuilder.isCasualQuestion("Hi!"))
+        assertTrue(FinanceContextBuilder.isCasualQuestion("thank you"))
+        assertFalse(FinanceContextBuilder.isCasualQuestion("What did I spend today?"))
     }
 }

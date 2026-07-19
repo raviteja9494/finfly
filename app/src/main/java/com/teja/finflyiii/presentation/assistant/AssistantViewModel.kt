@@ -16,6 +16,7 @@ import com.teja.finflyiii.domain.repository.SettingsRepository
 import com.teja.finflyiii.domain.repository.TransactionRepository
 import com.teja.finflyiii.domain.usecase.FinanceContextBuilder
 import com.teja.finflyiii.domain.usecase.RagPromptBuilder
+import com.teja.finflyiii.domain.usecase.ResponseRepetitionGuard
 import com.teja.finflyiii.domain.common.Result
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Clock
@@ -108,7 +109,9 @@ class AssistantViewModel @Inject constructor(
             val startedAt = clock.millis()
             try {
                 val context = financeContextBuilder.buildContext(snapshot.config, question)
-                if (context.transactionCount == 0) throw NoTransactionsException()
+                if (context.requiresTransactions && context.transactionCount == 0) {
+                    throw NoTransactionsException()
+                }
                 val promptData = RagPromptBuilder.build(context.prompt, previousMessages, question)
                 if (promptData.isTooLarge) throw ContextTooLargeException()
                 mutableState.update {
@@ -119,9 +122,11 @@ class AssistantViewModel @Inject constructor(
                 }
                 var receivedAnyToken = false
                 var responseCharacters = 0
+                val responseText = StringBuilder()
                 val estimatedPromptTokens = FinanceContextBuilder.estimateTokens(promptData.text)
                 val safeResponseTokens = minOf(
                     snapshot.config.maxResponseTokens,
+                    MAX_SAFE_RESPONSE_TOKENS,
                     (MODEL_CONTEXT_TOKENS - estimatedPromptTokens - TOKEN_SAFETY_MARGIN)
                         .coerceAtLeast(MIN_RESPONSE_TOKENS),
                 )
@@ -139,7 +144,11 @@ class AssistantViewModel @Inject constructor(
                                 if (remaining <= 0) throw ResponseLimitReachedException()
                                 val bounded = chunk.text.take(remaining)
                                 appendAssistantText(bounded)
+                                responseText.append(bounded)
                                 responseCharacters += bounded.length
+                                if (ResponseRepetitionGuard.isRunaway(responseText.toString())) {
+                                    throw ResponseLimitReachedException()
+                                }
                                 if (bounded.length < chunk.text.length) throw ResponseLimitReachedException()
                             }
                         }
@@ -150,6 +159,7 @@ class AssistantViewModel @Inject constructor(
                 finishWithError(AssistantError.TIMEOUT, startedAt)
             } catch (_: OutOfMemoryError) {
                 financeAssistant.cancel()
+                runCatching { financeAssistant.reset() }
                 finishWithError(AssistantError.OUT_OF_MEMORY, startedAt)
             } catch (_: NoTransactionsException) {
                 finishWithError(AssistantError.NO_TRANSACTIONS, startedAt)
@@ -161,7 +171,9 @@ class AssistantViewModel @Inject constructor(
             } catch (_: CancellationException) {
                 finishAssistantMessage(mutableState.value.context?.estimatedTokens ?: 0, startedAt)
             } catch (_: Throwable) {
-                finishWithError(AssistantError.MODEL_LOAD, startedAt)
+                financeAssistant.cancel()
+                runCatching { financeAssistant.reset() }
+                finishWithError(AssistantError.GENERATION, startedAt)
             }
         }
     }
@@ -320,8 +332,9 @@ class AssistantViewModel @Inject constructor(
         const val INR_CURRENCY = "INR"
         val LARGE_TRANSACTION_AMOUNT = java.math.BigDecimal("1000")
         const val MAX_CHARACTERS_PER_TOKEN = 6
-        const val MODEL_CONTEXT_TOKENS = 2_048
+        const val MODEL_CONTEXT_TOKENS = 1_536
         const val TOKEN_SAFETY_MARGIN = 128
         const val MIN_RESPONSE_TOKENS = 64
+        const val MAX_SAFE_RESPONSE_TOKENS = 256
     }
 }

@@ -26,7 +26,8 @@ class RagPromptBuilderTest {
         assertFalse(prompt.text.contains("<|im_start|>"))
         assertTrue(prompt.text.contains("count only rows marked expense"))
         assertTrue(prompt.text.contains("Do not echo the transaction dataset"))
-        assertTrue(prompt.text.contains("at most five short bullets"))
+        assertTrue(prompt.text.contains("at most three short bullets"))
+        assertTrue(prompt.text.contains("Never print internal headings or raw cached rows"))
         assertTrue(prompt.historyWasTruncated)
         assertFalse(prompt.isTooLarge)
     }

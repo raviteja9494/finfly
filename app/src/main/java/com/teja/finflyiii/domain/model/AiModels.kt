@@ -34,13 +34,13 @@ sealed interface AiModelState {
 
 /** User-controlled limits for finance context and local response generation. */
 data class AiConfig(
-    val maxTransactions: Int = 50,
+    val maxTransactions: Int = 30,
     val dateRangeDays: Int = 30,
     val includeBalances: Boolean = true,
     val includeCategories: Boolean = true,
     val includeSmsRules: Boolean = false,
-    val temperature: Float = 0.7f,
-    val maxResponseTokens: Int = 512,
+    val temperature: Float = 0.2f,
+    val maxResponseTokens: Int = 256,
 )
 
 /** A bounded, displayable snapshot of the cached finance context sent to the model. */
@@ -50,6 +50,7 @@ data class FinanceContext(
     val transactionCount: Int,
     val dateRangeDays: Int,
     val wasTruncated: Boolean,
+    val requiresTransactions: Boolean,
 )
 
 /** Static information about the active local model provider. */

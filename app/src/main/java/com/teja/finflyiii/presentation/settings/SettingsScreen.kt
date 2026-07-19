@@ -337,7 +337,7 @@ private fun AiSettings(form: SettingsForm, viewModel: SettingsViewModel) {
     )
     ChoiceLabel(R.string.ai_response_tokens)
     Row(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
-        listOf(256, 512, 1024).forEach { tokens ->
+        listOf(128, 256, 512).forEach { tokens ->
             FilterChip(
                 selected = config.maxResponseTokens == tokens,
                 onClick = { viewModel.setAiMaxResponseTokens(tokens) },
@@ -350,8 +350,8 @@ private fun AiSettings(form: SettingsForm, viewModel: SettingsViewModel) {
     Slider(
         value = config.temperature,
         onValueChange = viewModel::setAiTemperature,
-        valueRange = 0.1f..1f,
-        steps = 8,
+        valueRange = 0.1f..0.5f,
+        steps = 3,
     )
     Text(
         stringResource(R.string.ai_private_notice),

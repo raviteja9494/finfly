@@ -122,7 +122,7 @@ class SettingsViewModel @Inject constructor(
     fun setAiIncludeBalances(value: Boolean) = updateAiConfig { copy(includeBalances = value) }
     fun setAiIncludeCategories(value: Boolean) = updateAiConfig { copy(includeCategories = value) }
     fun setAiIncludeSmsRules(value: Boolean) = updateAiConfig { copy(includeSmsRules = value) }
-    fun setAiTemperature(value: Float) = updateAiConfig { copy(temperature = value.coerceIn(0.1f, 1f)) }
+    fun setAiTemperature(value: Float) = updateAiConfig { copy(temperature = value.coerceIn(0.1f, 0.5f)) }
     fun setAiMaxResponseTokens(value: Int) = updateAiConfig { copy(maxResponseTokens = value) }
     fun updateHuggingFaceToken(value: String) {
         form.value = form.value.copy(huggingFaceToken = value)

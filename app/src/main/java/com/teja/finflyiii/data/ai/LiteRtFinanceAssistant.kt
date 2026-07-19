@@ -38,11 +38,23 @@ class LiteRtFinanceAssistant @Inject constructor(
     override fun streamResponse(prompt: String, config: AiConfig): Flow<AssistantResponseChunk> = flow {
         ensureEngine()
         val activeConversation = recreateConversation(config)
-        activeConversation.sendMessageAsync(prompt).collect { partial ->
-            val text = partial.toString()
-            if (text.isNotEmpty()) emit(AssistantResponseChunk(text, false))
+        try {
+            val pendingText = StringBuilder()
+            activeConversation.sendMessageAsync(prompt).collect { partial ->
+                pendingText.append(partial.text)
+                if (pendingText.length >= STREAM_BATCH_CHARACTERS) {
+                    emit(AssistantResponseChunk(pendingText.toString(), false))
+                    pendingText.clear()
+                }
+            }
+            if (pendingText.isNotEmpty()) {
+                emit(AssistantResponseChunk(pendingText.toString(), false))
+            }
+            emit(AssistantResponseChunk("", true))
+        } finally {
+            if (conversation === activeConversation) conversation = null
+            activeConversation.close()
         }
-        emit(AssistantResponseChunk("", true))
     }.flowOn(inferenceDispatcher)
 
     override suspend fun reset() = withContext(inferenceDispatcher) {
@@ -96,7 +108,7 @@ class LiteRtFinanceAssistant @Inject constructor(
                 samplerConfig = SamplerConfig(
                     topK = TOP_K,
                     topP = TOP_P,
-                    temperature = config.temperature.toDouble(),
+                    temperature = config.temperature.coerceAtMost(MAX_TEMPERATURE).toDouble(),
                 )
             )
         ).also { conversation = it }
@@ -105,9 +117,11 @@ class LiteRtFinanceAssistant @Inject constructor(
     private companion object {
         const val MODEL_MISSING_ERROR = "ai_model_missing"
         const val INITIALIZATION_ERROR = "ai_initialization_error"
-        const val MAX_CONTEXT_TOKENS = 2_048
-        const val TOP_K = 64
-        const val TOP_P = 0.95
+        const val MAX_CONTEXT_TOKENS = 1_536
+        const val TOP_K = 20
+        const val TOP_P = 0.9
+        const val MAX_TEMPERATURE = 0.5f
+        const val STREAM_BATCH_CHARACTERS = 32
         const val BYTES_PER_GIGABYTE = 1024.0 * 1024.0 * 1024.0
     }
 }

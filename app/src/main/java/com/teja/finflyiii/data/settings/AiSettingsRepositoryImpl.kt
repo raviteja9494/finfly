@@ -25,14 +25,14 @@ class AiSettingsRepositoryImpl @Inject constructor(
         .catch { emit(androidx.datastore.preferences.core.emptyPreferences()) }
         .map { preferences ->
             AiConfig(
-                maxTransactions = (preferences[MAX_TRANSACTIONS] ?: 50).coerceIn(10, 100),
+                maxTransactions = (preferences[MAX_TRANSACTIONS] ?: 30).coerceIn(10, 100),
                 dateRangeDays = (preferences[DATE_RANGE_DAYS] ?: 30).takeIf { it in SUPPORTED_DAYS } ?: 30,
                 includeBalances = preferences[INCLUDE_BALANCES] ?: true,
                 includeCategories = preferences[INCLUDE_CATEGORIES] ?: true,
                 includeSmsRules = preferences[INCLUDE_SMS_RULES] ?: false,
-                temperature = (preferences[TEMPERATURE] ?: 0.7f).coerceIn(0.1f, 1f),
-                maxResponseTokens = (preferences[MAX_RESPONSE_TOKENS] ?: 512)
-                    .takeIf { it in SUPPORTED_RESPONSE_TOKENS } ?: 512,
+                temperature = (preferences[TEMPERATURE] ?: 0.2f).coerceIn(0.1f, 0.5f),
+                maxResponseTokens = (preferences[MAX_RESPONSE_TOKENS] ?: 256)
+                    .takeIf { it in SUPPORTED_RESPONSE_TOKENS } ?: 256,
             )
         }
 
@@ -51,7 +51,7 @@ class AiSettingsRepositoryImpl @Inject constructor(
             preferences[INCLUDE_BALANCES] = config.includeBalances
             preferences[INCLUDE_CATEGORIES] = config.includeCategories
             preferences[INCLUDE_SMS_RULES] = config.includeSmsRules
-            preferences[TEMPERATURE] = config.temperature.coerceIn(0.1f, 1f)
+            preferences[TEMPERATURE] = config.temperature.coerceIn(0.1f, 0.5f)
             preferences[MAX_RESPONSE_TOKENS] = config.maxResponseTokens
         }
         Result.Success(Unit)
@@ -81,7 +81,7 @@ class AiSettingsRepositoryImpl @Inject constructor(
         val MODEL_DOWNLOADED = booleanPreferencesKey("ai_model_downloaded")
         val HUGGING_FACE_TOKEN = stringPreferencesKey("ai_hugging_face_token")
         val SUPPORTED_DAYS = setOf(7, 30, 90)
-        val SUPPORTED_RESPONSE_TOKENS = setOf(256, 512, 1024)
+        val SUPPORTED_RESPONSE_TOKENS = setOf(128, 256, 512)
         const val SETTINGS_ERROR = "ai_settings_error"
     }
 }

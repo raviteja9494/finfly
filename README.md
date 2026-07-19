@@ -1,6 +1,6 @@
 # FinFly III
 
-FinFly III is an offline-first Android companion for a self-hosted Firefly III server. Phase 7.3 completes the development-time app identity migration while retaining the stable optional on-device Gemma assistant, reusable local model files, and full-history Firefly synchronization.
+FinFly III is an offline-first Android companion for a self-hosted Firefly III server. Phase 7.4 stabilizes on-device Gemma streaming and makes the complete cached transaction timeline easier to browse while retaining reusable local model files and full-history Firefly synchronization.
 
 ## Architecture
 
@@ -112,7 +112,8 @@ Server URL and bearer-token handling remain centralized in interceptors.
 - Phase 7.1 migrates the assistant to Gemma 3 1B and LiteRT-LM, fixes authenticated and complete-file downloads, removes Qwen prompt markers, adds cache-aware suggestions, limits prompt history to three pairs, and supports copying and sharing responses.
 - Phase 7.2 bounds LiteRT responses to prevent runaway generation, adds repetition-resistant finance guidance and exact relative-date context, imports/exports verified local model copies, explains post-download token removal, and changes ordinary synchronization from a 90-day window to the complete Firefly transaction history.
 - Phase 7.3 renames the complete Android identity to FinFly III: visible branding, Gradle project, namespace/application ID (`com.teja.finflyiii`), Kotlin package tree, app-owned storage names, export folder, and CI artifact names.
+- Phase 7.4 reads LiteRT response text through the typed message API, batches UI updates, releases each completed conversation, applies safer factual-generation limits, omits ledger context for casual greetings, and gives Transactions a persistent search/filter toolbar with reliable incremental loading.
 - Reports provide date-range, category, and tag filters with filtered income, spending, net-flow, monthly cash-flow, and top-category summaries from the offline transaction cache.
 - Firefly management includes confirmed deletion for transactions, accounts, budgets, categories, tags, bills, and piggy banks, plus local credential logout.
 
-Deferred after Phase 7.3: notification-listener inputs, AI-assisted parsing-rule suggestions, alternate local model providers, and advanced report exports/comparisons.
+Deferred after Phase 7.4: notification-listener inputs, AI-assisted parsing-rule suggestions, alternate local model providers, and advanced report exports/comparisons.

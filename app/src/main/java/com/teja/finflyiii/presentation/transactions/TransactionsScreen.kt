@@ -2,17 +2,17 @@
 package com.teja.finflyiii.presentation.transactions
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowDropDown
@@ -38,13 +38,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -55,9 +55,9 @@ import com.teja.finflyiii.domain.model.Tag
 import com.teja.finflyiii.presentation.components.EmptyState
 import com.teja.finflyiii.presentation.components.ErrorState
 import com.teja.finflyiii.presentation.components.LoadingState
-import com.teja.finflyiii.presentation.components.LoadingPlaceholder
 import com.teja.finflyiii.presentation.components.TransactionRow
 import com.teja.finflyiii.presentation.theme.FinFlyIIIThemeTokens
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 @Composable
 fun TransactionsScreen(
@@ -91,7 +91,6 @@ fun TransactionsScreen(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun TransactionList(
     state: TransactionsUiState,
@@ -107,31 +106,37 @@ private fun TransactionList(
 ) {
     val spacing = FinFlyIIIThemeTokens.spacing
     val searchFocusRequester = remember { FocusRequester() }
+    val listState = rememberLazyListState()
     var showSearch by rememberSaveable { mutableStateOf(state.searchQuery.isNotEmpty()) }
     var showFilters by rememberSaveable { mutableStateOf(state.activeFilterCount > 0) }
     LaunchedEffect(showSearch) {
         if (showSearch) searchFocusRequester.requestFocus()
     }
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(
-            start = spacing.medium,
-            end = spacing.medium,
-            top = spacing.medium + contentPadding.calculateTopPadding(),
-            bottom = spacing.xLarge + contentPadding.calculateBottomPadding(),
-        ),
-        verticalArrangement = Arrangement.spacedBy(spacing.small),
+    LaunchedEffect(listState, state.transactions.size, state.hasMore) {
+        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0 }
+            .distinctUntilChanged()
+            .collect { lastVisibleIndex ->
+                if (state.hasMore && lastVisibleIndex >= state.transactions.lastIndex - LOAD_MORE_THRESHOLD) {
+                    onLoadMore()
+                }
+            }
+    }
+    Column(
+        modifier = Modifier.fillMaxSize().padding(top = contentPadding.calculateTopPadding()),
     ) {
-        stickyHeader {
-            Surface(color = MaterialTheme.colorScheme.background) {
+        Surface(color = MaterialTheme.colorScheme.background, shadowElevation = 2.dp) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = spacing.medium),
+                verticalArrangement = Arrangement.spacedBy(spacing.xSmall),
+            ) {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(vertical = spacing.xSmall),
                     verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                 ) {
                     Text(
-                        pluralStringResource(
-                            R.plurals.transactions_found,
-                            state.resultCount,
+                        stringResource(
+                            R.string.transactions_loaded_count,
+                            state.transactions.size,
                             state.resultCount,
                         ),
                         style = MaterialTheme.typography.bodyMedium,
@@ -165,81 +170,91 @@ private fun TransactionList(
                         }
                     }
                 }
-            }
-        }
-        if (showSearch) item {
-            OutlinedTextField(
-                value = state.searchQuery,
-                onValueChange = onQueryChange,
-                modifier = Modifier.fillMaxWidth().focusRequester(searchFocusRequester),
-                singleLine = true,
-                label = { Text(stringResource(R.string.search_transactions)) },
-                leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
-                trailingIcon = if (state.searchQuery.isNotEmpty()) {
-                    {
-                        IconButton(onClick = { onQueryChange("") }) {
-                            Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.clear_search))
+                if (showSearch) {
+                    OutlinedTextField(
+                        value = state.searchQuery,
+                        onValueChange = onQueryChange,
+                        modifier = Modifier.fillMaxWidth().focusRequester(searchFocusRequester),
+                        singleLine = true,
+                        label = { Text(stringResource(R.string.search_transactions)) },
+                        leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
+                        trailingIcon = if (state.searchQuery.isNotEmpty()) {
+                            {
+                                IconButton(onClick = { onQueryChange("") }) {
+                                    Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.clear_search))
+                                }
+                            }
+                        } else null,
+                    )
+                }
+                if (showFilters) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(
+                            if (state.activeFilterCount > 0) {
+                                stringResource(R.string.filters_count, state.activeFilterCount)
+                            } else stringResource(R.string.filters),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        if (state.activeFilterCount > 0) {
+                            TextButton(onClick = onClearFilters) { Text(stringResource(R.string.clear_filters)) }
                         }
                     }
-                } else null,
-            )
-        }
-        if (showFilters) item {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(
-                    if (state.activeFilterCount > 0) {
-                        stringResource(R.string.filters_count, state.activeFilterCount)
-                    } else stringResource(R.string.filters),
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                if (state.activeFilterCount > 0) {
-                    TextButton(onClick = onClearFilters) { Text(stringResource(R.string.clear_filters)) }
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = spacing.small),
+                        horizontalArrangement = Arrangement.spacedBy(spacing.small),
+                    ) {
+                        CategoryDropdown(
+                            categories = state.categories,
+                            selected = state.filter.categories.firstOrNull(),
+                            onSelected = onCategorySelected,
+                            modifier = Modifier.weight(1f),
+                        )
+                        TypeDropdown(
+                            selected = state.filter.types.firstOrNull(),
+                            onSelected = onTypeSelected,
+                            modifier = Modifier.weight(1f),
+                        )
+                        TagDropdown(
+                            tags = state.tags,
+                            selected = state.filter.tags.firstOrNull(),
+                            onSelected = onTagSelected,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
                 }
             }
         }
-        if (showFilters) item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(spacing.small),
-            ) {
-                CategoryDropdown(
-                    categories = state.categories,
-                    selected = state.filter.categories.firstOrNull(),
-                    onSelected = onCategorySelected,
-                    modifier = Modifier.weight(1f),
-                )
-                TypeDropdown(
-                    selected = state.filter.types.firstOrNull(),
-                    onSelected = onTypeSelected,
-                    modifier = Modifier.weight(1f),
-                )
-                TagDropdown(
-                    tags = state.tags,
-                    selected = state.filter.tags.firstOrNull(),
-                    onSelected = onTagSelected,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        }
-        when {
-            state.hasError -> item { ErrorState(onRetry = onRetry) }
-            state.transactions.isEmpty() -> item {
-                EmptyState(R.string.no_matching_transactions, R.string.adjust_filters)
-            }
-            else -> itemsIndexed(state.transactions, key = { _, item -> item.id }) { index, transaction ->
-                TransactionRow(
-                    transaction = transaction,
-                    modifier = Modifier.clickable { onTransactionClick(transaction.id) },
-                )
-                if (index >= state.transactions.lastIndex - LOAD_MORE_THRESHOLD) {
-                    LaunchedEffect(state.transactions.size) { onLoadMore() }
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            contentPadding = PaddingValues(
+                start = spacing.medium,
+                end = spacing.medium,
+                top = spacing.medium,
+                bottom = spacing.xLarge + contentPadding.calculateBottomPadding(),
+            ),
+            verticalArrangement = Arrangement.spacedBy(spacing.small),
+        ) {
+            when {
+                state.hasError -> item { ErrorState(onRetry = onRetry) }
+                state.transactions.isEmpty() -> item {
+                    EmptyState(R.string.no_matching_transactions, R.string.adjust_filters)
+                }
+                else -> itemsIndexed(state.transactions, key = { _, item -> item.id }) { _, transaction ->
+                    TransactionRow(
+                        transaction = transaction,
+                        modifier = Modifier.clickable { onTransactionClick(transaction.id) },
+                    )
                 }
             }
-        }
-        if (state.hasMore) item {
-            LoadingPlaceholder(
-                Modifier.fillMaxWidth().height(96.dp).padding(vertical = spacing.small)
-            )
+            if (state.hasMore) item {
+                OutlinedButton(
+                    onClick = onLoadMore,
+                    modifier = Modifier.fillMaxWidth().padding(vertical = spacing.small),
+                ) {
+                    Text(stringResource(R.string.load_more_transactions))
+                }
+            }
         }
     }
 }
@@ -336,4 +351,4 @@ private fun TransactionType.label(): String = stringResource(
     }
 )
 
-private const val LOAD_MORE_THRESHOLD = 4
+private const val LOAD_MORE_THRESHOLD = 8
