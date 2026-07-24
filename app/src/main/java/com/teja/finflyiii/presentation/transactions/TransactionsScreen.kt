@@ -1,6 +1,7 @@
 /* Presentation-layer Compose screen for the compact, filterable transaction timeline. */
 package com.teja.finflyiii.presentation.transactions
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -56,6 +57,7 @@ import com.teja.finflyiii.presentation.components.EmptyState
 import com.teja.finflyiii.presentation.components.ErrorState
 import com.teja.finflyiii.presentation.components.LoadingState
 import com.teja.finflyiii.presentation.components.TransactionRow
+import com.teja.finflyiii.presentation.components.DatePickerField
 import com.teja.finflyiii.presentation.theme.FinFlyIIIThemeTokens
 import kotlinx.coroutines.flow.distinctUntilChanged
 
@@ -82,6 +84,9 @@ fun TransactionsScreen(
             onTypeSelected = viewModel::setType,
             onCategorySelected = viewModel::setCategory,
             onTagSelected = viewModel::setTag,
+            onFromDateSelected = viewModel::setFromDate,
+            onUntilDateSelected = viewModel::setUntilDate,
+            onClearDateRange = viewModel::clearDateRange,
             onClearFilters = viewModel::clearFilters,
             onRetry = viewModel::retry,
             onLoadMore = viewModel::loadMore,
@@ -98,6 +103,9 @@ private fun TransactionList(
     onTypeSelected: (TransactionType?) -> Unit,
     onCategorySelected: (String?) -> Unit,
     onTagSelected: (String?) -> Unit,
+    onFromDateSelected: (String) -> Unit,
+    onUntilDateSelected: (String) -> Unit,
+    onClearDateRange: () -> Unit,
     onClearFilters: () -> Unit,
     onRetry: () -> Unit,
     onLoadMore: () -> Unit,
@@ -143,7 +151,13 @@ private fun TransactionList(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f),
                     )
-                    IconButton(onClick = { showSearch = !showSearch }) {
+                    IconButton(
+                        onClick = {
+                            val opening = !showSearch
+                            showSearch = opening
+                            if (opening) showFilters = false
+                        },
+                    ) {
                         Icon(
                             Icons.Rounded.Search,
                             contentDescription = stringResource(R.string.search_transactions),
@@ -152,7 +166,13 @@ private fun TransactionList(
                             } else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    IconButton(onClick = { showFilters = !showFilters }) {
+                    IconButton(
+                        onClick = {
+                            val opening = !showFilters
+                            showFilters = opening
+                            if (opening) showSearch = false
+                        },
+                    ) {
                         BadgedBox(
                             badge = {
                                 if (state.activeFilterCount > 0) {
@@ -170,7 +190,7 @@ private fun TransactionList(
                         }
                     }
                 }
-                if (showSearch) {
+                AnimatedVisibility(visible = showSearch) {
                     OutlinedTextField(
                         value = state.searchQuery,
                         onValueChange = onQueryChange,
@@ -187,39 +207,73 @@ private fun TransactionList(
                         } else null,
                     )
                 }
-                if (showFilters) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(
+                AnimatedVisibility(visible = showFilters) {
+                    Column {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(
+                                if (state.activeFilterCount > 0) {
+                                    stringResource(R.string.filters_count, state.activeFilterCount)
+                                } else stringResource(R.string.filters),
+                                style = MaterialTheme.typography.titleMedium,
+                            )
                             if (state.activeFilterCount > 0) {
-                                stringResource(R.string.filters_count, state.activeFilterCount)
-                            } else stringResource(R.string.filters),
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-                        if (state.activeFilterCount > 0) {
-                            TextButton(onClick = onClearFilters) { Text(stringResource(R.string.clear_filters)) }
+                                TextButton(onClick = onClearFilters) { Text(stringResource(R.string.clear_filters)) }
+                            }
                         }
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(bottom = spacing.small),
-                        horizontalArrangement = Arrangement.spacedBy(spacing.small),
-                    ) {
-                        CategoryDropdown(
-                            categories = state.categories,
-                            selected = state.filter.categories.firstOrNull(),
-                            onSelected = onCategorySelected,
-                            modifier = Modifier.weight(1f),
-                        )
-                        TypeDropdown(
-                            selected = state.filter.types.firstOrNull(),
-                            onSelected = onTypeSelected,
-                            modifier = Modifier.weight(1f),
-                        )
-                        TagDropdown(
-                            tags = state.tags,
-                            selected = state.filter.tags.firstOrNull(),
-                            onSelected = onTagSelected,
-                            modifier = Modifier.weight(1f),
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(bottom = spacing.small),
+                            horizontalArrangement = Arrangement.spacedBy(spacing.small),
+                        ) {
+                            CategoryDropdown(
+                                categories = state.categories,
+                                selected = state.filter.categories.firstOrNull(),
+                                onSelected = onCategorySelected,
+                                modifier = Modifier.weight(1f),
+                            )
+                            TypeDropdown(
+                                selected = state.filter.types.firstOrNull(),
+                                onSelected = onTypeSelected,
+                                modifier = Modifier.weight(1f),
+                            )
+                            TagDropdown(
+                                tags = state.tags,
+                                selected = state.filter.tags.firstOrNull(),
+                                onSelected = onTagSelected,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                stringResource(R.string.transaction_date_range),
+                                style = MaterialTheme.typography.titleSmall,
+                                modifier = Modifier.weight(1f),
+                            )
+                            if (state.fromDate.isNotEmpty() || state.untilDate.isNotEmpty()) {
+                                TextButton(onClick = onClearDateRange) {
+                                    Text(stringResource(R.string.clear_date_range))
+                                }
+                            }
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(bottom = spacing.small),
+                            horizontalArrangement = Arrangement.spacedBy(spacing.small),
+                        ) {
+                            DatePickerField(
+                                value = state.fromDate,
+                                onValueChange = onFromDateSelected,
+                                label = R.string.report_from_date,
+                                modifier = Modifier.weight(1f),
+                            )
+                            DatePickerField(
+                                value = state.untilDate,
+                                onValueChange = onUntilDateSelected,
+                                label = R.string.report_until_date,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
                     }
                 }
             }

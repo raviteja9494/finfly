@@ -27,6 +27,9 @@ class AiSettingsRepositoryImpl @Inject constructor(
             AiConfig(
                 maxTransactions = (preferences[MAX_TRANSACTIONS] ?: 30).coerceIn(10, 100),
                 dateRangeDays = (preferences[DATE_RANGE_DAYS] ?: 30).takeIf { it in SUPPORTED_DAYS } ?: 30,
+                maxContextCharacters = (preferences[MAX_CONTEXT_CHARACTERS] ?: 2_200)
+                    .takeIf { it in SUPPORTED_CONTEXT_CHARACTERS } ?: 2_200,
+                historyPairs = (preferences[HISTORY_PAIRS] ?: 3).coerceIn(0, 3),
                 includeBalances = preferences[INCLUDE_BALANCES] ?: true,
                 includeCategories = preferences[INCLUDE_CATEGORIES] ?: true,
                 includeSmsRules = preferences[INCLUDE_SMS_RULES] ?: false,
@@ -48,11 +51,15 @@ class AiSettingsRepositoryImpl @Inject constructor(
         dataStore.edit { preferences ->
             preferences[MAX_TRANSACTIONS] = config.maxTransactions.coerceIn(10, 100)
             preferences[DATE_RANGE_DAYS] = config.dateRangeDays
+            preferences[MAX_CONTEXT_CHARACTERS] = config.maxContextCharacters
+                .takeIf { it in SUPPORTED_CONTEXT_CHARACTERS } ?: 2_200
+            preferences[HISTORY_PAIRS] = config.historyPairs.coerceIn(0, 3)
             preferences[INCLUDE_BALANCES] = config.includeBalances
             preferences[INCLUDE_CATEGORIES] = config.includeCategories
             preferences[INCLUDE_SMS_RULES] = config.includeSmsRules
             preferences[TEMPERATURE] = config.temperature.coerceIn(0.1f, 0.5f)
             preferences[MAX_RESPONSE_TOKENS] = config.maxResponseTokens
+                .takeIf { it in SUPPORTED_RESPONSE_TOKENS } ?: 256
         }
         Result.Success(Unit)
     }.getOrElse { Result.Error(it.message ?: SETTINGS_ERROR, it) }
@@ -73,6 +80,8 @@ class AiSettingsRepositoryImpl @Inject constructor(
     private companion object {
         val MAX_TRANSACTIONS = intPreferencesKey("ai_max_transactions")
         val DATE_RANGE_DAYS = intPreferencesKey("ai_date_range_days")
+        val MAX_CONTEXT_CHARACTERS = intPreferencesKey("ai_max_context_characters")
+        val HISTORY_PAIRS = intPreferencesKey("ai_history_pairs")
         val INCLUDE_BALANCES = booleanPreferencesKey("ai_include_balances")
         val INCLUDE_CATEGORIES = booleanPreferencesKey("ai_include_categories")
         val INCLUDE_SMS_RULES = booleanPreferencesKey("ai_include_sms_rules")
@@ -81,7 +90,8 @@ class AiSettingsRepositoryImpl @Inject constructor(
         val MODEL_DOWNLOADED = booleanPreferencesKey("ai_model_downloaded")
         val HUGGING_FACE_TOKEN = stringPreferencesKey("ai_hugging_face_token")
         val SUPPORTED_DAYS = setOf(7, 30, 90)
-        val SUPPORTED_RESPONSE_TOKENS = setOf(128, 256, 512)
+        val SUPPORTED_CONTEXT_CHARACTERS = setOf(1_000, 1_600, 2_200)
+        val SUPPORTED_RESPONSE_TOKENS = setOf(64, 128, 256)
         const val SETTINGS_ERROR = "ai_settings_error"
     }
 }

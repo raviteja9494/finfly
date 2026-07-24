@@ -29,6 +29,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.FlowPreview
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import javax.inject.Inject
 
 /** Owns paging, debounced search, and AND-combined filters while preserving route-provided bounds. */
@@ -43,6 +45,7 @@ class TransactionsViewModel @Inject constructor(
     private val syncFinances: SyncFinancesUseCase,
 ) : ViewModel() {
     private val route = savedStateHandle.toRoute<AppRoute.Transactions>()
+    private val zone = ZoneId.systemDefault()
     private val baseFilter: TransactionFilter = TransactionFilter(
         accountIds = route.accountId?.let(::setOf).orEmpty(),
         categories = route.categories.split(REPORT_FILTER_SEPARATOR).filter(String::isNotBlank).toSet(),
@@ -124,6 +127,38 @@ class TransactionsViewModel @Inject constructor(
 
     fun setTag(value: String?) = updateFilter {
         copy(tags = value?.let(::setOf).orEmpty())
+    }
+
+    fun setFromDate(value: String) {
+        val date = runCatching { LocalDate.parse(value) }.getOrNull() ?: return
+        val selectedFrom = date.atStartOfDay(zone).toInstant()
+        updateFilter {
+            copy(
+                from = selectedFrom,
+                until = until?.let { currentUntil ->
+                    if (currentUntil.isAfter(selectedFrom)) currentUntil
+                    else date.plusDays(1).atStartOfDay(zone).toInstant()
+                },
+            )
+        }
+    }
+
+    fun setUntilDate(value: String) {
+        val date = runCatching { LocalDate.parse(value) }.getOrNull() ?: return
+        val selectedUntil = date.plusDays(1).atStartOfDay(zone).toInstant()
+        updateFilter {
+            copy(
+                from = from?.let { currentFrom ->
+                    if (currentFrom.isBefore(selectedUntil)) currentFrom
+                    else date.atStartOfDay(zone).toInstant()
+                },
+                until = selectedUntil,
+            )
+        }
+    }
+
+    fun clearDateRange() = updateFilter {
+        copy(from = baseFilter.from, until = baseFilter.until)
     }
 
     fun clearFilters() {

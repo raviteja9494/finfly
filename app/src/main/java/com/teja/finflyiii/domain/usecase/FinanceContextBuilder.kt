@@ -58,8 +58,14 @@ class FinanceContextBuilder @Inject constructor(
             if (smsRuleSummary != null) appendSmsRules(smsRuleSummary)
             appendLine("Only transactions inside the included period are present. Say when cached data is insufficient.")
         }
-        val wasTruncated = prompt.length > MAX_CONTEXT_CHARACTERS
-        val boundedPrompt = if (wasTruncated) prompt.take(MAX_CONTEXT_CHARACTERS) + TRUNCATION_MARKER else prompt
+        val contextCharacterLimit = config.maxContextCharacters.coerceIn(
+            MIN_CONTEXT_CHARACTERS,
+            MAX_CONTEXT_CHARACTERS,
+        )
+        val wasTruncated = prompt.length > contextCharacterLimit
+        val boundedPrompt = if (wasTruncated) {
+            prompt.take(contextCharacterLimit) + TRUNCATION_MARKER
+        } else prompt
         return FinanceContext(
             prompt = boundedPrompt,
             estimatedTokens = estimateTokens(boundedPrompt),
@@ -197,6 +203,7 @@ class FinanceContextBuilder @Inject constructor(
     }
 
     companion object {
+        private const val MIN_CONTEXT_CHARACTERS = 1_000
         private const val MAX_CONTEXT_CHARACTERS = 2_200
         private const val MAX_AGGREGATE_TRANSACTIONS = 10_000
         private const val MIN_KEYWORD_LENGTH = 3

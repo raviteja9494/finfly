@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -105,6 +106,67 @@ class SmsParserEngineTest {
             60L,
         ).success()
         assertEquals(listOf("bank-tag", "delivery", "parsed"), result.tags)
+    }
+
+    @Test
+    fun `global test without sender applies categories and every tag source`() = runBlocking {
+        val taggedRules = categories + CategoryRule(
+            "merchant-tag", "Delivery", listOf("SWIGGY"), "", 1, true, listOf("delivery")
+        )
+        val taggedEngine = SmsParserEngine(
+            FakeRulesRepository(
+                banks.map { if (it.name == "HDFC Savings") it.copy(fireflyTags = listOf("bank-tag")) else it },
+                taggedRules,
+                listOf("parsed"),
+            ),
+            RuleBasedSmsParserFactory(),
+        )
+
+        val report = taggedEngine.testAllRules(
+            "",
+            "A/c debited Rs.100 To SWIGGY On 19-07 Ref ABCDEF123",
+            70L,
+        )
+
+        assertTrue(report.inferredSender)
+        assertEquals(1, report.matches.size)
+        assertEquals("HDFC Savings", report.matches.single().matchedRule)
+        assertEquals("Food & Dining", report.matches.single().category)
+        assertEquals(listOf("bank-tag", "delivery", "parsed"), report.matches.single().tags)
+    }
+
+    @Test
+    fun `global test with sender mirrors production rule selection`() = runBlocking {
+        val report = engine.testAllRules(
+            "AD-HDFCBK-S",
+            "A/c debited Rs.100 To SWIGGY On 19-07 Ref ABCDEF123",
+            75L,
+        )
+
+        assertFalse(report.inferredSender)
+        assertEquals(1, report.matches.size)
+        assertEquals("HDFC Savings", report.matches.single().matchedRule)
+    }
+
+    @Test
+    fun `global test reports overlapping bank rules`() = runBlocking {
+        val savings = banks.first { it.name == "HDFC Savings" }
+        val overlappingEngine = SmsParserEngine(
+            FakeRulesRepository(
+                banks + savings.copy(id = "duplicate", name = "Duplicate HDFC"),
+                categories,
+            ),
+            RuleBasedSmsParserFactory(),
+        )
+
+        val report = overlappingEngine.testAllRules(
+            "",
+            "A/c debited Rs.100 To SWIGGY On 19-07 Ref ABCDEF123",
+            80L,
+        )
+
+        assertEquals(2, report.matches.size)
+        assertEquals(setOf("HDFC Savings", "Duplicate HDFC"), report.matches.map { it.matchedRule }.toSet())
     }
 
     private fun SmsParseResult.success() = (this as SmsParseResult.Success).transaction

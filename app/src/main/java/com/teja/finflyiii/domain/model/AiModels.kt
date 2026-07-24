@@ -36,6 +36,8 @@ sealed interface AiModelState {
 data class AiConfig(
     val maxTransactions: Int = 30,
     val dateRangeDays: Int = 30,
+    val maxContextCharacters: Int = 2_200,
+    val historyPairs: Int = 3,
     val includeBalances: Boolean = true,
     val includeCategories: Boolean = true,
     val includeSmsRules: Boolean = false,

@@ -8,11 +8,8 @@ import androidx.navigation.toRoute
 import com.teja.finflyiii.domain.common.Result
 import com.teja.finflyiii.domain.model.Account
 import com.teja.finflyiii.domain.model.BankRule
-import com.teja.finflyiii.domain.model.CategoryRule
-import com.teja.finflyiii.domain.model.SmsParseResult
 import com.teja.finflyiii.domain.repository.AccountRepository
 import com.teja.finflyiii.domain.repository.SmsRulesRepository
-import com.teja.finflyiii.domain.usecase.SmsParserEngine
 import com.teja.finflyiii.presentation.navigation.AppRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,8 +33,6 @@ data class BankRuleEditorUiState(
     val descriptionPatterns: List<String> = emptyList(),
     val referencePatterns: List<String> = emptyList(),
     val fireflyTags: List<String> = emptyList(),
-    val sampleSms: String = "",
-    val testResult: SmsParseResult? = null,
     val isSaving: Boolean = false,
     val finished: Boolean = false,
     val error: BankRuleEditorError? = null,
@@ -45,17 +40,15 @@ data class BankRuleEditorUiState(
 
 enum class BankRuleEditorError { NAME, ACCOUNT, SENDER, KEYWORDS, AMOUNT_PATTERN, DESCRIPTION_PATTERN, SAVE }
 
-/** Loads cached accounts, edits friendly placeholder lists, tests unsaved values, and persists one BankRule. */
+/** Loads cached accounts, edits friendly placeholder lists, and persists one BankRule. */
 @HiltViewModel
 class BankRuleEditorViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val repository: SmsRulesRepository,
     accountRepository: AccountRepository,
-    private val engine: SmsParserEngine,
     private val clock: Clock,
 ) : ViewModel() {
     private val route = savedStateHandle.toRoute<AppRoute.BankRuleEditor>()
-    private var categories: List<CategoryRule> = emptyList()
     private var createdAt = clock.millis()
     private val mutableState = MutableStateFlow(
         BankRuleEditorUiState(
@@ -68,7 +61,6 @@ class BankRuleEditorViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            (repository.getCategoryRules() as? Result.Success)?.value?.let { categories = it }
             route.ruleId?.let { id ->
                 (repository.getBankRules() as? Result.Success)?.value?.firstOrNull { it.id == id }?.let(::load)
             }
@@ -83,7 +75,6 @@ class BankRuleEditorViewModel @Inject constructor(
     fun setName(value: String) = update { copy(name = value, error = null) }
     fun setEnabled(value: Boolean) = update { copy(enabled = value) }
     fun setAccount(value: String) = update { copy(accountId = value, error = null) }
-    fun setSample(value: String) = update { copy(sampleSms = value, testResult = null) }
     fun addSender(value: String) = add(value) { copy(senderIds = senderIds + it) }
     fun removeSender(value: String) = update { copy(senderIds = senderIds - value) }
     fun addDebit(value: String) = add(value) { copy(debitKeywords = debitKeywords + it) }
@@ -106,14 +97,8 @@ class BankRuleEditorViewModel @Inject constructor(
     }
     fun removeTag(value: String) = update { copy(fireflyTags = fireflyTags - value) }
 
-    fun test() {
-        val state = mutableState.value
-        val rule = state.toRule(validateAccount = false) ?: return
-        update { copy(testResult = engine.testRule(rule, sampleSms, categories)) }
-    }
-
     fun save() {
-        val rule = mutableState.value.toRule(validateAccount = true) ?: return
+        val rule = mutableState.value.toRule() ?: return
         viewModelScope.launch {
             update { copy(isSaving = true) }
             val result = repository.saveBankRule(rule)
@@ -148,10 +133,10 @@ class BankRuleEditorViewModel @Inject constructor(
         }
     }
 
-    private fun BankRuleEditorUiState.toRule(validateAccount: Boolean): BankRule? {
+    private fun BankRuleEditorUiState.toRule(): BankRule? {
         val validation = when {
             name.isBlank() -> BankRuleEditorError.NAME
-            validateAccount && accountId.isBlank() -> BankRuleEditorError.ACCOUNT
+            accountId.isBlank() -> BankRuleEditorError.ACCOUNT
             senderIds.isEmpty() -> BankRuleEditorError.SENDER
             debitKeywords.isEmpty() && creditKeywords.isEmpty() -> BankRuleEditorError.KEYWORDS
             amountPatterns.none { it.contains("{amount}") } -> BankRuleEditorError.AMOUNT_PATTERN

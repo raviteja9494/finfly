@@ -35,6 +35,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -61,7 +62,10 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.teja.finflyiii.R
 import com.teja.finflyiii.domain.model.BankRule
 import com.teja.finflyiii.domain.model.CategoryRule
+import com.teja.finflyiii.domain.model.ParsedTransaction
 import com.teja.finflyiii.domain.model.RulesImportMode
+import com.teja.finflyiii.domain.model.SmsParseResult
+import com.teja.finflyiii.domain.model.SmsParserTestReport
 import com.teja.finflyiii.presentation.components.ErrorState
 import com.teja.finflyiii.presentation.components.LoadingState
 import com.teja.finflyiii.presentation.components.DatePickerField
@@ -154,6 +158,10 @@ fun SmsRulesScreen(
                 onOpenLogs = onOpenLogs,
                 onAddUniversalTag = viewModel::addUniversalTag,
                 onRemoveUniversalTag = viewModel::removeUniversalTag,
+                onTestSenderChange = viewModel::setTestSender,
+                onTestMessageChange = viewModel::setTestMessage,
+                onTestParsing = viewModel::testParsing,
+                onClearTest = viewModel::clearParsingTest,
                 onScanFromDate = viewModel::setScanFromDate,
                 onScanUntilDate = viewModel::setScanUntilDate,
                 onScan = {
@@ -226,6 +234,10 @@ private fun SmsRulesContent(
     onOpenLogs: () -> Unit,
     onAddUniversalTag: (String) -> Unit,
     onRemoveUniversalTag: (String) -> Unit,
+    onTestSenderChange: (String) -> Unit,
+    onTestMessageChange: (String) -> Unit,
+    onTestParsing: () -> Unit,
+    onClearTest: () -> Unit,
     onScanFromDate: (String) -> Unit,
     onScanUntilDate: (String) -> Unit,
     onScan: () -> Unit,
@@ -274,6 +286,15 @@ private fun SmsRulesContent(
                     }
                 }
             }
+        }
+        item {
+            ParsingTestCard(
+                state = state,
+                onSenderChange = onTestSenderChange,
+                onMessageChange = onTestMessageChange,
+                onTest = onTestParsing,
+                onClear = onClearTest,
+            )
         }
         item {
             Card(Modifier.fillMaxWidth()) {
@@ -339,6 +360,167 @@ private fun SmsRulesContent(
             }
         }
     }
+}
+
+@Composable
+private fun ParsingTestCard(
+    state: SmsRulesUiState,
+    onSenderChange: (String) -> Unit,
+    onMessageChange: (String) -> Unit,
+    onTest: () -> Unit,
+    onClear: () -> Unit,
+) {
+    val spacing = FinFlyIIIThemeTokens.spacing
+    Card(Modifier.fillMaxWidth()) {
+        Column(
+            Modifier.fillMaxWidth().padding(spacing.medium),
+            verticalArrangement = Arrangement.spacedBy(spacing.small),
+        ) {
+            Text(stringResource(R.string.parsing_test_title), style = MaterialTheme.typography.titleLarge)
+            Text(
+                stringResource(R.string.parsing_test_description),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedTextField(
+                value = state.testSender,
+                onValueChange = onSenderChange,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !state.isTesting,
+                label = { Text(stringResource(R.string.parsing_test_sender)) },
+                supportingText = { Text(stringResource(R.string.parsing_test_sender_help)) },
+                singleLine = true,
+            )
+            OutlinedTextField(
+                value = state.testMessage,
+                onValueChange = onMessageChange,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !state.isTesting,
+                label = { Text(stringResource(R.string.sample_sms)) },
+                minLines = 4,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
+                Button(
+                    onClick = onTest,
+                    enabled = state.testMessage.isNotBlank() && !state.isTesting,
+                ) {
+                    Text(
+                        stringResource(
+                            if (state.isTesting) R.string.parsing_test_running else R.string.parsing_test_action
+                        )
+                    )
+                }
+                if (state.testMessage.isNotBlank() || state.testReport != null) {
+                    OutlinedButton(onClick = onClear, enabled = !state.isTesting) {
+                        Text(stringResource(R.string.parsing_test_clear))
+                    }
+                }
+            }
+            state.testReport?.let { ParsingTestReport(it) }
+            Text(
+                stringResource(R.string.parsing_test_no_changes),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ParsingTestReport(report: SmsParserTestReport) {
+    val spacing = FinFlyIIIThemeTokens.spacing
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.small)) {
+        Text(
+            stringResource(
+                R.string.parsing_test_checked,
+                report.checkedBankRules,
+                report.checkedCategoryRules,
+                report.universalTagCount,
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (report.inferredSender) {
+            Text(
+                stringResource(R.string.parsing_test_inferred_sender),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.tertiary,
+            )
+        }
+        if (report.matches.size > 1) {
+            Text(
+                stringResource(R.string.parsing_test_multiple_matches, report.matches.size),
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.titleSmall,
+            )
+        }
+        if (report.matches.isNotEmpty()) {
+            report.matches.forEach { ParsingCandidate(it) }
+        } else {
+            report.closestRuleName?.let {
+                Text(stringResource(R.string.parsing_test_closest_rule, it))
+            }
+            when (val result = report.result) {
+                is SmsParseResult.Skipped -> Text(
+                    stringResource(result.reason.parsingReasonResource()),
+                    color = MaterialTheme.colorScheme.error,
+                )
+                is SmsParseResult.NoRuleMatched -> Text(
+                    stringResource(R.string.no_rule_matched),
+                    color = MaterialTheme.colorScheme.error,
+                )
+                is SmsParseResult.Success -> Unit
+            }
+        }
+    }
+}
+
+@Composable
+private fun ParsingCandidate(transaction: ParsedTransaction) {
+    val spacing = FinFlyIIIThemeTokens.spacing
+    val none = stringResource(R.string.parsing_test_none)
+    val account = transaction.accountName.ifBlank {
+        transaction.fireflyAccountId.ifBlank { none }
+    }
+    val category = transaction.category.ifBlank { none }
+    val tags = transaction.tags.joinToString().ifBlank { none }
+    Card(Modifier.fillMaxWidth()) {
+        Column(
+            Modifier.fillMaxWidth().padding(spacing.small),
+            verticalArrangement = Arrangement.spacedBy(spacing.xSmall),
+        ) {
+            Text(
+                stringResource(R.string.parsing_test_matched_rule, transaction.matchedRule),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Text(stringResource(R.string.parsing_test_account, account))
+            Text(stringResource(R.string.rule_test_amount, transaction.amount))
+            Text(stringResource(R.string.rule_test_type, transaction.type.name))
+            Text(stringResource(R.string.rule_test_description, transaction.description))
+            if (transaction.reference.isNotBlank()) {
+                Text(stringResource(R.string.rule_test_reference, transaction.reference))
+            }
+            Text(
+                stringResource(
+                    R.string.rule_test_category,
+                    category,
+                )
+            )
+            Text(
+                stringResource(
+                    R.string.parsing_test_tags,
+                    tags,
+                )
+            )
+        }
+    }
+}
+
+private fun String.parsingReasonResource(): Int = when (this) {
+    "type_not_found" -> R.string.parse_type_not_found
+    "amount_not_found" -> R.string.parse_amount_not_found
+    "description_not_found" -> R.string.parse_description_not_found
+    "rules_unavailable" -> R.string.parsing_test_rules_unavailable
+    else -> R.string.rule_test_failed
 }
 
 @Composable

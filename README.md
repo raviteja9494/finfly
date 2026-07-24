@@ -43,13 +43,15 @@ The Hugging Face token is used only for the initial model download. It may be re
 
 The runtime is `com.google.ai.edge.litertlm:litertlm-android:0.14.0` from Google Maven. LiteRT-LM is available as a stable Android package, so the MediaPipe `tasks-genai:0.10.27` fallback is not used. Engine initialization runs on a dedicated background dispatcher with the CPU backend for broad device compatibility.
 
-`FinanceContextBuilder` reads only the existing Room-backed repository streams and applies the saved transaction count, date range, balance, category, and parsing-rule limits. Today, this-month, and last-month questions use exact calendar bounds. Spending totals use withdrawals only and keep currencies separate. Chat history stays in memory, is capped at 20 user/assistant pairs, and is cleared when the process ends. Each prompt includes only the latest three pairs. FinFly III bounds streamed output against the remaining LiteRT context window, cancels runaway generation at that boundary, and gives Gemma explicit anti-repetition guidance. No prompt or response is sent to a hosted AI provider.
+`FinanceContextBuilder` reads only the existing Room-backed repository streams and applies the saved transaction count, date range, context-text window, balance, category, parsing-rule, and conversation-history limits. Today, this-month, and last-month questions use exact calendar bounds. Spending totals use withdrawals only and keep currencies separate. Chat history stays in memory, is capped at 20 user/assistant pairs, and is cleared when the process ends. Settings can include zero to three recent pairs in each prompt. FinFly III bounds streamed output against the remaining LiteRT context window, cancels runaway generation at that boundary, and gives Gemma explicit anti-repetition guidance. No prompt or response is sent to a hosted AI provider.
 
 Presentation and domain code depend on the `FinanceAssistant` interface. To replace LiteRT-LM later, add another implementation, bind it in `AiModule`, and leave the chat ViewModel and UI unchanged.
 
 ## Parsing
 
 Automatic processing is off by default. Open **Parsing** from the drawer, grant `RECEIVE_SMS`, map each bank rule to its exact cached Firefly account, and enable the master toggle. The receiver exits immediately while the toggle is off.
+
+The shared **Test parsing** panel runs pasted text through all saved enabled bank rules, category rules, bank/category tags, and universal tags without creating a transaction. Enter the real sender ID to mirror production selection exactly, or leave it blank to try every configured bank sender and reveal overlapping matches.
 
 For an enabled message:
 

@@ -35,6 +35,17 @@ sealed interface SmsParseResult {
     data class NoRuleMatched(val sms: String, val sender: String) : SmsParseResult
 }
 
+/** Non-destructive result of testing text against the complete saved parsing configuration. */
+data class SmsParserTestReport(
+    val result: SmsParseResult,
+    val matches: List<ParsedTransaction>,
+    val inferredSender: Boolean,
+    val checkedBankRules: Int,
+    val checkedCategoryRules: Int,
+    val universalTagCount: Int,
+    val closestRuleName: String? = null,
+)
+
 data class ParsedTransaction(
     val amount: Double,
     val type: TransactionType,

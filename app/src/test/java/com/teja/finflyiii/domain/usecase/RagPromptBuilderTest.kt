@@ -31,4 +31,23 @@ class RagPromptBuilderTest {
         assertTrue(prompt.historyWasTruncated)
         assertFalse(prompt.isTooLarge)
     }
+
+    @Test
+    fun promptRespectsConfiguredConversationHistoryPairs() {
+        val messages = (1..3).flatMap { index ->
+            listOf(
+                ChatMessage(id = "u$index", role = ChatRole.USER, content = "question $index"),
+                ChatMessage(id = "a$index", role = ChatRole.ASSISTANT, content = "answer $index"),
+            )
+        }
+
+        val onePair = RagPromptBuilder.build("cached data", messages, "Current?", historyPairs = 1)
+        val noHistory = RagPromptBuilder.build("cached data", messages, "Current?", historyPairs = 0)
+
+        assertFalse(onePair.text.contains("question 2"))
+        assertTrue(onePair.text.contains("question 3"))
+        assertTrue(onePair.text.contains("answer 3"))
+        assertFalse(noHistory.text.contains("RECENT CONVERSATION"))
+        assertFalse(noHistory.text.contains("question 3"))
+    }
 }

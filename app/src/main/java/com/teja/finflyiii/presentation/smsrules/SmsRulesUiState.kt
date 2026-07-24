@@ -5,6 +5,7 @@ import com.teja.finflyiii.domain.model.BankRule
 import com.teja.finflyiii.domain.model.CategoryRule
 import com.teja.finflyiii.domain.model.RulesConfig
 import com.teja.finflyiii.domain.model.ParsedTransaction
+import com.teja.finflyiii.domain.model.SmsParserTestReport
 
 data class SmsRulesUiState(
     val loading: Boolean = true,
@@ -13,6 +14,10 @@ data class SmsRulesUiState(
     val bankRules: List<BankRule> = emptyList(),
     val categoryRules: List<CategoryRule> = emptyList(),
     val universalTags: List<String> = emptyList(),
+    val testSender: String = "",
+    val testMessage: String = "",
+    val testReport: SmsParserTestReport? = null,
+    val isTesting: Boolean = false,
     val busy: Boolean = false,
     val importPreview: RulesConfig? = null,
     val feedback: SmsRulesFeedback? = null,

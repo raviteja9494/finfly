@@ -18,7 +18,6 @@ import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -46,7 +45,6 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.teja.finflyiii.R
 import com.teja.finflyiii.domain.model.Account
-import com.teja.finflyiii.domain.model.SmsParseResult
 import com.teja.finflyiii.presentation.theme.FinFlyIIIThemeTokens
 
 @Composable
@@ -81,22 +79,6 @@ fun BankRuleEditorScreen(
         item { ChipInput(R.string.description_patterns, R.string.description_pattern_hint, state.descriptionPatterns, viewModel::addDescription, viewModel::removeDescription) }
         item { ChipInput(R.string.reference_patterns, R.string.reference_pattern_hint, state.referencePatterns, viewModel::addReference, viewModel::removeReference) }
         item { ChipInput(R.string.firefly_tags, R.string.firefly_tags_hint, state.fireflyTags, viewModel::addTag, viewModel::removeTag) }
-        item {
-            Text(stringResource(R.string.test_this_rule), style = MaterialTheme.typography.titleLarge)
-            OutlinedTextField(
-                state.sampleSms,
-                viewModel::setSample,
-                Modifier.fillMaxWidth().padding(top = spacing.small),
-                label = { Text(stringResource(R.string.sample_sms)) },
-                minLines = 4,
-            )
-            OutlinedButton(
-                onClick = viewModel::test,
-                enabled = state.sampleSms.isNotBlank(),
-                modifier = Modifier.padding(top = spacing.small),
-            ) { Text(stringResource(R.string.test_rule)) }
-        }
-        state.testResult?.let { result -> item { TestResultCard(result) } }
         state.error?.let { error -> item { ErrorText(error.messageResource()) } }
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
@@ -242,30 +224,6 @@ internal fun ChipInput(
 }
 
 @Composable
-private fun TestResultCard(result: SmsParseResult) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(
-            Modifier.padding(FinFlyIIIThemeTokens.spacing.medium),
-            verticalArrangement = Arrangement.spacedBy(FinFlyIIIThemeTokens.spacing.xSmall),
-        ) {
-            when (result) {
-                is SmsParseResult.Success -> {
-                    val transaction = result.transaction
-                    Text(stringResource(R.string.rule_test_matched), style = MaterialTheme.typography.titleMedium)
-                    Text(stringResource(R.string.rule_test_amount, transaction.amount))
-                    Text(stringResource(R.string.rule_test_type, transaction.type.name))
-                    Text(stringResource(R.string.rule_test_description, transaction.description))
-                    Text(stringResource(R.string.rule_test_reference, transaction.reference))
-                    Text(stringResource(R.string.rule_test_category, transaction.category))
-                }
-                is SmsParseResult.Skipped -> Text(stringResource(result.reason.reasonResource()))
-                is SmsParseResult.NoRuleMatched -> Text(stringResource(R.string.no_rule_matched))
-            }
-        }
-    }
-}
-
-@Composable
 private fun ErrorText(message: Int) {
     Text(stringResource(message), color = MaterialTheme.colorScheme.error)
 }
@@ -286,11 +244,4 @@ private fun CategoryRuleEditorError.messageResource(): Int = when (this) {
     CategoryRuleEditorError.PRIORITY -> R.string.rule_priority_invalid
     CategoryRuleEditorError.KEYWORDS -> R.string.rule_keywords_required
     CategoryRuleEditorError.SAVE -> R.string.rule_save_failed
-}
-
-private fun String.reasonResource(): Int = when (this) {
-    "type_not_found" -> R.string.parse_type_not_found
-    "amount_not_found" -> R.string.parse_amount_not_found
-    "description_not_found" -> R.string.parse_description_not_found
-    else -> R.string.rule_test_failed
 }

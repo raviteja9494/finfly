@@ -307,6 +307,41 @@ private fun AiSettings(form: SettingsForm, viewModel: SettingsViewModel) {
         valueRange = 10f..100f,
         steps = 8,
     )
+    ChoiceLabel(R.string.ai_context_text_window)
+    Text(
+        stringResource(R.string.ai_context_text_window_description),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Row(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
+        listOf(1_000, 1_600, 2_200).forEach { characters ->
+            FilterChip(
+                selected = config.maxContextCharacters == characters,
+                onClick = { viewModel.setAiMaxContextCharacters(characters) },
+                label = { Text(stringResource(R.string.ai_context_characters, characters)) },
+            )
+        }
+    }
+    ChoiceLabel(R.string.ai_conversation_history)
+    Text(
+        stringResource(R.string.ai_conversation_history_description),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Row(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
+        (0..3).forEach { pairs ->
+            FilterChip(
+                selected = config.historyPairs == pairs,
+                onClick = { viewModel.setAiHistoryPairs(pairs) },
+                label = {
+                    Text(
+                        if (pairs == 0) stringResource(R.string.ai_history_off)
+                        else pairs.toString()
+                    )
+                },
+            )
+        }
+    }
     ChoiceLabel(R.string.ai_date_range)
     Row(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
         listOf(7, 30, 90).forEach { days ->
@@ -337,7 +372,7 @@ private fun AiSettings(form: SettingsForm, viewModel: SettingsViewModel) {
     )
     ChoiceLabel(R.string.ai_response_tokens)
     Row(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
-        listOf(128, 256, 512).forEach { tokens ->
+        listOf(64, 128, 256).forEach { tokens ->
             FilterChip(
                 selected = config.maxResponseTokens == tokens,
                 onClick = { viewModel.setAiMaxResponseTokens(tokens) },

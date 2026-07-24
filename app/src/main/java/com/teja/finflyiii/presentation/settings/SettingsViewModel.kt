@@ -119,6 +119,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setAiMaxTransactions(value: Int) = updateAiConfig { copy(maxTransactions = value.coerceIn(10, 100)) }
     fun setAiDateRangeDays(value: Int) = updateAiConfig { copy(dateRangeDays = value) }
+    fun setAiMaxContextCharacters(value: Int) = updateAiConfig {
+        copy(maxContextCharacters = value.coerceIn(1_000, 2_200))
+    }
+    fun setAiHistoryPairs(value: Int) = updateAiConfig { copy(historyPairs = value.coerceIn(0, 3)) }
     fun setAiIncludeBalances(value: Boolean) = updateAiConfig { copy(includeBalances = value) }
     fun setAiIncludeCategories(value: Boolean) = updateAiConfig { copy(includeCategories = value) }
     fun setAiIncludeSmsRules(value: Boolean) = updateAiConfig { copy(includeSmsRules = value) }

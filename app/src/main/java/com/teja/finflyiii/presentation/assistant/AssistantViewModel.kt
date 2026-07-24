@@ -112,7 +112,12 @@ class AssistantViewModel @Inject constructor(
                 if (context.requiresTransactions && context.transactionCount == 0) {
                     throw NoTransactionsException()
                 }
-                val promptData = RagPromptBuilder.build(context.prompt, previousMessages, question)
+                val promptData = RagPromptBuilder.build(
+                    context.prompt,
+                    previousMessages,
+                    question,
+                    snapshot.config.historyPairs,
+                )
                 if (promptData.isTooLarge) throw ContextTooLargeException()
                 mutableState.update {
                     it.copy(

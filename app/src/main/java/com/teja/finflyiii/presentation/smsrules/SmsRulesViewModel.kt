@@ -107,6 +107,26 @@ class SmsRulesViewModel @Inject constructor(
         viewModelScope.launch { repository.saveUniversalTags(updated) }
     }
 
+    fun setTestSender(value: String) = update { copy(testSender = value, testReport = null) }
+    fun setTestMessage(value: String) = update { copy(testMessage = value, testReport = null) }
+    fun clearParsingTest() = update {
+        copy(testSender = "", testMessage = "", testReport = null, isTesting = false)
+    }
+
+    fun testParsing() {
+        val state = mutableState.value
+        if (state.testMessage.isBlank() || state.isTesting) return
+        viewModelScope.launch {
+            update { copy(isTesting = true, testReport = null) }
+            val report = parserEngine.testAllRules(
+                sender = state.testSender,
+                message = state.testMessage,
+                timestamp = clock.millis(),
+            )
+            update { copy(isTesting = false, testReport = report) }
+        }
+    }
+
     fun exportRules() {
         viewModelScope.launch {
             update { copy(busy = true) }

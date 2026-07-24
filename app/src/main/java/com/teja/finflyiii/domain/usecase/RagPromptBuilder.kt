@@ -12,9 +12,15 @@ data class RagPrompt(
 
 /** Builds a structured plain-text prompt that LiteRT-LM formats for Gemma internally. */
 object RagPromptBuilder {
-    fun build(financeContext: String, history: List<ChatMessage>, question: String): RagPrompt {
+    fun build(
+        financeContext: String,
+        history: List<ChatMessage>,
+        question: String,
+        historyPairs: Int = DEFAULT_HISTORY_PAIRS,
+    ): RagPrompt {
         val allConversationMessages = history.filter { it.role != ChatRole.SYSTEM }
-        val recentMessages = allConversationMessages.takeLast(MAX_HISTORY_MESSAGES)
+        val historyMessageLimit = historyPairs.coerceIn(0, MAX_HISTORY_PAIRS) * MESSAGES_PER_PAIR
+        val recentMessages = allConversationMessages.takeLast(historyMessageLimit)
         val text = buildString {
             appendLine("ROLE")
             appendLine("You are FinFly III, a concise personal finance assistant.")
@@ -51,7 +57,9 @@ object RagPromptBuilder {
         )
     }
 
-    private const val MAX_HISTORY_MESSAGES = 6
+    private const val DEFAULT_HISTORY_PAIRS = 3
+    private const val MAX_HISTORY_PAIRS = 3
+    private const val MESSAGES_PER_PAIR = 2
     private const val MAX_MESSAGE_CHARACTERS = 80
     private const val MAX_PROMPT_CHARACTERS = 3_800
 }
