@@ -5,6 +5,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.math.BigDecimal
 import java.time.Instant
 import java.time.ZoneOffset
 
@@ -15,6 +16,13 @@ class FinanceContextBuilderTest {
         assertEquals(1, FinanceContextBuilder.estimateTokens("abc"))
         assertEquals(1, FinanceContextBuilder.estimateTokens("abcd"))
         assertEquals(2, FinanceContextBuilder.estimateTokens("abcde"))
+    }
+
+    @Test
+    fun formatAmountRemovesFireflyStorageScaleWithoutRounding() {
+        assertEquals("1989", FinanceContextBuilder.formatAmount(BigDecimal("1989.0000000000")))
+        assertEquals("54", FinanceContextBuilder.formatAmount(BigDecimal("54.000000000000")))
+        assertEquals("12.5", FinanceContextBuilder.formatAmount(BigDecimal("12.5000000000")))
     }
 
     @Test

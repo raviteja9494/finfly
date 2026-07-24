@@ -12,9 +12,9 @@ import com.teja.finflyiii.domain.repository.AccountRepository
 import com.teja.finflyiii.domain.repository.SmsRulesRepository
 import com.teja.finflyiii.domain.repository.TransactionRepository
 import java.time.Clock
-import java.time.ZoneId
 import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import javax.inject.Inject
@@ -54,7 +54,7 @@ class FinanceContextBuilder @Inject constructor(
             appendLine("Cached transactions in period: ${allTransactions.size}")
             appendExpenseTotals(allTransactions)
             if (includeCategories) appendCategoryTotals(allTransactions)
-            appendTransactions(detailTransactions)
+            appendTransactions(detailTransactions, zone)
             if (smsRuleSummary != null) appendSmsRules(smsRuleSummary)
             appendLine("Only transactions inside the included period are present. Say when cached data is insufficient.")
         }
@@ -123,7 +123,7 @@ class FinanceContextBuilder @Inject constructor(
         appendLine("\nACCOUNTS")
         if (accounts.isEmpty()) appendLine("No cached accounts.")
         accounts.take(MAX_ACCOUNT_LINES).forEach {
-            appendLine("- ${it.name.promptSafe(MAX_FIELD_CHARACTERS)}: ${it.balance.toPlainString()} ${it.currency} (${it.type})")
+            appendLine("- ${it.name.promptSafe(MAX_FIELD_CHARACTERS)}: ${formatAmount(it.balance)} ${it.currency} (${it.type})")
         }
     }
 
@@ -137,7 +137,7 @@ class FinanceContextBuilder @Inject constructor(
             .entries.sortedByDescending { it.value }
         if (totals.isEmpty()) appendLine("No categorized transactions.")
         totals.take(MAX_CATEGORY_LINES).forEach { (key, total) ->
-            appendLine("- ${key.first.promptSafe(MAX_FIELD_CHARACTERS)}: ${total.toPlainString()} ${key.second}")
+            appendLine("- ${key.first.promptSafe(MAX_FIELD_CHARACTERS)}: ${formatAmount(total)} ${key.second}")
         }
     }
 
@@ -151,28 +151,35 @@ class FinanceContextBuilder @Inject constructor(
             }
         if (totals.isEmpty()) appendLine("No expenses in this period.")
         totals.toSortedMap().forEach { (currency, total) ->
-            appendLine("- $currency: ${total.toPlainString()}")
+            appendLine("- $currency: ${formatAmount(total)}")
         }
     }
 
-    private fun StringBuilder.appendTransactions(transactions: List<Transaction>) {
+    private fun StringBuilder.appendTransactions(transactions: List<Transaction>, zone: ZoneId) {
         appendLine("\nTRANSACTION DETAILS")
         if (transactions.isEmpty()) appendLine("No cached transactions in this period.")
         transactions.forEach { transaction ->
-            val date = DATE_FORMAT.format(transaction.date.atZone(ZoneId.systemDefault()))
+            val date = DATE_FORMAT.format(transaction.date.atZone(zone))
             val kind = when (transaction.type) {
                 TransactionType.WITHDRAWAL -> "expense"
                 TransactionType.DEPOSIT -> "income"
                 TransactionType.TRANSFER -> "transfer"
             }
-            append("- $date | $kind | ")
-            append("${transaction.amount.abs().toPlainString()} ${transaction.currency} | ${transaction.description.promptSafe(MAX_DESCRIPTION_CHARACTERS)}")
-            if (transaction.category.isNotBlank()) append(" | category=${transaction.category.promptSafe(MAX_FIELD_CHARACTERS)}")
-            if (transaction.budget.isNotBlank()) append(" | budget=${transaction.budget.promptSafe(MAX_FIELD_CHARACTERS)}")
-            if (transaction.tags.isNotEmpty()) {
-                append(" | tags=${transaction.tags.take(MAX_TAGS_PER_TRANSACTION).joinToString { it.promptSafe(MAX_FIELD_CHARACTERS) }}")
+            val details = buildList {
+                add(kind)
+                if (transaction.category.isNotBlank()) {
+                    add(transaction.category.promptSafe(MAX_FIELD_CHARACTERS))
+                }
+                if (transaction.budget.isNotBlank()) {
+                    add("budget: ${transaction.budget.promptSafe(MAX_FIELD_CHARACTERS)}")
+                }
+                transaction.tags.firstNotNullOfOrNull { tag ->
+                    tag.lowercase().takeIf(PAYMENT_CHANNEL_TAGS::contains)
+                }?.let(::add)
             }
-            appendLine()
+            append("- $date: ${transaction.description.promptSafe(MAX_DESCRIPTION_CHARACTERS)}")
+            append(" — ${formatAmount(transaction.amount.abs())} ${transaction.currency}")
+            appendLine(" (${details.joinToString()}).")
         }
     }
 
@@ -211,7 +218,6 @@ class FinanceContextBuilder @Inject constructor(
         private const val MIN_KEYWORD_LENGTH = 3
         private const val MAX_ACCOUNT_LINES = 20
         private const val MAX_CATEGORY_LINES = 12
-        private const val MAX_TAGS_PER_TRANSACTION = 5
         private const val MAX_DESCRIPTION_CHARACTERS = 80
         private const val MAX_FIELD_CHARACTERS = 40
         private const val TRUNCATION_MARKER = "\n[Context truncated to fit the on-device model.]"
@@ -242,9 +248,16 @@ class FinanceContextBuilder @Inject constructor(
             "bank rule", "category rule", "parsing", "sms rule",
             "tag rule",
         )
+        private val PAYMENT_CHANNEL_TAGS = setOf(
+            "atm", "card", "cash", "imps", "neft", "netbanking", "rtgs", "upi",
+        )
 
         /** Fast conservative estimate suitable for displaying prompt size without loading the model. */
         fun estimateTokens(text: String): Int = (text.length + 3) / 4
+
+        /** Removes Firefly's storage-scale zeroes while preserving the exact monetary value. */
+        internal fun formatAmount(amount: java.math.BigDecimal): String =
+            amount.stripTrailingZeros().toPlainString()
 
         internal fun isCasualQuestion(question: String): Boolean {
             val normalized = question.lowercase()
