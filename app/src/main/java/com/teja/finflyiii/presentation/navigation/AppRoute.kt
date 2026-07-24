@@ -27,6 +27,7 @@ sealed interface AppRoute {
     @Serializable data object SmsParsing : AppRoute
     @Serializable data class BankRuleEditor(val ruleId: String? = null, val prefillSender: String = "") : AppRoute
     @Serializable data class CategoryRuleEditor(val ruleId: String? = null) : AppRoute
+    @Serializable data class TagRuleEditor(val ruleId: String? = null) : AppRoute
     @Serializable data object SmsLogs : AppRoute
     @Serializable data class SmsLogDetail(val id: String) : AppRoute
 }

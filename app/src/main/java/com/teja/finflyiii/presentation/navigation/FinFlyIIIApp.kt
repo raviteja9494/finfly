@@ -83,6 +83,7 @@ import com.teja.finflyiii.presentation.transactions.TransactionsScreen
 import com.teja.finflyiii.presentation.smsrules.SmsRulesScreen
 import com.teja.finflyiii.presentation.smsrules.BankRuleEditorScreen
 import com.teja.finflyiii.presentation.smsrules.CategoryRuleEditorScreen
+import com.teja.finflyiii.presentation.smsrules.TagRuleEditorScreen
 import com.teja.finflyiii.presentation.smsrules.SmsLogsScreen
 import com.teja.finflyiii.presentation.smsrules.SmsLogDetailScreen
 import kotlinx.coroutines.launch
@@ -221,6 +222,8 @@ fun FinFlyIIIApp(viewModel: AppShellViewModel = hiltViewModel()) {
                         onEditBankRule = { navController.navigate(AppRoute.BankRuleEditor(it)) },
                         onAddCategoryRule = { navController.navigate(AppRoute.CategoryRuleEditor()) },
                         onEditCategoryRule = { navController.navigate(AppRoute.CategoryRuleEditor(it)) },
+                        onAddTagRule = { navController.navigate(AppRoute.TagRuleEditor()) },
+                        onEditTagRule = { navController.navigate(AppRoute.TagRuleEditor(it)) },
                         onOpenLogs = { navController.navigate(AppRoute.SmsLogs) },
                     )
                 }
@@ -229,6 +232,9 @@ fun FinFlyIIIApp(viewModel: AppShellViewModel = hiltViewModel()) {
                 }
                 composable<AppRoute.CategoryRuleEditor> {
                     CategoryRuleEditorScreen(onBack = navController::popBackStack)
+                }
+                composable<AppRoute.TagRuleEditor> {
+                    TagRuleEditorScreen(onBack = navController::popBackStack)
                 }
                 composable<AppRoute.SmsLogs> {
                     SmsLogsScreen(onLogClick = { navController.navigate(AppRoute.SmsLogDetail(it)) })
@@ -407,6 +413,7 @@ private fun destinationTitle(entry: NavBackStackEntry?): String {
         destination?.hasRoute<AppRoute.SmsParsing>() == true -> R.string.drawer_sms_parsing
         destination?.hasRoute<AppRoute.BankRuleEditor>() == true -> R.string.edit_bank_rule
         destination?.hasRoute<AppRoute.CategoryRuleEditor>() == true -> R.string.edit_category_rule
+        destination?.hasRoute<AppRoute.TagRuleEditor>() == true -> R.string.edit_tag_rule
         destination?.hasRoute<AppRoute.SmsLogs>() == true -> R.string.sms_log
         destination?.hasRoute<AppRoute.SmsLogDetail>() == true -> R.string.sms_log_details
         else -> R.string.app_name
@@ -440,6 +447,7 @@ private fun NavBackStackEntry?.matches(route: AppRoute): Boolean = when (route) 
         destination.hasRoute<AppRoute.SmsParsing>() ||
             destination.hasRoute<AppRoute.BankRuleEditor>() ||
             destination.hasRoute<AppRoute.CategoryRuleEditor>() ||
+            destination.hasRoute<AppRoute.TagRuleEditor>() ||
             destination.hasRoute<AppRoute.SmsLogs>() ||
             destination.hasRoute<AppRoute.SmsLogDetail>()
     } == true

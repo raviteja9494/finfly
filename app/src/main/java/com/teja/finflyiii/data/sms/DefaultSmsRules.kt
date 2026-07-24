@@ -3,6 +3,8 @@ package com.teja.finflyiii.data.sms
 
 import com.teja.finflyiii.domain.model.BankRule
 import com.teja.finflyiii.domain.model.CategoryRule
+import com.teja.finflyiii.domain.model.TagRule
+import com.teja.finflyiii.domain.model.TagRuleSource
 
 object DefaultSmsRules {
     fun bankRules(now: Long): List<BankRule> = listOf(
@@ -64,6 +66,38 @@ object DefaultSmsRules {
             "TIRUMALA", "TIRUPATI", "TEMPLE", "DONATION"),
     )
 
+    fun tagRules(): List<TagRule> = listOf(
+        tag(
+            "20000000-0000-4000-8000-000000000001",
+            "UPI channel",
+            TagRuleSource.FULL_SMS,
+            listOf("UPI", "VPA"),
+            "upi",
+        ),
+        tag(
+            "20000000-0000-4000-8000-000000000002",
+            "Card channel",
+            TagRuleSource.FULL_SMS,
+            listOf("credit card", "debit card", "card ending", "POS", "E-COM", "ECOM"),
+            "card",
+            listOf("UPI", "VPA"),
+        ),
+        tag(
+            "20000000-0000-4000-8000-000000000003",
+            "Debit type",
+            TagRuleSource.TRANSACTION_TYPE,
+            listOf("withdrawal"),
+            "debit",
+        ),
+        tag(
+            "20000000-0000-4000-8000-000000000004",
+            "Credit type",
+            TagRuleSource.TRANSACTION_TYPE,
+            listOf("deposit"),
+            "credit",
+        ),
+    )
+
     private fun bank(
         id: String, name: String, senders: List<String>, debit: List<String>, credit: List<String>,
         amounts: List<String>, descriptions: List<String>, references: List<String>, now: Long,
@@ -71,4 +105,13 @@ object DefaultSmsRules {
 
     private fun category(id: String, name: String, priority: Int, vararg keywords: String) =
         CategoryRule(id, name, keywords.toList(), name, priority, true)
+
+    private fun tag(
+        id: String,
+        name: String,
+        source: TagRuleSource,
+        keywords: List<String>,
+        fireflyTag: String,
+        excludeKeywords: List<String> = emptyList(),
+    ) = TagRule(id, name, true, source, keywords, listOf(fireflyTag), excludeKeywords)
 }

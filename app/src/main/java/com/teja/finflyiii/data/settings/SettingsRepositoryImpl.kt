@@ -28,6 +28,7 @@ import javax.inject.Singleton
 @Singleton
 class SettingsRepositoryImpl @Inject constructor(
     private val dataStore: DataStore<Preferences>,
+    private val credentialCipher: CredentialCipher,
     @ApplicationScope scope: CoroutineScope,
 ) : SettingsRepository {
     override val settings: StateFlow<AppSettings> = dataStore.data
@@ -35,7 +36,7 @@ class SettingsRepositoryImpl @Inject constructor(
         .map { preferences ->
             AppSettings(
                 serverUrl = preferences[SERVER_URL].orEmpty(),
-                bearerToken = preferences[BEARER_TOKEN].orEmpty(),
+                bearerToken = credentialCipher.decryptOrEmpty(preferences[BEARER_TOKEN].orEmpty()),
                 lastSyncTime = preferences[LAST_SYNC]?.let(Instant::ofEpochMilli),
                 showNetWorthSummary = preferences[SHOW_NET_WORTH] ?: false,
                 recentTransactionsCount = preferences[RECENT_TRANSACTION_COUNT]
@@ -61,7 +62,7 @@ class SettingsRepositoryImpl @Inject constructor(
     override suspend fun save(serverUrl: String, bearerToken: String): Result<Unit> = runCatching {
         dataStore.edit { preferences ->
             preferences[SERVER_URL] = serverUrl
-            preferences[BEARER_TOKEN] = bearerToken
+            preferences[BEARER_TOKEN] = credentialCipher.encrypt(bearerToken)
         }
         Result.Success(Unit)
     }.getOrElse { Result.Error(it.message ?: it.javaClass.simpleName, it) }

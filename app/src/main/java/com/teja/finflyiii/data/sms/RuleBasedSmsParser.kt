@@ -5,6 +5,8 @@ import com.teja.finflyiii.domain.model.BankRule
 import com.teja.finflyiii.domain.model.CategoryRule
 import com.teja.finflyiii.domain.model.ParsedTransaction
 import com.teja.finflyiii.domain.model.SmsParseResult
+import com.teja.finflyiii.domain.model.TagRule
+import com.teja.finflyiii.domain.model.TagRuleSource
 import com.teja.finflyiii.domain.model.TransactionType
 import com.teja.finflyiii.domain.sms.SmsParser
 import com.teja.finflyiii.domain.sms.SmsParserFactory
@@ -14,6 +16,7 @@ import javax.inject.Singleton
 class RuleBasedSmsParser(
     private val bankRules: List<BankRule>,
     private val categoryRules: List<CategoryRule>,
+    private val tagRules: List<TagRule> = emptyList(),
     private val universalTags: List<String> = emptyList(),
 ) : SmsParser {
     override fun canParse(sender: String, message: String): Boolean = matchingRules(sender).isNotEmpty()
@@ -49,7 +52,17 @@ class RuleBasedSmsParser(
         val categoryTags = enabledCategoryRules.asSequence()
             .filter { it.matches(description) }
             .flatMap { it.fireflyTags.orEmpty().asSequence() }
-        val tags = (selected.fireflyTags.orEmpty().asSequence() + categoryTags + universalTags.asSequence())
+        val matchedTagRules = tagRules.asSequence()
+            .filter(TagRule::enabled)
+            .filter { it.matches(message, sender, description, type) }
+            .toList()
+        val dynamicTags = matchedTagRules.asSequence().flatMap { it.fireflyTags.asSequence() }
+        val tags = (
+            selected.fireflyTags.orEmpty().asSequence() +
+                categoryTags +
+                dynamicTags +
+                universalTags.asSequence()
+            )
             .map(String::trim)
             .filter(String::isNotBlank)
             .distinctBy(String::lowercase)
@@ -68,6 +81,7 @@ class RuleBasedSmsParser(
                 sender = sender,
                 timestamp = timestamp,
                 matchedRule = selected.name,
+                matchedTagRules = matchedTagRules.map(TagRule::name),
             )
         )
     }
@@ -97,6 +111,38 @@ class RuleBasedSmsParser(
 
     private fun CategoryRule.matches(description: String): Boolean =
         keywords.any { description.contains(it, ignoreCase = true) }
+
+    private fun TagRule.matches(
+        message: String,
+        sender: String,
+        description: String,
+        type: TransactionType,
+    ): Boolean {
+        val value = when (source) {
+            TagRuleSource.FULL_SMS -> message
+            TagRuleSource.DESCRIPTION -> description
+            TagRuleSource.SENDER -> sender
+            TagRuleSource.TRANSACTION_TYPE -> when (type) {
+                TransactionType.WITHDRAWAL -> "withdrawal debit"
+                TransactionType.DEPOSIT -> "deposit credit"
+                TransactionType.TRANSFER -> "transfer"
+            }
+        }
+        return keywords.any { value.containsTagKeyword(it) } &&
+            excludeKeywords.none { value.containsTagKeyword(it) }
+    }
+
+    private fun String.containsTagKeyword(keyword: String): Boolean {
+        val trimmed = keyword.trim()
+        if (trimmed.isEmpty()) return false
+        val shortWord = trimmed.length <= 3 && trimmed.all { it.isLetterOrDigit() }
+        return if (shortWord) {
+            Regex(
+                "(?<![A-Za-z0-9])${Regex.escape(trimmed)}(?![A-Za-z0-9])",
+                RegexOption.IGNORE_CASE,
+            ).containsMatchIn(this)
+        } else contains(trimmed, ignoreCase = true)
+    }
 
     private fun Int.positiveOrMax(): Int = if (this >= 0) this else Int.MAX_VALUE
 
@@ -136,6 +182,7 @@ class RuleBasedSmsParserFactory @Inject constructor() : SmsParserFactory {
     override fun create(
         bankRules: List<BankRule>,
         categoryRules: List<CategoryRule>,
+        tagRules: List<TagRule>,
         universalTags: List<String>,
-    ): SmsParser = RuleBasedSmsParser(bankRules, categoryRules, universalTags)
+    ): SmsParser = RuleBasedSmsParser(bankRules, categoryRules, tagRules, universalTags)
 }

@@ -7,6 +7,8 @@ import com.google.ai.edge.litertlm.Conversation
 import com.google.ai.edge.litertlm.ConversationConfig
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
+import com.google.ai.edge.litertlm.Message
+import com.google.ai.edge.litertlm.MessageCallback
 import com.google.ai.edge.litertlm.SamplerConfig
 import com.teja.finflyiii.domain.assistant.FinanceAssistant
 import com.teja.finflyiii.domain.model.AiConfig
@@ -19,6 +21,7 @@ import java.util.concurrent.Executors
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
@@ -38,9 +41,28 @@ class LiteRtFinanceAssistant @Inject constructor(
     override fun streamResponse(prompt: String, config: AiConfig): Flow<AssistantResponseChunk> = flow {
         ensureEngine()
         val activeConversation = recreateConversation(config)
+        val responses = Channel<Message>(Channel.UNLIMITED)
         try {
             val pendingText = StringBuilder()
-            activeConversation.sendMessageAsync(prompt).collect { partial ->
+            // Own the Flow bridge: LiteRT-LM 0.14's Flow overload crashes in its onDone callback
+            // when paired with the app's coroutine runtime.
+            activeConversation.sendMessageAsync(
+                prompt,
+                object : MessageCallback {
+                    override fun onMessage(message: Message) {
+                        responses.trySend(message)
+                    }
+
+                    override fun onDone() {
+                        responses.close(null)
+                    }
+
+                    override fun onError(throwable: Throwable) {
+                        responses.close(throwable)
+                    }
+                },
+            )
+            for (partial in responses) {
                 pendingText.append(partial.toString())
                 if (pendingText.length >= STREAM_BATCH_CHARACTERS) {
                     emit(AssistantResponseChunk(pendingText.toString(), false))
@@ -52,6 +74,7 @@ class LiteRtFinanceAssistant @Inject constructor(
             }
             emit(AssistantResponseChunk("", true))
         } finally {
+            responses.close(null)
             if (conversation === activeConversation) conversation = null
             activeConversation.close()
         }

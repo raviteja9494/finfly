@@ -20,6 +20,7 @@ import javax.inject.Singleton
 @Singleton
 class AiSettingsRepositoryImpl @Inject constructor(
     private val dataStore: DataStore<Preferences>,
+    private val credentialCipher: CredentialCipher,
 ) : AiSettingsRepository {
     override val config: Flow<AiConfig> = dataStore.data
         .catch { emit(androidx.datastore.preferences.core.emptyPreferences()) }
@@ -45,7 +46,7 @@ class AiSettingsRepositoryImpl @Inject constructor(
 
     override val huggingFaceToken: Flow<String> = dataStore.data
         .catch { emit(androidx.datastore.preferences.core.emptyPreferences()) }
-        .map { it[HUGGING_FACE_TOKEN].orEmpty() }
+        .map { credentialCipher.decryptOrEmpty(it[HUGGING_FACE_TOKEN].orEmpty()) }
 
     override suspend fun saveConfig(config: AiConfig): Result<Unit> = runCatching {
         dataStore.edit { preferences ->
@@ -72,7 +73,7 @@ class AiSettingsRepositoryImpl @Inject constructor(
     override suspend fun saveHuggingFaceToken(token: String): Result<Unit> = runCatching {
         dataStore.edit { preferences ->
             if (token.isBlank()) preferences.remove(HUGGING_FACE_TOKEN)
-            else preferences[HUGGING_FACE_TOKEN] = token.trim()
+            else preferences[HUGGING_FACE_TOKEN] = credentialCipher.encrypt(token.trim())
         }
         Result.Success(Unit)
     }.getOrElse { Result.Error(it.message ?: SETTINGS_ERROR, it) }

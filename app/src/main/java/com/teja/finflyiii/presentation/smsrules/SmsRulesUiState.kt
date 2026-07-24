@@ -6,6 +6,7 @@ import com.teja.finflyiii.domain.model.CategoryRule
 import com.teja.finflyiii.domain.model.RulesConfig
 import com.teja.finflyiii.domain.model.ParsedTransaction
 import com.teja.finflyiii.domain.model.SmsParserTestReport
+import com.teja.finflyiii.domain.model.TagRule
 
 data class SmsRulesUiState(
     val loading: Boolean = true,
@@ -13,6 +14,7 @@ data class SmsRulesUiState(
     val enabled: Boolean = false,
     val bankRules: List<BankRule> = emptyList(),
     val categoryRules: List<CategoryRule> = emptyList(),
+    val tagRules: List<TagRule> = emptyList(),
     val universalTags: List<String> = emptyList(),
     val testSender: String = "",
     val testMessage: String = "",
@@ -43,7 +45,7 @@ enum class OnDemandScanError { INVALID_DATE, INVALID_RANGE, READ_FAILED, PUSH_FA
 
 sealed interface SmsRulesFeedback {
     data class Exported(val path: String) : SmsRulesFeedback
-    data class Imported(val banks: Int, val categories: Int) : SmsRulesFeedback
+    data class Imported(val banks: Int, val categories: Int, val tags: Int) : SmsRulesFeedback
     data object ExportFailed : SmsRulesFeedback
     data object ImportFailed : SmsRulesFeedback
     data class ScanComplete(val count: Int) : SmsRulesFeedback

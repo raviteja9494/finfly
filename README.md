@@ -51,7 +51,7 @@ Presentation and domain code depend on the `FinanceAssistant` interface. To repl
 
 Automatic processing is off by default. Open **Parsing** from the drawer, grant `RECEIVE_SMS`, map each bank rule to its exact cached Firefly account, and enable the master toggle. The receiver exits immediately while the toggle is off.
 
-The shared **Test parsing** panel runs pasted text through all saved enabled bank rules, category rules, bank/category tags, and universal tags without creating a transaction. Enter the real sender ID to mirror production selection exactly, or leave it blank to try every configured bank sender and reveal overlapping matches.
+The shared **Test parsing** panel runs pasted text through all saved enabled bank rules, category rules, dynamic tag rules, bank/category tags, and universal tags without creating a transaction. Enter the real sender ID to mirror production selection exactly, or leave it blank to try every configured bank sender and reveal overlapping matches.
 
 For an enabled message:
 
@@ -59,8 +59,10 @@ For an enabled message:
 2. Friendly debit and credit keywords determine transaction type.
 3. `{amount}`, `{description}`, and `{ref}` placeholders extract transaction fields.
 4. Enabled category rules are checked by ascending priority.
-5. The existing `TransactionRepository` creates the Firefly withdrawal or deposit.
-6. Success, skipped, and unmatched outcomes enter the capped 100-row SMS log.
+5. Dynamic tag rules match the full SMS, parsed description, sender ID, or transaction type.
+6. Bank, category, dynamic, and universal tags are combined case-insensitively.
+7. The existing `TransactionRepository` creates the Firefly withdrawal or deposit.
+8. Success, skipped, and unmatched outcomes enter the capped 100-row SMS log.
 
 Message text is processed locally. AI and on-device models are not part of Phase 4.
 
@@ -72,8 +74,8 @@ No code or raw regular expression is needed:
 2. Enter a name and select the exact Firefly account.
 3. Add sender IDs and debit/credit keywords using the chip fields.
 4. Add friendly patterns such as `Rs.{amount}`, `To {description} On`, and `Ref {ref}`.
-5. Paste a real message into **Test this rule** and verify the parsed result.
-6. Save and enable the rule.
+5. Save and enable the rule.
+6. Paste a real message into the shared **Test parsing** panel and verify the complete result.
 
 Text outside placeholders is treated literally. Built-in starting rules cover HDFC Savings, HDFC Credit Card, ICICI Savings, and Edge CSB/Jupiter. New banks require only a new rule.
 
@@ -81,14 +83,18 @@ Text outside placeholders is treated literally. Built-in starting rules cover HD
 
 Category rules match merchant descriptions case-insensitively. Lower priority numbers run first. The Firefly category name must match the server exactly. Default rules cover food, groceries, transport, health, shopping, bills, finance, and gifts.
 
+## Dynamic tag rules
+
+Dynamic tag rules add Firefly tags when any configured keyword matches a selected source: full SMS text, parsed description, sender ID, or transaction type. Default editable rules add `upi`, `card`, `debit`, and `credit`; unknown channels are left untagged instead of being assumed to be card transactions. Universal tags remain separate and continue to apply to every parsed transaction.
+
 ## Export and import
 
-**Export Rules** writes schema-versioned, human-readable JSON to `Downloads/FinFly III/rules_export_<timestamp>.json` on Android 10 and newer. **Import Rules** opens Android's JSON picker, validates schema version 1 and the required bank-rules array, then previews counts.
+**Export Rules** writes schema-versioned, human-readable JSON to `Downloads/FinFly III/rules_export_<timestamp>.json` on Android 10 and newer. **Import Rules** opens Android's JSON picker, requires schema version 2, validates the required bank-rules array, then previews counts.
 
 - **Merge** adds imported rules and skips duplicates by case-insensitive rule name.
-- **Replace all** clears existing bank and category rules before importing.
+- **Replace all** clears existing bank, category, and dynamic tag rules before importing.
 
-The transfer format contains `version`, `exportedAt`, `bankRules`, and `categoryRules`, leaving a stable boundary for future AI-assisted rule suggestions.
+The transfer format contains `version`, `exportedAt`, `bankRules`, `categoryRules`, `tagRules`, and `universalTags`, leaving a stable boundary for future AI-assisted rule suggestions.
 
 ## Add a Firefly endpoint
 

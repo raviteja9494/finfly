@@ -10,6 +10,7 @@ import com.teja.finflyiii.domain.model.RulesConfig
 import com.teja.finflyiii.domain.model.RulesImportMode
 import com.teja.finflyiii.domain.model.RulesImportSummary
 import com.teja.finflyiii.domain.model.SmsParseResult
+import com.teja.finflyiii.domain.model.TagRule
 import com.teja.finflyiii.domain.model.TransactionType
 import com.teja.finflyiii.domain.repository.SmsRulesRepository
 import kotlinx.coroutines.flow.Flow
@@ -169,23 +170,69 @@ class SmsParserEngineTest {
         assertEquals(setOf("HDFC Savings", "Duplicate HDFC"), report.matches.map { it.matchedRule }.toSet())
     }
 
+    @Test
+    fun `dynamic tag rules derive channel and transaction type tags`() = runBlocking {
+        val taggedEngine = SmsParserEngine(
+            FakeRulesRepository(
+                banks = banks,
+                categories = categories,
+                universalTags = listOf("parsed"),
+                tagRules = DefaultSmsRules.tagRules(),
+            ),
+            RuleBasedSmsParserFactory(),
+        )
+
+        val report = taggedEngine.testAllRules(
+            "AD-HDFCBK-S",
+            "A/c debited Rs.500 To UBER On 19-07 via debit card UPI Ref ABCDEF123",
+            90L,
+        )
+        val result = report.matches.single()
+
+        assertEquals(4, report.checkedTagRules)
+        assertEquals(listOf("upi", "debit", "parsed"), result.tags)
+        assertEquals(listOf("UPI channel", "Debit type"), result.matchedTagRules)
+    }
+
+    @Test
+    fun `short tag keywords match whole words instead of substrings`() = runBlocking {
+        val taggedEngine = SmsParserEngine(
+            FakeRulesRepository(banks, categories, tagRules = DefaultSmsRules.tagRules()),
+            RuleBasedSmsParserFactory(),
+        )
+
+        val result = taggedEngine.process(
+            "AX-HDFCBK-S",
+            "Your account credited INR 1000 To DEPOSIT Ref SALARY99",
+            95L,
+        ).success()
+
+        assertEquals(listOf("credit"), result.tags)
+        assertFalse("Card channel" in result.matchedTagRules)
+    }
+
     private fun SmsParseResult.success() = (this as SmsParseResult.Success).transaction
 
     private class FakeRulesRepository(
         private val banks: List<BankRule>,
         private val categories: List<CategoryRule>,
         private val universalTags: List<String> = emptyList(),
+        private val tagRules: List<TagRule> = emptyList(),
     ) : SmsRulesRepository {
         override fun observeBankRules(): Flow<Result<List<BankRule>>> = flowOf(Result.Success(banks))
         override fun observeCategoryRules(): Flow<Result<List<CategoryRule>>> = flowOf(Result.Success(categories))
+        override fun observeTagRules(): Flow<Result<List<TagRule>>> = flowOf(Result.Success(tagRules))
         override fun observeUniversalTags(): Flow<Result<List<String>>> = flowOf(Result.Success(universalTags))
         override suspend fun getBankRules() = Result.Success(banks)
         override suspend fun getCategoryRules() = Result.Success(categories)
+        override suspend fun getTagRules() = Result.Success(tagRules)
         override suspend fun getUniversalTags() = Result.Success(universalTags)
         override suspend fun saveBankRule(rule: BankRule) = Result.Success(Unit)
         override suspend fun deleteBankRule(id: String) = Result.Success(Unit)
         override suspend fun saveCategoryRule(rule: CategoryRule) = Result.Success(Unit)
         override suspend fun deleteCategoryRule(id: String) = Result.Success(Unit)
+        override suspend fun saveTagRule(rule: TagRule) = Result.Success(Unit)
+        override suspend fun deleteTagRule(id: String) = Result.Success(Unit)
         override suspend fun saveUniversalTags(tags: List<String>) = Result.Success(Unit)
         override suspend fun ensureDefaults() = Result.Success(Unit)
         override suspend fun createConfig(exportedAt: Long) =

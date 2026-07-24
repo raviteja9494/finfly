@@ -42,7 +42,10 @@ class FinanceContextBuilderTest {
     @Test
     fun casualGreetingDoesNotRequireLedgerContext() {
         assertTrue(FinanceContextBuilder.isCasualQuestion("Hi!"))
+        assertTrue(FinanceContextBuilder.isCasualQuestion("hii"))
+        assertTrue(FinanceContextBuilder.isCasualQuestion("Hello there!"))
         assertTrue(FinanceContextBuilder.isCasualQuestion("thank you"))
+        assertFalse(FinanceContextBuilder.isCasualQuestion("Hi, show my transactions"))
         assertFalse(FinanceContextBuilder.isCasualQuestion("What did I spend today?"))
     }
 }

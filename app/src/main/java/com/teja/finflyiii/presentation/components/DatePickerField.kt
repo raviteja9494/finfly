@@ -3,9 +3,12 @@ package com.teja.finflyiii.presentation.components
 
 import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CalendarMonth
@@ -13,7 +16,6 @@ import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -23,7 +25,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import com.teja.finflyiii.R
 import java.time.Instant
 import java.time.LocalDate
@@ -39,19 +43,28 @@ fun DatePickerField(
     modifier: Modifier = Modifier.fillMaxWidth(),
 ) {
     var showPicker by remember { mutableStateOf(false) }
-    OutlinedTextField(
-        value = value,
-        onValueChange = {},
-        modifier = modifier.clickable { showPicker = true },
-        readOnly = true,
-        label = { Text(stringResource(label)) },
-        trailingIcon = {
-            IconButton(onClick = { showPicker = true }) {
+    val interactionSource = remember { MutableInteractionSource() }
+    Box(modifier = modifier) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = {},
+            modifier = Modifier.fillMaxWidth().focusProperties { canFocus = false },
+            readOnly = true,
+            label = { Text(stringResource(label)) },
+            trailingIcon = {
                 Icon(Icons.Rounded.CalendarMonth, contentDescription = stringResource(R.string.choose_date))
-            }
-        },
-        singleLine = true,
-    )
+            },
+            singleLine = true,
+        )
+        Box(
+            Modifier.matchParentSize().clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                role = Role.Button,
+                onClick = { showPicker = true },
+            )
+        )
+    }
     if (showPicker) {
         val initialMillis = runCatching {
             LocalDate.parse(value.take(10)).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()

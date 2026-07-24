@@ -45,6 +45,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.teja.finflyiii.R
 import com.teja.finflyiii.domain.model.Account
+import com.teja.finflyiii.domain.model.TagRuleSource
 import com.teja.finflyiii.presentation.theme.FinFlyIIIThemeTokens
 
 @Composable
@@ -145,6 +146,83 @@ fun CategoryRuleEditorScreen(
 }
 
 @Composable
+fun TagRuleEditorScreen(
+    onBack: () -> Unit,
+    viewModel: TagRuleEditorViewModel = hiltViewModel(),
+) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    LaunchedEffect(state.finished) { if (state.finished) onBack() }
+    val spacing = FinFlyIIIThemeTokens.spacing
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(spacing.medium),
+        verticalArrangement = Arrangement.spacedBy(spacing.medium),
+    ) {
+        item { BackButton(onBack) }
+        item {
+            OutlinedTextField(
+                state.name,
+                viewModel::setName,
+                Modifier.fillMaxWidth(),
+                label = { Text(stringResource(R.string.rule_name)) },
+                singleLine = true,
+            )
+        }
+        item { ToggleRow(R.string.rule_enabled, state.enabled, viewModel::setEnabled) }
+        item {
+            TagRuleSourceDropdown(
+                selected = state.source,
+                onSelect = viewModel::setSource,
+            )
+        }
+        item {
+            Text(
+                stringResource(state.source.helpResource()),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        item {
+            ChipInput(
+                R.string.tag_rule_keywords,
+                R.string.tag_rule_keywords_hint,
+                state.keywords,
+                viewModel::addKeyword,
+                viewModel::removeKeyword,
+            )
+        }
+        item {
+            ChipInput(
+                R.string.tag_rule_exclude_keywords,
+                R.string.tag_rule_exclude_keywords_hint,
+                state.excludeKeywords,
+                viewModel::addExcludeKeyword,
+                viewModel::removeExcludeKeyword,
+            )
+        }
+        item {
+            ChipInput(
+                R.string.firefly_tags,
+                R.string.firefly_tags_hint,
+                state.fireflyTags,
+                viewModel::addTag,
+                viewModel::removeTag,
+            )
+        }
+        state.error?.let { error -> item { ErrorText(error.messageResource()) } }
+        item {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
+                if (state.existing) OutlinedButton(onClick = viewModel::delete, Modifier.weight(1f)) {
+                    Text(stringResource(R.string.delete_rule))
+                }
+                Button(onClick = viewModel::save, enabled = !state.isSaving, modifier = Modifier.weight(1f)) {
+                    Text(stringResource(if (state.isSaving) R.string.saving else R.string.save_rule))
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun BackButton(onBack: () -> Unit) {
     OutlinedButton(onClick = onBack) {
         Icon(Icons.Rounded.ArrowBack, contentDescription = null)
@@ -176,6 +254,33 @@ private fun AccountDropdown(accounts: List<Account>, selectedId: String, onSelec
                 DropdownMenuItem(
                     text = { Text(account.name) },
                     onClick = { onSelect(account.id); expanded = false },
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TagRuleSourceDropdown(
+    selected: TagRuleSource,
+    onSelect: (TagRuleSource) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(expanded, { expanded = it }) {
+        OutlinedTextField(
+            value = stringResource(selected.labelResource()),
+            onValueChange = {},
+            modifier = Modifier.fillMaxWidth().menuAnchor(),
+            readOnly = true,
+            label = { Text(stringResource(R.string.tag_rule_match_source)) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+        )
+        ExposedDropdownMenu(expanded, { expanded = false }) {
+            TagRuleSource.entries.forEach { source ->
+                DropdownMenuItem(
+                    text = { Text(stringResource(source.labelResource())) },
+                    onClick = { onSelect(source); expanded = false },
                 )
             }
         }
@@ -244,4 +349,25 @@ private fun CategoryRuleEditorError.messageResource(): Int = when (this) {
     CategoryRuleEditorError.PRIORITY -> R.string.rule_priority_invalid
     CategoryRuleEditorError.KEYWORDS -> R.string.rule_keywords_required
     CategoryRuleEditorError.SAVE -> R.string.rule_save_failed
+}
+
+private fun TagRuleEditorError.messageResource(): Int = when (this) {
+    TagRuleEditorError.NAME -> R.string.rule_name_required
+    TagRuleEditorError.KEYWORDS -> R.string.rule_keywords_required
+    TagRuleEditorError.TAGS -> R.string.tag_rule_tags_required
+    TagRuleEditorError.SAVE -> R.string.rule_save_failed
+}
+
+internal fun TagRuleSource.labelResource(): Int = when (this) {
+    TagRuleSource.FULL_SMS -> R.string.tag_rule_source_full_sms
+    TagRuleSource.DESCRIPTION -> R.string.tag_rule_source_description
+    TagRuleSource.SENDER -> R.string.tag_rule_source_sender
+    TagRuleSource.TRANSACTION_TYPE -> R.string.tag_rule_source_transaction_type
+}
+
+private fun TagRuleSource.helpResource(): Int = when (this) {
+    TagRuleSource.FULL_SMS -> R.string.tag_rule_help_full_sms
+    TagRuleSource.DESCRIPTION -> R.string.tag_rule_help_description
+    TagRuleSource.SENDER -> R.string.tag_rule_help_sender
+    TagRuleSource.TRANSACTION_TYPE -> R.string.tag_rule_help_transaction_type
 }

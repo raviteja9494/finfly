@@ -6,6 +6,7 @@ import com.google.gson.Gson
 import com.teja.finflyiii.data.local.FinFlyIIIDatabase
 import com.teja.finflyiii.data.local.entity.BankRuleEntity
 import com.teja.finflyiii.data.local.entity.CategoryRuleEntity
+import com.teja.finflyiii.data.local.entity.TagRuleEntity
 import com.teja.finflyiii.data.sms.DefaultSmsRules
 import com.teja.finflyiii.domain.common.Result
 import com.teja.finflyiii.domain.model.BankRule
@@ -13,6 +14,7 @@ import com.teja.finflyiii.domain.model.CategoryRule
 import com.teja.finflyiii.domain.model.RulesConfig
 import com.teja.finflyiii.domain.model.RulesImportMode
 import com.teja.finflyiii.domain.model.RulesImportSummary
+import com.teja.finflyiii.domain.model.TagRule
 import com.teja.finflyiii.domain.repository.SmsRulesRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -37,6 +39,10 @@ class SmsRulesRepositoryImpl @Inject constructor(
         .map { rows -> Result.Success(rows.filterNot { it.id == UNIVERSAL_TAGS_ID }.map { it.toDomain() }) as Result<List<CategoryRule>> }
         .catch { emit(Result.Error(it.message ?: READ_ERROR, it)) }
 
+    override fun observeTagRules(): Flow<Result<List<TagRule>>> = dao.observeTagRules()
+        .map { rows -> Result.Success(rows.map { it.toDomain() }) as Result<List<TagRule>> }
+        .catch { emit(Result.Error(it.message ?: READ_ERROR, it)) }
+
     override fun observeUniversalTags(): Flow<Result<List<String>>> = dao.observeCategoryRules()
         .map { rows ->
             Result.Success(rows.firstOrNull { it.id == UNIVERSAL_TAGS_ID }?.toDomain()?.fireflyTags.orEmpty()) as Result<List<String>>
@@ -48,6 +54,10 @@ class SmsRulesRepositoryImpl @Inject constructor(
 
     override suspend fun getCategoryRules(): Result<List<CategoryRule>> = runCatching {
         dao.getCategoryRules().filterNot { it.id == UNIVERSAL_TAGS_ID }.map { it.toDomain() }
+    }.toResult(READ_ERROR)
+
+    override suspend fun getTagRules(): Result<List<TagRule>> = runCatching {
+        dao.getTagRules().map { it.toDomain() }
     }.toResult(READ_ERROR)
 
     override suspend fun getUniversalTags(): Result<List<String>> = runCatching {
@@ -70,6 +80,14 @@ class SmsRulesRepositoryImpl @Inject constructor(
         dao.deleteCategoryRule(id)
     }.toUnitResult(WRITE_ERROR)
 
+    override suspend fun saveTagRule(rule: TagRule): Result<Unit> = runCatching {
+        dao.upsertTagRule(rule.toEntity())
+    }.toUnitResult(WRITE_ERROR)
+
+    override suspend fun deleteTagRule(id: String): Result<Unit> = runCatching {
+        dao.deleteTagRule(id)
+    }.toUnitResult(WRITE_ERROR)
+
     override suspend fun saveUniversalTags(tags: List<String>): Result<Unit> = runCatching {
         dao.upsertCategoryRule(universalTagsRule(tags).toEntity())
     }.toUnitResult(WRITE_ERROR)
@@ -81,6 +99,9 @@ class SmsRulesRepositoryImpl @Inject constructor(
             }
             if (dao.categoryRuleCount() == 0) {
                 dao.upsertCategoryRules(DefaultSmsRules.categoryRules().map { it.toEntity() })
+            }
+            if (dao.tagRuleCount() == 0) {
+                dao.upsertTagRules(DefaultSmsRules.tagRules().map { it.toEntity() })
             }
             val storedCategories = dao.getCategoryRules()
             val universal = storedCategories.firstOrNull { it.id == UNIVERSAL_TAGS_ID }
@@ -99,6 +120,7 @@ class SmsRulesRepositoryImpl @Inject constructor(
             exportedAt = exportedAt,
             bankRules = dao.getBankRules().map { it.toDomain() },
             categoryRules = dao.getCategoryRules().filterNot { it.id == UNIVERSAL_TAGS_ID }.map { it.toDomain() },
+            tagRules = dao.getTagRules().map { it.toDomain() },
             universalTags = dao.getCategoryRules().firstOrNull { it.id == UNIVERSAL_TAGS_ID }
                 ?.toDomain()?.fireflyTags.orEmpty(),
         )
@@ -111,18 +133,31 @@ class SmsRulesRepositoryImpl @Inject constructor(
         require(config.version == RulesConfig.CURRENT_VERSION)
         var bankRules = config.bankRules
         var categoryRules = config.categoryRules
+        var tagRules = config.tagRules.orEmpty().map { rule ->
+            rule.copy(
+                name = rule.name.trim(),
+                keywords = rule.keywords.orEmpty().map(String::trim).filter(String::isNotBlank),
+                fireflyTags = rule.fireflyTags.orEmpty().map(String::trim).filter(String::isNotBlank),
+                excludeKeywords = rule.excludeKeywords.orEmpty().map(String::trim).filter(String::isNotBlank),
+            )
+        }
+        require(tagRules.all { it.name.isNotBlank() && it.keywords.isNotEmpty() && it.fireflyTags.isNotEmpty() })
         database.withTransaction {
             if (mode == RulesImportMode.REPLACE) {
                 dao.clearBankRules()
                 dao.clearCategoryRules()
+                dao.clearTagRules()
             } else {
                 val bankNames = dao.getBankRules().map { it.name.lowercase() }.toSet()
                 val categoryNames = dao.getCategoryRules().map { it.name.lowercase() }.toSet()
+                val tagRuleNames = dao.getTagRules().map { it.name.lowercase() }.toSet()
                 bankRules = bankRules.filterNot { it.name.lowercase() in bankNames }
                 categoryRules = categoryRules.filterNot { it.name.lowercase() in categoryNames }
+                tagRules = tagRules.filterNot { it.name.lowercase() in tagRuleNames }
             }
             dao.upsertBankRules(bankRules.map { it.toEntity() })
             dao.upsertCategoryRules(categoryRules.map { it.toEntity() })
+            dao.upsertTagRules(tagRules.map { it.toEntity() })
             val importedUniversalTags = if (mode == RulesImportMode.MERGE) {
                 (dao.getCategoryRules().firstOrNull { it.id == UNIVERSAL_TAGS_ID }
                     ?.toDomain()?.fireflyTags.orEmpty() + config.universalTags)
@@ -130,7 +165,7 @@ class SmsRulesRepositoryImpl @Inject constructor(
             } else config.universalTags
             if (importedUniversalTags.isNotEmpty()) dao.upsertCategoryRule(universalTagsRule(importedUniversalTags).toEntity())
         }
-        RulesImportSummary(bankRules.size, categoryRules.size)
+        RulesImportSummary(bankRules.size, categoryRules.size, tagRules.size)
     }.toResult(IMPORT_ERROR)
 
     private fun BankRule.toEntity() = BankRuleEntity(id, name, enabled, gson.toJson(this), updatedAt)
@@ -141,6 +176,15 @@ class SmsRulesRepositoryImpl @Inject constructor(
     private fun CategoryRuleEntity.toDomain(): CategoryRule =
         gson.fromJson(configJson, CategoryRule::class.java).let { rule ->
             rule.copy(fireflyTags = rule.fireflyTags.orEmpty())
+        }
+    private fun TagRule.toEntity() = TagRuleEntity(id, name, enabled, gson.toJson(this))
+    private fun TagRuleEntity.toDomain(): TagRule =
+        gson.fromJson(configJson, TagRule::class.java).let { rule ->
+            rule.copy(
+                keywords = rule.keywords.orEmpty(),
+                fireflyTags = rule.fireflyTags.orEmpty(),
+                excludeKeywords = rule.excludeKeywords.orEmpty(),
+            )
         }
 
     private fun universalTagsRule(tags: List<String>) = CategoryRule(

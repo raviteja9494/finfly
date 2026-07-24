@@ -4,6 +4,7 @@ package com.teja.finflyiii.domain.model
 import kotlinx.serialization.Serializable
 import java.math.BigDecimal
 import java.time.LocalDate
+import java.util.UUID
 
 /** Secondary Firefly sections exposed from the application drawer. */
 @Serializable
@@ -28,6 +29,7 @@ data class FireflyRuleClause(
     val active: Boolean = true,
     val prohibited: Boolean = false,
     val stopProcessing: Boolean = false,
+    val editorKey: String = id ?: UUID.randomUUID().toString(),
 )
 
 /** A Firefly rule group offered by the rule editor. */

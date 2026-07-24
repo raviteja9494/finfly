@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
@@ -162,9 +163,12 @@ fun FeatureEditorScreen(
                 item { ToggleRow(R.string.rule_match_all, state.strict, viewModel::setStrict) }
                 item { ToggleRow(R.string.rule_stop_processing, state.stopProcessing, viewModel::setStopProcessing) }
                 item { RuleSectionHeader(R.string.rule_triggers, viewModel::addRuleTrigger) }
-                items(state.ruleTriggers.size) { index ->
+                itemsIndexed(
+                    items = state.ruleTriggers,
+                    key = { _, clause -> clause.editorKey },
+                ) { index, clause ->
                     RuleClauseEditor(
-                        clause = state.ruleTriggers[index],
+                        clause = clause,
                         types = RULE_TRIGGER_TYPES,
                         onType = { viewModel.updateRuleTrigger(index, type = it) },
                         onValue = { viewModel.updateRuleTrigger(index, value = it) },
@@ -172,9 +176,12 @@ fun FeatureEditorScreen(
                     )
                 }
                 item { RuleSectionHeader(R.string.rule_actions, viewModel::addRuleAction) }
-                items(state.ruleActions.size) { index ->
+                itemsIndexed(
+                    items = state.ruleActions,
+                    key = { _, clause -> clause.editorKey },
+                ) { index, clause ->
                     RuleClauseEditor(
-                        clause = state.ruleActions[index],
+                        clause = clause,
                         types = RULE_ACTION_TYPES,
                         onType = { viewModel.updateRuleAction(index, type = it) },
                         onValue = { viewModel.updateRuleAction(index, value = it) },

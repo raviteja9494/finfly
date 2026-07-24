@@ -66,6 +66,7 @@ import com.teja.finflyiii.domain.model.ParsedTransaction
 import com.teja.finflyiii.domain.model.RulesImportMode
 import com.teja.finflyiii.domain.model.SmsParseResult
 import com.teja.finflyiii.domain.model.SmsParserTestReport
+import com.teja.finflyiii.domain.model.TagRule
 import com.teja.finflyiii.presentation.components.ErrorState
 import com.teja.finflyiii.presentation.components.LoadingState
 import com.teja.finflyiii.presentation.components.DatePickerField
@@ -78,6 +79,8 @@ fun SmsRulesScreen(
     onEditBankRule: (String) -> Unit,
     onAddCategoryRule: () -> Unit,
     onEditCategoryRule: (String) -> Unit,
+    onAddTagRule: () -> Unit,
+    onEditTagRule: (String) -> Unit,
     onOpenLogs: () -> Unit,
     viewModel: SmsRulesViewModel = hiltViewModel(),
 ) {
@@ -118,7 +121,12 @@ fun SmsRulesScreen(
     LaunchedEffect(state.feedback) {
         val message = when (val feedback = state.feedback) {
             is SmsRulesFeedback.Exported -> "$exportedMessage ${feedback.path}"
-            is SmsRulesFeedback.Imported -> String.format(importedMessage, feedback.banks, feedback.categories)
+            is SmsRulesFeedback.Imported -> String.format(
+                importedMessage,
+                feedback.banks,
+                feedback.categories,
+                feedback.tags,
+            )
             SmsRulesFeedback.ExportFailed -> exportFailed
             SmsRulesFeedback.ImportFailed -> importFailed
             is SmsRulesFeedback.ScanComplete -> String.format(scanComplete, feedback.count)
@@ -153,6 +161,9 @@ fun SmsRulesScreen(
                 onAddCategoryRule = onAddCategoryRule,
                 onEditCategoryRule = onEditCategoryRule,
                 onToggleCategory = viewModel::toggleCategoryRule,
+                onAddTagRule = onAddTagRule,
+                onEditTagRule = onEditTagRule,
+                onToggleTagRule = viewModel::toggleTagRule,
                 onExport = viewModel::exportRules,
                 onImport = { importLauncher.launch(arrayOf(JSON_MIME, TEXT_MIME)) },
                 onOpenLogs = onOpenLogs,
@@ -197,6 +208,7 @@ fun SmsRulesScreen(
                         R.string.import_rules_preview_message,
                         config.bankRules.size,
                         config.categoryRules.size,
+                        config.tagRules.size,
                     )
                 )
             },
@@ -229,6 +241,9 @@ private fun SmsRulesContent(
     onAddCategoryRule: () -> Unit,
     onEditCategoryRule: (String) -> Unit,
     onToggleCategory: (CategoryRule, Boolean) -> Unit,
+    onAddTagRule: () -> Unit,
+    onEditTagRule: (String) -> Unit,
+    onToggleTagRule: (TagRule, Boolean) -> Unit,
     onExport: () -> Unit,
     onImport: () -> Unit,
     onOpenLogs: () -> Unit,
@@ -338,6 +353,16 @@ private fun SmsRulesContent(
         items(state.categoryRules, key = CategoryRule::id) { rule ->
             CategoryRuleCard(rule, { onEditCategoryRule(rule.id) }, { onToggleCategory(rule, it) })
         }
+        item { RulesHeader(R.string.tag_rules, onAddTagRule) }
+        item {
+            Text(
+                stringResource(R.string.tag_rules_description),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        items(state.tagRules, key = TagRule::id) { rule ->
+            TagRuleCard(rule, { onEditTagRule(rule.id) }, { onToggleTagRule(rule, it) })
+        }
         item {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(top = spacing.medium),
@@ -434,6 +459,7 @@ private fun ParsingTestReport(report: SmsParserTestReport) {
                 R.string.parsing_test_checked,
                 report.checkedBankRules,
                 report.checkedCategoryRules,
+                report.checkedTagRules,
                 report.universalTagCount,
             ),
             style = MaterialTheme.typography.bodySmall,
@@ -483,6 +509,7 @@ private fun ParsingCandidate(transaction: ParsedTransaction) {
     }
     val category = transaction.category.ifBlank { none }
     val tags = transaction.tags.joinToString().ifBlank { none }
+    val tagRuleNames = transaction.matchedTagRules.joinToString().ifBlank { none }
     Card(Modifier.fillMaxWidth()) {
         Column(
             Modifier.fillMaxWidth().padding(spacing.small),
@@ -511,6 +538,7 @@ private fun ParsingCandidate(transaction: ParsedTransaction) {
                     tags,
                 )
             )
+            Text(stringResource(R.string.parsing_test_tag_rules, tagRuleNames))
         }
     }
 }
@@ -566,6 +594,39 @@ private fun CategoryRuleCard(rule: CategoryRule, onClick: () -> Unit, onToggle: 
                     style = MaterialTheme.typography.bodySmall,
                 )
                 if (rule.fireflyTags.isNotEmpty()) Text(
+                    stringResource(R.string.parsed_tags_value, rule.fireflyTags.joinToString()),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            Switch(rule.enabled, onToggle)
+        }
+    }
+}
+
+@Composable
+private fun TagRuleCard(rule: TagRule, onClick: () -> Unit, onToggle: (Boolean) -> Unit) {
+    Card(Modifier.fillMaxWidth().clickable(onClick = onClick)) {
+        Row(Modifier.padding(FinFlyIIIThemeTokens.spacing.medium), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(rule.name, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    stringResource(R.string.tag_rule_source_value, stringResource(rule.source.labelResource())),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    stringResource(R.string.tag_rule_keywords_value, rule.keywords.joinToString()),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                if (rule.excludeKeywords.isNotEmpty()) {
+                    Text(
+                        stringResource(
+                            R.string.tag_rule_exclude_keywords_value,
+                            rule.excludeKeywords.joinToString(),
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                Text(
                     stringResource(R.string.parsed_tags_value, rule.fireflyTags.joinToString()),
                     style = MaterialTheme.typography.bodySmall,
                 )

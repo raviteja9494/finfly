@@ -380,7 +380,14 @@ class FireflyFeatureRepositoryImpl @Inject constructor(
         actions = actions.map { it.toDto() },
     )
 
-    private fun FireflyRuleClause.toDto() = RuleClauseDto(id, type, value, active, prohibited, stopProcessing)
+    private fun FireflyRuleClause.toDto() = RuleClauseDto(
+        id = id,
+        type = type,
+        value = value,
+        active = active,
+        prohibited = prohibited,
+        stopProcessing = stopProcessing,
+    )
     private fun RuleClauseDto.toDomain() = FireflyRuleClause(id, type, value.orEmpty(), active, prohibited, stopProcessing)
     private fun com.teja.finflyiii.data.network.dto.RuleResource.toItem() = FireflyFeatureItem(
         id, attributes.title, listOfNotNull(attributes.ruleGroupTitle, attributes.description),

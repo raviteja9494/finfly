@@ -16,13 +16,14 @@ import com.teja.finflyiii.data.local.dao.SmsLogDao
 import com.teja.finflyiii.data.local.entity.BankRuleEntity
 import com.teja.finflyiii.data.local.entity.CategoryRuleEntity
 import com.teja.finflyiii.data.local.entity.SmsLogEntity
+import com.teja.finflyiii.data.local.entity.TagRuleEntity
 
 @Database(
     entities = [
         TransactionEntity::class, AccountEntity::class, CategoryEntity::class, TagEntity::class,
-        BankRuleEntity::class, CategoryRuleEntity::class, SmsLogEntity::class,
+        BankRuleEntity::class, CategoryRuleEntity::class, TagRuleEntity::class, SmsLogEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 abstract class FinFlyIIIDatabase : RoomDatabase() {

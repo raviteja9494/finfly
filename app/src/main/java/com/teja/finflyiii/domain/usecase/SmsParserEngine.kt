@@ -6,6 +6,7 @@ import com.teja.finflyiii.domain.model.BankRule
 import com.teja.finflyiii.domain.model.CategoryRule
 import com.teja.finflyiii.domain.model.SmsParseResult
 import com.teja.finflyiii.domain.model.SmsParserTestReport
+import com.teja.finflyiii.domain.model.TagRule
 import com.teja.finflyiii.domain.repository.SmsRulesRepository
 import com.teja.finflyiii.domain.sms.SmsParserFactory
 import javax.inject.Inject
@@ -20,11 +21,14 @@ class SmsParserEngine @Inject constructor(
             ?: return SmsParseResult.Skipped(REASON_RULES_UNAVAILABLE, message)
         val categoryRules = repository.getCategoryRules().valueOrNull()
             ?: return SmsParseResult.Skipped(REASON_RULES_UNAVAILABLE, message)
+        val tagRules = repository.getTagRules().valueOrNull()
+            ?: return SmsParseResult.Skipped(REASON_RULES_UNAVAILABLE, message)
         val universalTags = repository.getUniversalTags().valueOrNull()
             ?: return SmsParseResult.Skipped(REASON_RULES_UNAVAILABLE, message)
         return parserFactory.create(
             bankRules.filter(BankRule::enabled),
             categoryRules.filter(CategoryRule::enabled),
+            tagRules.filter(TagRule::enabled),
             universalTags,
         ).parse(sender, message, timestamp)
     }
@@ -34,13 +38,16 @@ class SmsParserEngine @Inject constructor(
             ?: return unavailableReport(sender, message)
         val categoryRules = repository.getCategoryRules().valueOrNull()
             ?: return unavailableReport(sender, message)
+        val tagRules = repository.getTagRules().valueOrNull()
+            ?: return unavailableReport(sender, message)
         val universalTags = repository.getUniversalTags().valueOrNull()
             ?: return unavailableReport(sender, message)
         val enabledBanks = bankRules.filter(BankRule::enabled)
         val enabledCategories = categoryRules.filter(CategoryRule::enabled)
+        val enabledTagRules = tagRules.filter(TagRule::enabled)
         val trimmedSender = sender.trim()
         if (trimmedSender.isNotEmpty()) {
-            val result = parserFactory.create(enabledBanks, enabledCategories, universalTags)
+            val result = parserFactory.create(enabledBanks, enabledCategories, enabledTagRules, universalTags)
                 .parse(trimmedSender, message, timestamp)
             return SmsParserTestReport(
                 result = result,
@@ -48,12 +55,13 @@ class SmsParserEngine @Inject constructor(
                 inferredSender = false,
                 checkedBankRules = enabledBanks.size,
                 checkedCategoryRules = enabledCategories.size,
+                checkedTagRules = enabledTagRules.size,
                 universalTagCount = universalTags.size,
             )
         }
 
         val attempts = enabledBanks.map { rule ->
-            rule to parserFactory.create(listOf(rule), enabledCategories, universalTags)
+            rule to parserFactory.create(listOf(rule), enabledCategories, enabledTagRules, universalTags)
                 .parse(rule.senderIds.firstOrNull().orEmpty(), message, timestamp)
         }
         val matches = attempts.mapNotNull { (_, result) ->
@@ -71,6 +79,7 @@ class SmsParserEngine @Inject constructor(
             inferredSender = true,
             checkedBankRules = enabledBanks.size,
             checkedCategoryRules = enabledCategories.size,
+            checkedTagRules = enabledTagRules.size,
             universalTagCount = universalTags.size,
             closestRuleName = closest?.first?.name,
         )
@@ -82,6 +91,7 @@ class SmsParserEngine @Inject constructor(
         inferredSender = sender.isBlank(),
         checkedBankRules = 0,
         checkedCategoryRules = 0,
+        checkedTagRules = 0,
         universalTagCount = 0,
     )
 

@@ -187,6 +187,7 @@ class FinanceContextBuilder @Inject constructor(
     private suspend fun loadSmsRuleSummary(): SmsRuleSummary = SmsRuleSummary(
         bankNames = smsRulesRepository.getBankRules().successOrEmpty().filter { it.enabled }.map { it.name },
         categoryNames = smsRulesRepository.getCategoryRules().successOrEmpty().filter { it.enabled }.map { it.name },
+        tagRuleNames = smsRulesRepository.getTagRules().successOrEmpty().filter { it.enabled }.map { it.name },
         universalTags = smsRulesRepository.getUniversalTags().successOrEmpty(),
     )
 
@@ -194,6 +195,7 @@ class FinanceContextBuilder @Inject constructor(
         appendLine("\nPARSING RULES")
         appendLine("- Bank rules: ${summary.bankNames.joinToString()}")
         appendLine("- Category rules: ${summary.categoryNames.joinToString()}")
+        appendLine("- Dynamic tag rules: ${summary.tagRuleNames.joinToString()}")
         appendLine("- Universal tags: ${summary.universalTags.joinToString()}")
     }
 
@@ -215,15 +217,15 @@ class FinanceContextBuilder @Inject constructor(
         private const val TRUNCATION_MARKER = "\n[Context truncated to fit the on-device model.]"
         private val DATE_FORMAT = DateTimeFormatter.ISO_LOCAL_DATE
         private val CASUAL_QUESTIONS = setOf(
-            "hi",
-            "hello",
-            "hey",
             "good morning",
             "good afternoon",
             "good evening",
             "thanks",
             "thank you",
             "help",
+        )
+        private val CASUAL_GREETING = Regex(
+            "^(?:hi+|hello+|hey+)(?:\\s+(?:there|finfly))?$",
         )
         private val QUERY_STOP_WORDS = setOf(
             "and", "are", "balance", "did", "expense", "expenses", "for", "from", "how", "last",
@@ -238,14 +240,18 @@ class FinanceContextBuilder @Inject constructor(
         )
         private val RULE_QUERY_TERMS = setOf(
             "bank rule", "category rule", "parsing", "sms rule",
+            "tag rule",
         )
 
         /** Fast conservative estimate suitable for displaying prompt size without loading the model. */
         fun estimateTokens(text: String): Int = (text.length + 3) / 4
 
         internal fun isCasualQuestion(question: String): Boolean {
-            val normalized = question.trim().lowercase().replace(Regex("[^a-z ]"), "")
-            return normalized in CASUAL_QUESTIONS
+            val normalized = question.lowercase()
+                .replace(Regex("[^a-z ]"), "")
+                .replace(Regex("\\s+"), " ")
+                .trim()
+            return normalized in CASUAL_QUESTIONS || CASUAL_GREETING.matches(normalized)
         }
 
         internal fun resolvePeriod(
@@ -287,6 +293,7 @@ class FinanceContextBuilder @Inject constructor(
     private data class SmsRuleSummary(
         val bankNames: List<String>,
         val categoryNames: List<String>,
+        val tagRuleNames: List<String>,
         val universalTags: List<String>,
     )
 }

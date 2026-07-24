@@ -120,6 +120,9 @@ private fun TransactionList(
     LaunchedEffect(showSearch) {
         if (showSearch) searchFocusRequester.requestFocus()
     }
+    LaunchedEffect(state.filter) {
+        listState.scrollToItem(0)
+    }
     LaunchedEffect(listState, state.transactions.size, state.hasMore) {
         snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0 }
             .distinctUntilChanged()

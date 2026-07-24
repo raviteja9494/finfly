@@ -22,6 +22,14 @@ data class CategoryRuleEntity(
     val configJson: String,
 )
 
+@Entity(tableName = "tag_rules")
+data class TagRuleEntity(
+    @PrimaryKey val id: String,
+    val name: String,
+    val enabled: Boolean,
+    val configJson: String,
+)
+
 @Entity(tableName = "sms_logs")
 data class SmsLogEntity(
     @PrimaryKey val id: String,

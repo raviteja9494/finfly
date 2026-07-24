@@ -29,6 +29,19 @@ data class CategoryRule(
     val applyTagsToAll: Boolean = false,
 )
 
+enum class TagRuleSource { FULL_SMS, DESCRIPTION, SENDER, TRANSACTION_TYPE }
+
+/** Adds Firefly tags when any configured keyword matches one parsed transaction field. */
+data class TagRule(
+    val id: String,
+    val name: String,
+    val enabled: Boolean,
+    val source: TagRuleSource,
+    val keywords: List<String>,
+    val fireflyTags: List<String>,
+    val excludeKeywords: List<String> = emptyList(),
+)
+
 sealed interface SmsParseResult {
     data class Success(val transaction: ParsedTransaction) : SmsParseResult
     data class Skipped(val reason: String, val sms: String) : SmsParseResult
@@ -42,6 +55,7 @@ data class SmsParserTestReport(
     val inferredSender: Boolean,
     val checkedBankRules: Int,
     val checkedCategoryRules: Int,
+    val checkedTagRules: Int,
     val universalTagCount: Int,
     val closestRuleName: String? = null,
 )
@@ -59,6 +73,7 @@ data class ParsedTransaction(
     val sender: String,
     val timestamp: Long,
     val matchedRule: String,
+    val matchedTagRules: List<String> = emptyList(),
 )
 
 data class RulesConfig(
@@ -66,9 +81,10 @@ data class RulesConfig(
     val exportedAt: Long,
     val bankRules: List<BankRule>,
     val categoryRules: List<CategoryRule>,
+    val tagRules: List<TagRule> = emptyList(),
     val universalTags: List<String> = emptyList(),
 ) {
-    companion object { const val CURRENT_VERSION = 1 }
+    companion object { const val CURRENT_VERSION = 2 }
 }
 
 enum class RulesImportMode { MERGE, REPLACE }
@@ -76,4 +92,5 @@ enum class RulesImportMode { MERGE, REPLACE }
 data class RulesImportSummary(
     val bankRulesImported: Int,
     val categoryRulesImported: Int,
+    val tagRulesImported: Int = 0,
 )

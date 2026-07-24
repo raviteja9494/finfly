@@ -15,6 +15,7 @@ import com.teja.finflyiii.domain.repository.TransactionRepository
 import com.teja.finflyiii.domain.model.Transaction
 import com.teja.finflyiii.domain.model.TransactionFilter
 import com.teja.finflyiii.domain.model.SmsParseResult
+import com.teja.finflyiii.domain.model.TagRule
 import com.teja.finflyiii.domain.usecase.SmsParserEngine
 import com.teja.finflyiii.domain.usecase.SubmitParsedTransactionUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -55,23 +56,27 @@ class SmsRulesViewModel @Inject constructor(
             combine(
                 repository.observeBankRules(),
                 repository.observeCategoryRules(),
+                repository.observeTagRules(),
                 repository.observeUniversalTags(),
                 settingsRepository.settings,
-            ) { banks, categories, universalTags, settings ->
-                ParsingRuleSnapshot(banks, categories, universalTags, settings)
+            ) { banks, categories, tagRules, universalTags, settings ->
+                ParsingRuleSnapshot(banks, categories, tagRules, universalTags, settings)
             }.collect { snapshot ->
                     val banks = snapshot.banks
                     val categories = snapshot.categories
                     val bankValues = (banks as? Result.Success)?.value
                     val categoryValues = (categories as? Result.Success)?.value
+                    val tagRuleValues = (snapshot.tagRules as? Result.Success)?.value
                     val universalTagValues = (snapshot.universalTags as? Result.Success)?.value
                     update {
                         copy(
                             loading = false,
-                            error = bankValues == null || categoryValues == null || universalTagValues == null,
+                            error = bankValues == null || categoryValues == null ||
+                                tagRuleValues == null || universalTagValues == null,
                             enabled = snapshot.settings.smsParsingEnabled,
                             bankRules = bankValues ?: bankRules,
                             categoryRules = categoryValues ?: categoryRules,
+                            tagRules = tagRuleValues ?: tagRules,
                             universalTags = universalTagValues ?: universalTags,
                         )
                     }
@@ -91,6 +96,10 @@ class SmsRulesViewModel @Inject constructor(
 
     fun toggleCategoryRule(rule: CategoryRule, enabled: Boolean) {
         viewModelScope.launch { repository.saveCategoryRule(rule.copy(enabled = enabled)) }
+    }
+
+    fun toggleTagRule(rule: TagRule, enabled: Boolean) {
+        viewModelScope.launch { repository.saveTagRule(rule.copy(enabled = enabled)) }
     }
 
     fun addUniversalTag(value: String) {
@@ -166,6 +175,7 @@ class SmsRulesViewModel @Inject constructor(
                         feedback = SmsRulesFeedback.Imported(
                             result.value.bankRulesImported,
                             result.value.categoryRulesImported,
+                            result.value.tagRulesImported,
                         ),
                     )
                 }
@@ -310,6 +320,7 @@ class SmsRulesViewModel @Inject constructor(
     private data class ParsingRuleSnapshot(
         val banks: Result<List<BankRule>>,
         val categories: Result<List<CategoryRule>>,
+        val tagRules: Result<List<TagRule>>,
         val universalTags: Result<List<String>>,
         val settings: com.teja.finflyiii.domain.model.AppSettings,
     )

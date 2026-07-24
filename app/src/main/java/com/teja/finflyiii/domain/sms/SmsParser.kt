@@ -4,6 +4,7 @@ package com.teja.finflyiii.domain.sms
 import com.teja.finflyiii.domain.model.BankRule
 import com.teja.finflyiii.domain.model.CategoryRule
 import com.teja.finflyiii.domain.model.SmsParseResult
+import com.teja.finflyiii.domain.model.TagRule
 
 /** Parses an SMS when its sender is supported by the configured rules. */
 interface SmsParser {
@@ -16,6 +17,7 @@ interface SmsParserFactory {
     fun create(
         bankRules: List<BankRule>,
         categoryRules: List<CategoryRule>,
+        tagRules: List<TagRule> = emptyList(),
         universalTags: List<String> = emptyList(),
     ): SmsParser
 }
