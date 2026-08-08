@@ -206,7 +206,7 @@ class TransactionEditorViewModel @Inject constructor(
                 date = first?.date ?: initialDate,
                 dateText = (first?.date ?: initialDate).toEditorText(),
                 currency = first?.currency?.takeUnless { it == "XXX" }.orEmpty(),
-                splits = transactions.map(Transaction::toSplitState).ifEmpty { listOf(emptySplit()) },
+                splits = transactions.map { it.toSplitState() }.ifEmpty { listOf(emptySplit()) },
                 categories = categories,
                 tags = tags,
                 accounts = accounts,

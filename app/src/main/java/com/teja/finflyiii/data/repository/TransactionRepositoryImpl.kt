@@ -136,7 +136,7 @@ class TransactionRepositoryImpl @Inject constructor(
         if (!isConfigured()) return Result.Error(NOT_CONFIGURED)
         if (drafts.isEmpty()) return Result.Error(EMPTY_SPLITS)
         return runCatching {
-            val splits = drafts.map(TransactionDraft::toStoreSplit)
+            val splits = drafts.map { it.toStoreSplit() }
             val remoteGroupId = drafts.mapNotNull(TransactionDraft::remoteGroupId)
                 .distinct()
                 .singleOrNull()
