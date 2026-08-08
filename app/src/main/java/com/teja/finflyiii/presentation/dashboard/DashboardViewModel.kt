@@ -11,11 +11,9 @@ import com.teja.finflyiii.domain.usecase.SyncFinancesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
 import javax.inject.Inject
@@ -58,17 +56,6 @@ class DashboardViewModel @Inject constructor(
             }
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DashboardUiState.Loading)
-
-    init {
-        viewModelScope.launch {
-            settingsRepository.settings
-                .filter {
-                    it.serverUrl.isNotBlank() && it.bearerToken.isNotBlank() && it.lastSyncTime == null
-                }
-                .take(1)
-                .collect { syncFinances() }
-        }
-    }
 
     fun refresh() {
         viewModelScope.launch { syncFinances() }

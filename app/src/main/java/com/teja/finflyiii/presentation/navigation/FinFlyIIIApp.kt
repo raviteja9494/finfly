@@ -1,6 +1,8 @@
 /* Presentation-layer app shell combining global drawer, sync app bar, tabs, and type-safe navigation. */
 package com.teja.finflyiii.presentation.navigation
 
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -45,6 +47,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.DrawerValue
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
@@ -54,6 +57,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hasRoute
@@ -116,6 +122,15 @@ fun FinFlyIIIApp(viewModel: AppShellViewModel = hiltViewModel()) {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val drawerDestinations = drawerDestinations()
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner, viewModel) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_START) viewModel.sync()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -158,6 +173,10 @@ fun FinFlyIIIApp(viewModel: AppShellViewModel = hiltViewModel()) {
                     navController = navController,
                     startDestination = AppRoute.Dashboard,
                     modifier = Modifier.padding(innerPadding),
+                    enterTransition = { EnterTransition.None },
+                    exitTransition = { ExitTransition.None },
+                    popEnterTransition = { EnterTransition.None },
+                    popExitTransition = { ExitTransition.None },
                 ) {
                 composable<AppRoute.Dashboard> {
                     DashboardScreen(

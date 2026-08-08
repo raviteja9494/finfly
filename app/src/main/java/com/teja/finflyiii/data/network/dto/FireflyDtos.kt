@@ -181,7 +181,7 @@ data class UpdateTransactionRequest(
 )
 
 data class UpdateTransactionSplit(
-    @SerializedName("transaction_journal_id") val transactionJournalId: String,
+    @SerializedName("transaction_journal_id") val transactionJournalId: String? = null,
     val type: String,
     val date: String,
     val amount: String,

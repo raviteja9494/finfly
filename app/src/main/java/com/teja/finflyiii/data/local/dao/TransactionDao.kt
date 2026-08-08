@@ -16,8 +16,34 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE id = :id LIMIT 1")
     fun observeById(id: String): Flow<TransactionEntity?>
 
+    @Query("""
+        SELECT * FROM transactions
+        WHERE remoteGroupId = (SELECT remoteGroupId FROM transactions WHERE id = :id LIMIT 1)
+        ORDER BY id
+    """)
+    fun observeGroupForTransaction(id: String): Flow<List<TransactionEntity>>
+
     @Query("SELECT * FROM transactions ORDER BY dateEpochMillis DESC LIMIT :limit OFFSET :offset")
     fun observePage(limit: Int, offset: Int): Flow<List<TransactionEntity>>
+
+    @Query("SELECT COUNT(*) FROM transactions")
+    fun observeCount(): Flow<Int>
+
+    @Query("""
+        SELECT * FROM transactions
+        WHERE (:from IS NULL OR dateEpochMillis >= :from)
+          AND (:until IS NULL OR dateEpochMillis < :until)
+        ORDER BY dateEpochMillis DESC
+        LIMIT :limit OFFSET :offset
+    """)
+    fun observeDatePage(from: Long?, until: Long?, limit: Int, offset: Int): Flow<List<TransactionEntity>>
+
+    @Query("""
+        SELECT COUNT(*) FROM transactions
+        WHERE (:from IS NULL OR dateEpochMillis >= :from)
+          AND (:until IS NULL OR dateEpochMillis < :until)
+    """)
+    fun observeDateCount(from: Long?, until: Long?): Flow<Int>
 
     @Query("SELECT * FROM transactions ORDER BY dateEpochMillis DESC LIMIT :limit")
     fun observeRecent(limit: Int): Flow<List<TransactionEntity>>

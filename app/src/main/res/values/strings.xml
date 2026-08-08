@@ -55,6 +55,10 @@
     <string name="saving">Saving…</string>
     <string name="save_changes">Save changes</string>
     <string name="create_transaction">Create transaction</string>
+    <string name="add_transaction_split">Add split</string>
+    <string name="remove_transaction_split">Remove split</string>
+    <string name="transaction_split_number">Split %1$d</string>
+    <string name="transaction_split_total">Split total: %1$s %2$s</string>
     <string name="transaction_required_fields">Description, source, and destination are required.</string>
     <string name="transaction_invalid_amount">Enter an amount greater than zero.</string>
     <string name="transaction_save_failed">Firefly could not save this transaction. Check the account types and try again.</string>

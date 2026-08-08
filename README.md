@@ -1,6 +1,6 @@
 # FinFly III
 
-FinFly III is an offline-first Android companion for a self-hosted Firefly III server. Phase 7.4 stabilizes on-device Gemma streaming and makes the complete cached transaction timeline easier to browse while retaining reusable local model files and full-history Firefly synchronization.
+FinFly III is an offline-first Android companion for a self-hosted Firefly III server. Phase 7.5 adds automatic startup synchronization, fast overlapping incremental refreshes, smoother cached navigation, and complete Firefly transaction-split creation and editing.
 
 ## Architecture
 
@@ -119,6 +119,7 @@ Server URL and bearer-token handling remain centralized in interceptors.
 - Phase 7 adds the optional MediaPipe/Qwen on-device assistant, cancellable model management, persisted context and generation controls, cached-finance prompt construction, bounded memory-only history, streaming responses, and local inference metrics.
 - Phase 7.1 migrates the assistant to Gemma 3 1B and LiteRT-LM, fixes authenticated and complete-file downloads, removes Qwen prompt markers, adds cache-aware suggestions, limits prompt history to three pairs, and supports copying and sharing responses.
 - Phase 7.2 bounds LiteRT responses to prevent runaway generation, adds repetition-resistant finance guidance and exact relative-date context, imports/exports verified local model copies, explains post-download token removal, and changes ordinary synchronization from a 90-day window to the complete Firefly transaction history.
+- Phase 7.5 automatically syncs configured servers when the app opens, uses a two-day overlap after the initial full-history sync, parallelizes independent refresh work, pages common transaction queries in Room, removes tab transitions, and creates or edits multi-journal Firefly transaction groups.
 - Phase 7.3 renames the complete Android identity to FinFly III: visible branding, Gradle project, namespace/application ID (`com.teja.finflyiii`), Kotlin package tree, app-owned storage names, export folder, and CI artifact names.
 - Phase 7.4 batches LiteRT 0.14 response chunks, releases each completed conversation, applies safer factual-generation limits, omits ledger context for casual greetings, and gives Transactions a persistent search/filter toolbar with reliable incremental loading.
 - Reports provide date-range, category, and tag filters with filtered income, spending, net-flow, monthly cash-flow, and top-category summaries from the offline transaction cache.

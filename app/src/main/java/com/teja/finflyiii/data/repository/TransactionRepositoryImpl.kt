@@ -23,7 +23,11 @@ import com.teja.finflyiii.domain.repository.SettingsRepository
 import com.teja.finflyiii.domain.repository.TransactionRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import java.math.BigDecimal
 import java.time.Clock
 import java.time.Instant
@@ -44,7 +48,17 @@ class TransactionRepositoryImpl @Inject constructor(
         filter: TransactionFilter,
         limit: Int,
         offset: Int,
-    ): Flow<Result<List<Transaction>>> = database.transactionDao().observeAll()
+    ): Flow<Result<List<Transaction>>> = (if (filter.canUseDateQuery()) {
+        database.transactionDao().observeDatePage(
+            filter.from?.toEpochMilli(),
+            filter.until?.toEpochMilli(),
+            limit,
+            offset,
+        ).map { entities ->
+            Result.Success(entities.map { it.toDomain() }) as Result<List<Transaction>>
+        }
+    } else {
+        database.transactionDao().observeAll()
             .map { entities ->
                 val transactions = entities.asSequence().map { it.toDomain() }
                     .filter { it.matches(filter) }
@@ -53,19 +67,29 @@ class TransactionRepositoryImpl @Inject constructor(
                     .toList()
                 Result.Success(transactions) as Result<List<Transaction>>
             }
-            .catch { emit(Result.Error(it.message ?: CACHE_ERROR, it)) }
+    }).catch { emit(Result.Error(it.message ?: CACHE_ERROR, it)) }
+        .flowOn(Dispatchers.Default)
 
     override fun observeTransaction(id: String): Flow<Result<Transaction?>> =
         database.transactionDao().observeById(id)
             .map { Result.Success(it?.toDomain()) as Result<Transaction?> }
             .catch { emit(Result.Error(it.message ?: CACHE_ERROR, it)) }
 
-    override fun observeTransactionCount(filter: TransactionFilter): Flow<Result<Int>> =
+    override fun observeTransactionGroup(id: String): Flow<Result<List<Transaction>>> =
+        database.transactionDao().observeGroupForTransaction(id)
+            .map { rows -> Result.Success(rows.map { it.toDomain() }) as Result<List<Transaction>> }
+            .catch { emit(Result.Error(it.message ?: CACHE_ERROR, it)) }
+
+    override fun observeTransactionCount(filter: TransactionFilter): Flow<Result<Int>> = (if (filter.canUseDateQuery()) {
+        database.transactionDao().observeDateCount(filter.from?.toEpochMilli(), filter.until?.toEpochMilli())
+            .map { Result.Success(it) as Result<Int> }
+    } else {
         database.transactionDao().observeAll()
             .map { entities ->
                 Result.Success(entities.count { it.toDomain().matches(filter) }) as Result<Int>
             }
-            .catch { emit(Result.Error(it.message ?: CACHE_ERROR, it)) }
+    }).catch { emit(Result.Error(it.message ?: CACHE_ERROR, it)) }
+        .flowOn(Dispatchers.Default)
 
     override fun observeRecent(limit: Int): Flow<Result<List<Transaction>>> =
         database.transactionDao().observeRecent(limit)
@@ -99,62 +123,84 @@ class TransactionRepositoryImpl @Inject constructor(
         .map { rows -> Result.Success(rows.map { it.toDomain() }) as Result<List<Category>> }
         .catch { emit(Result.Error(it.message ?: CACHE_ERROR, it)) }
 
-    override suspend fun saveTransaction(draft: TransactionDraft): Result<Transaction> {
+    override suspend fun saveTransaction(draft: TransactionDraft): Result<Transaction> =
+        when (val result = saveTransactionGroup(listOf(draft))) {
+            is Result.Success -> Result.Success(result.value.first())
+            is Result.Error -> result
+        }
+
+    override suspend fun saveTransactionGroup(
+        drafts: List<TransactionDraft>,
+        removedJournalIds: Set<String>,
+    ): Result<List<Transaction>> {
         if (!isConfigured()) return Result.Error(NOT_CONFIGURED)
+        if (drafts.isEmpty()) return Result.Error(EMPTY_SPLITS)
         return runCatching {
-            val split = StoreTransactionSplit(
-                type = draft.type.name.lowercase(),
-                date = draft.date.toString(),
-                amount = draft.amount.abs().toPlainString(),
-                description = draft.description.trim(),
-                currencyCode = draft.currency.takeIf(String::isNotBlank),
-                sourceId = draft.sourceAccountId,
-                sourceName = draft.sourceAccount.takeIf { draft.sourceAccountId == null && it.isNotBlank() },
-                destinationId = draft.destinationAccountId,
-                destinationName = draft.destinationAccount.takeIf { draft.destinationAccountId == null && it.isNotBlank() },
-                categoryName = draft.category.takeIf(String::isNotBlank),
-                budgetName = draft.budget.takeIf(String::isNotBlank),
-                tags = draft.tags,
-                notes = draft.notes?.takeIf(String::isNotBlank),
-            )
-            val response = if (draft.remoteGroupId != null && draft.journalId != null) {
+            val splits = drafts.map(TransactionDraft::toStoreSplit)
+            val remoteGroupId = drafts.mapNotNull(TransactionDraft::remoteGroupId)
+                .distinct()
+                .singleOrNull()
+            val response = if (remoteGroupId != null) {
                 api.updateTransaction(
-                    id = draft.remoteGroupId,
+                    id = remoteGroupId,
                     request = UpdateTransactionRequest(
-                        transactions = listOf(
-                            UpdateTransactionSplit(
-                                transactionJournalId = draft.journalId,
-                                type = split.type,
-                                date = split.date,
-                                amount = split.amount,
-                                description = split.description,
-                                currencyCode = split.currencyCode,
-                                sourceId = split.sourceId,
-                                sourceName = split.sourceName,
-                                destinationId = split.destinationId,
-                                destinationName = split.destinationName,
-                                categoryName = split.categoryName,
-                                budgetName = split.budgetName,
-                                tags = split.tags,
-                                notes = split.notes,
-                            )
-                        )
+                        transactions = drafts.zip(splits) { draft, split -> split.toUpdate(draft.journalId) }
                     ),
                 )
             } else {
-                api.createTransaction(StoreTransactionRequest(transactions = listOf(split)))
+                api.createTransaction(StoreTransactionRequest(transactions = splits))
+            }
+            removedJournalIds.forEach { journalId ->
+                check(api.deleteTransactionJournal(journalId).isSuccessful)
             }
             val entities = response.data.toEntities()
+                .filterNot { it.journalId in removedJournalIds }
             database.withTransaction {
+                if (remoteGroupId != null) database.transactionDao().deleteByRemoteGroupId(remoteGroupId)
                 database.transactionDao().upsertAll(entities)
-                database.tagDao().upsertAll(draft.tags.map { TagEntity("local:$it", it) })
+                database.tagDao().upsertAll(
+                    drafts.flatMap(TransactionDraft::tags).distinct().map { TagEntity("local:$it", it) }
+                )
             }
-            entities.first().toDomain()
+            entities.map { it.toDomain() }
         }.fold(
             onSuccess = { Result.Success(it) },
             onFailure = { Result.Error(it.fireflyMessage(SAVE_ERROR), it) },
         )
     }
+
+    private fun TransactionDraft.toStoreSplit() = StoreTransactionSplit(
+        type = type.name.lowercase(),
+        date = date.toString(),
+        amount = amount.abs().toPlainString(),
+        description = description.trim(),
+        currencyCode = currency.takeIf(String::isNotBlank),
+        sourceId = sourceAccountId,
+        sourceName = sourceAccount.takeIf { sourceAccountId == null && it.isNotBlank() },
+        destinationId = destinationAccountId,
+        destinationName = destinationAccount.takeIf { destinationAccountId == null && it.isNotBlank() },
+        categoryName = category.takeIf(String::isNotBlank),
+        budgetName = budget.takeIf(String::isNotBlank),
+        tags = tags,
+        notes = notes?.takeIf(String::isNotBlank),
+    )
+
+    private fun StoreTransactionSplit.toUpdate(journalId: String?) = UpdateTransactionSplit(
+        transactionJournalId = journalId,
+        type = type,
+        date = date,
+        amount = amount,
+        description = description,
+        currencyCode = currencyCode,
+        sourceId = sourceId,
+        sourceName = sourceName,
+        destinationId = destinationId,
+        destinationName = destinationName,
+        categoryName = categoryName,
+        budgetName = budgetName,
+        tags = tags,
+        notes = notes,
+    )
 
     override suspend fun deleteTransaction(remoteGroupId: String): Result<Unit> {
         if (!isConfigured()) return Result.Error(NOT_CONFIGURED)
@@ -168,30 +214,11 @@ class TransactionRepositoryImpl @Inject constructor(
     override suspend fun sync(from: Instant?, until: Instant?): Result<Unit> {
         if (!isConfigured()) return Result.Error(NOT_CONFIGURED)
         return runCatching {
-            val transactions = mutableListOf<com.teja.finflyiii.data.local.entity.TransactionEntity>()
-            var page = 1
-            var totalPages: Int
-            do {
-                val response = api.getTransactions(
-                    page = page,
-                    limit = PAGE_SIZE,
-                    start = from?.toLocalDateString(),
-                    end = until?.toLocalDateString(),
-                )
-                transactions += response.data.flatMap { it.toEntities() }
-                totalPages = response.meta?.pagination?.totalPages
-                    ?: if (response.data.size >= PAGE_SIZE) page + 1 else page
-                page++
-            } while (page <= totalPages && page <= MAX_TRANSACTION_PAGES)
-
-            val categories = mutableListOf<com.teja.finflyiii.data.local.entity.CategoryEntity>()
-            page = 1
-            do {
-                val response = api.getCategories(page, PAGE_SIZE)
-                categories += response.data.map { it.toEntity() }
-                totalPages = response.meta?.pagination?.totalPages ?: page
-                page++
-            } while (page <= totalPages && page <= MAX_PAGES)
+            val (transactions, categories) = coroutineScope {
+                val transactionRequest = async { fetchTransactions(from, until) }
+                val categoryRequest = async { fetchCategories() }
+                transactionRequest.await() to categoryRequest.await()
+            }
 
             database.withTransaction {
                 database.transactionDao().upsertAll(transactions)
@@ -200,6 +227,39 @@ class TransactionRepositoryImpl @Inject constructor(
             settingsRepository.updateLastSyncTime(clock.instant())
             Result.Success(Unit)
         }.getOrElse { Result.Error(it.message ?: SYNC_ERROR, it) }
+    }
+
+    private suspend fun fetchTransactions(from: Instant?, until: Instant?):
+        List<com.teja.finflyiii.data.local.entity.TransactionEntity> {
+        val transactions = mutableListOf<com.teja.finflyiii.data.local.entity.TransactionEntity>()
+        var page = 1
+        var totalPages: Int
+        do {
+            val response = api.getTransactions(
+                page = page,
+                limit = PAGE_SIZE,
+                start = from?.toLocalDateString(),
+                end = until?.toLocalDateString(),
+            )
+            transactions += response.data.flatMap { it.toEntities() }
+            totalPages = response.meta?.pagination?.totalPages
+                ?: if (response.data.size >= PAGE_SIZE) page + 1 else page
+            page++
+        } while (page <= totalPages && page <= MAX_TRANSACTION_PAGES)
+        return transactions
+    }
+
+    private suspend fun fetchCategories(): List<com.teja.finflyiii.data.local.entity.CategoryEntity> {
+        val categories = mutableListOf<com.teja.finflyiii.data.local.entity.CategoryEntity>()
+        var page = 1
+        var totalPages: Int
+        do {
+            val response = api.getCategories(page, PAGE_SIZE)
+            categories += response.data.map { it.toEntity() }
+            totalPages = response.meta?.pagination?.totalPages ?: page
+            page++
+        } while (page <= totalPages && page <= MAX_PAGES)
+        return categories
     }
 
     private fun Instant.toLocalDateString(): String =
@@ -227,6 +287,9 @@ class TransactionRepositoryImpl @Inject constructor(
             accountMatches && fromMatches && untilMatches
     }
 
+    private fun TransactionFilter.canUseDateQuery(): Boolean = query.isBlank() &&
+        types.isEmpty() && categories.isEmpty() && tags.isEmpty() && accountIds.isEmpty()
+
     private companion object {
         const val PAGE_SIZE = 100
         const val MAX_PAGES = 100
@@ -236,5 +299,6 @@ class TransactionRepositoryImpl @Inject constructor(
         const val SAVE_ERROR = "save_error"
         const val DELETE_ERROR = "transaction_delete_error"
         const val NOT_CONFIGURED = "not_configured"
+        const val EMPTY_SPLITS = "transaction_splits_empty"
     }
 }

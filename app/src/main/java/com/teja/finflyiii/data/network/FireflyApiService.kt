@@ -152,6 +152,9 @@ interface FireflyApiService {
     @DELETE("api/v1/transactions/{id}")
     suspend fun deleteTransaction(@Path("id") id: String): Response<Unit>
 
+    @DELETE("api/v1/transaction-journals/{id}")
+    suspend fun deleteTransactionJournal(@Path("id") id: String): Response<Unit>
+
     @DELETE("api/v1/accounts/{id}")
     suspend fun deleteAccount(@Path("id") id: String): Response<Unit>
 

@@ -8,7 +8,9 @@ import com.teja.finflyiii.domain.usecase.SyncFinancesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -26,6 +28,15 @@ class AppShellViewModel @Inject constructor(
             settings.useDeviceTimezone,
         ) as AppShellUiState
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppShellUiState.Loading)
+
+    init {
+        viewModelScope.launch {
+            settingsRepository.settings
+                .filter { it.serverUrl.isNotBlank() && it.bearerToken.isNotBlank() }
+                .take(1)
+                .collect { syncFinances() }
+        }
+    }
 
     fun sync() {
         viewModelScope.launch { syncFinances() }
